@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { IonContent, IonPage } from '@ionic/react';
 import { useAuth } from '@/auth/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -23,55 +25,56 @@ export function LoginPage() {
   }
 
   return (
-    <IonPage>
-      <IonContent className="ion-padding">
-        <div style={{ maxWidth: 420, margin: '0 auto' }}>
-          <h1 style={{ textAlign: 'center', marginTop: 48 }}>Wenox ⚡</h1>
-          <form onSubmit={onSubmit}>
-            <label htmlFor="email" style={{ display: 'block', marginTop: 16 }}>
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ width: '100%', padding: 12, marginTop: 4 }}
-            />
-            <label htmlFor="senha" style={{ display: 'block', marginTop: 16 }}>
-              Senha
-            </label>
-            <input
-              id="senha"
-              type="password"
-              autoComplete="current-password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              style={{ width: '100%', padding: 12, marginTop: 4 }}
-            />
-            {erro && (
-              <p style={{ color: 'var(--ion-color-danger, #eb445a)' }}>{erro}</p>
-            )}
-            <button
-              type="submit"
-              disabled={carregando}
-              style={{
-                width: '100%',
-                padding: 14,
-                marginTop: 24,
-                background: 'var(--ion-color-primary)',
-                color: 'var(--ion-color-primary-contrast)',
-                border: 'none',
-                borderRadius: 8,
-                fontSize: 16,
-              }}
-            >
-              Entrar
-            </button>
-          </form>
+    <div className="grid min-h-svh place-items-center p-6">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <div className="grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-[0_12px_32px_-8px_rgba(139,92,246,0.7)]">
+            <span className="text-2xl font-black">W</span>
+          </div>
+          <div className="text-center">
+            <h1 className="text-2xl font-bold tracking-tight">Wenox OS</h1>
+            <p className="text-sm text-muted-foreground">
+              Central de comando da agência
+            </p>
+          </div>
         </div>
-      </IonContent>
-    </IonPage>
+        <Card>
+          <CardContent className="pt-6">
+            <form onSubmit={onSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="email" className="text-sm font-medium text-muted-foreground">
+                  Email
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="senha" className="text-sm font-medium text-muted-foreground">
+                  Senha
+                </label>
+                <Input
+                  id="senha"
+                  type="password"
+                  autoComplete="current-password"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                />
+              </div>
+              {erro && (
+                <p className="text-sm font-medium text-destructive">{erro}</p>
+              )}
+              <Button type="submit" size="lg" disabled={carregando} className="mt-2">
+                {carregando ? 'Entrando…' : 'Entrar'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }

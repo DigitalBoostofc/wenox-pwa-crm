@@ -1,34 +1,59 @@
-import { Redirect, Route } from 'react-router-dom';
-import { IonApp, IonRouterOutlet, setupIonicReact } from '@ionic/react';
-import { IonReactRouter } from '@ionic/react-router';
+import { BrowserRouter, Redirect, Route, Switch } from 'react-router-dom';
 import { useAuth } from '@/auth/useAuth';
+import { ThemeProvider } from '@/components/layout/ThemeProvider';
+import { AppShell } from '@/components/layout/AppShell';
 import { LoginPage } from '@/pages/LoginPage';
-import { AppTabs } from '@/components/AppTabs';
-
-import '@ionic/react/css/core.css';
-import '@ionic/react/css/normalize.css';
-import '@ionic/react/css/structure.css';
-import '@ionic/react/css/typography.css';
-import './theme/variables.css';
-
-setupIonicReact();
+import { ConfigPage } from '@/pages/ConfigPage';
+import { ClientesListPage } from '@/clientes/ClientesListPage';
+import { ClienteFormPage } from '@/clientes/ClienteFormPage';
+import { ClienteDetailPage } from '@/clientes/ClienteDetailPage';
+import { UsuariosPage } from '@/usuarios/UsuariosPage';
 
 function UnauthedApp() {
   return (
-    <IonReactRouter>
-      <IonRouterOutlet>
+    <BrowserRouter>
+      <Switch>
         <Route exact path="/login" component={LoginPage} />
-        <Route render={() => <Redirect to="/login" />} />
-      </IonRouterOutlet>
-    </IonReactRouter>
+        <Route>
+          <Redirect to="/login" />
+        </Route>
+      </Switch>
+    </BrowserRouter>
   );
 }
 
 function AuthedApp() {
   return (
-    <IonReactRouter>
-      <AppTabs />
-    </IonReactRouter>
+    <BrowserRouter>
+      <AppShell>
+        <Switch>
+          <Route exact path="/clientes" component={ClientesListPage} />
+          <Route exact path="/novo-cliente" component={ClienteFormPage} />
+          <Route
+            exact
+            path="/clientes/:id/editar"
+            render={(props) => (
+              <ClienteFormPage id={(props.match.params as { id: string }).id} />
+            )}
+          />
+          <Route
+            exact
+            path="/clientes/:id"
+            render={(props) => (
+              <ClienteDetailPage id={(props.match.params as { id: string }).id} />
+            )}
+          />
+          <Route exact path="/usuarios" component={UsuariosPage} />
+          <Route exact path="/config" component={ConfigPage} />
+          <Route exact path="/login">
+            <Redirect to="/clientes" />
+          </Route>
+          <Route>
+            <Redirect to="/clientes" />
+          </Route>
+        </Switch>
+      </AppShell>
+    </BrowserRouter>
   );
 }
 
@@ -39,8 +64,8 @@ function Root() {
 
 export default function App() {
   return (
-    <IonApp>
+    <ThemeProvider>
       <Root />
-    </IonApp>
+    </ThemeProvider>
   );
 }

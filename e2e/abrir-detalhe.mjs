@@ -20,13 +20,13 @@ try {
   await p.click('button:has-text("Entrar")');
   await p.waitForURL(/\/clientes/, { timeout: 15000 });
   // cria um cliente
-  await p.click('ion-fab-button'); await p.waitForSelector('#nf');
+  await p.click('button:has-text("Novo cliente")'); await p.waitForSelector('#nf');
   await p.fill('#nf', NOME); await p.fill('#tel', '11955551234');
   await p.click('button:has-text("Salvar")');
   await p.waitForSelector(`text=${NOME}`, { timeout: 12000 });
   console.log('CRIADO_OK');
   // clica no cliente
-  await p.click(`ion-item:has-text("${NOME}")`);
+  await p.click(`main button:has-text("${NOME}")`);
   await p.waitForTimeout(6000);
   console.log('URL:', p.url());
   const txt = (await p.locator('body').innerText().catch(() => '')).slice(0, 200);

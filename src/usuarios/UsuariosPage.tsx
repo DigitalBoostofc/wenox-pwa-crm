@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import {
-  IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
-  IonBackButton, IonList, IonItem, IonLabel, IonBadge, useIonViewWillEnter,
-} from '@ionic/react';
+import { useEffect, useState } from 'react';
 import { listUsuarios, criarUsuario } from '@/usuarios/usuariosService';
 import { ROLES } from '@/usuarios/types';
 import type { Usuario } from '@/usuarios/types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+const selectClass =
+  'h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
 export function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -14,9 +17,9 @@ export function UsuariosPage() {
   const [erro, setErro] = useState('');
 
   const carregar = async () => setUsuarios(await listUsuarios());
-  useIonViewWillEnter(() => {
+  useEffect(() => {
     carregar();
-  });
+  }, []);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -29,7 +32,7 @@ export function UsuariosPage() {
           role: novo.role as Usuario['role'],
           status: 'Ativo',
         },
-        senha
+        senha,
       );
       setNovo({ nome: '', email: '', role: 'Membro' });
       setSenha('');
@@ -38,54 +41,85 @@ export function UsuariosPage() {
       setErro(
         err && typeof err === 'object' && 'message' in err
           ? String((err as { message: unknown }).message)
-          : 'Erro ao criar usuário'
+          : 'Erro ao criar usuário',
       );
     }
   }
 
-  const st = { width: '100%', padding: 10, marginBottom: 8 };
-
   return (
-    <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonButtons slot="start">
-            <IonBackButton defaultHref="/config" />
-          </IonButtons>
-          <IonTitle>Usuários</IonTitle>
-        </IonToolbar>
-      </IonHeader>
-      <IonContent className="ion-padding">
-        <form onSubmit={add}>
-          <label htmlFor="un">Nome</label>
-          <input id="un" value={novo.nome} onChange={(e) => setNovo({ ...novo, nome: e.target.value })} style={st} />
-          <label htmlFor="ue">E-mail</label>
-          <input id="ue" type="email" value={novo.email} onChange={(e) => setNovo({ ...novo, email: e.target.value })} style={st} />
-          <label htmlFor="ur">Papel</label>
-          <select id="ur" value={novo.role} onChange={(e) => setNovo({ ...novo, role: e.target.value })} style={st}>
-            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <label htmlFor="up">Senha inicial</label>
-          <input id="up" type="text" value={senha} onChange={(e) => setSenha(e.target.value)} style={st} />
-          {erro && <p style={{ color: 'var(--ion-color-danger, #eb445a)' }}>{erro}</p>}
-          <button type="submit" style={{ width: '100%', padding: 12, background: 'var(--ion-color-primary)', color: '#fff', border: 'none', borderRadius: 8 }}>
-            Adicionar usuário
-          </button>
-        </form>
-        <IonList>
-          {usuarios.map((u) => (
-            <IonItem key={u.id}>
-              <IonLabel>
-                <h2>{u.nome}</h2>
-                <p>{u.email}</p>
-              </IonLabel>
-              <IonBadge slot="end" color={u.status === 'Ativo' ? 'success' : 'medium'}>
-                {u.role}
-              </IonBadge>
-            </IonItem>
-          ))}
-        </IonList>
-      </IonContent>
-    </IonPage>
+    <div className="mx-auto flex max-w-2xl flex-col gap-5">
+      <Card>
+        <CardHeader>
+          <CardTitle>Novo usuário</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={add} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="un" className="text-sm font-medium text-muted-foreground">
+                Nome
+              </label>
+              <Input
+                id="un"
+                value={novo.nome}
+                onChange={(e) => setNovo({ ...novo, nome: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="ue" className="text-sm font-medium text-muted-foreground">
+                E-mail
+              </label>
+              <Input
+                id="ue"
+                type="email"
+                value={novo.email}
+                onChange={(e) => setNovo({ ...novo, email: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="ur" className="text-sm font-medium text-muted-foreground">
+                Papel
+              </label>
+              <select
+                id="ur"
+                value={novo.role}
+                onChange={(e) => setNovo({ ...novo, role: e.target.value })}
+                className={selectClass}
+              >
+                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="up" className="text-sm font-medium text-muted-foreground">
+                Senha inicial
+              </label>
+              <Input
+                id="up"
+                type="text"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+              />
+            </div>
+            {erro && (
+              <p className="text-sm font-medium text-destructive">{erro}</p>
+            )}
+            <Button type="submit">Adicionar usuário</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="divide-y divide-border">
+        {usuarios.map((u) => (
+          <div key={u.id} className="flex items-center gap-4 px-5 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">{u.nome}</p>
+              <p className="text-sm text-muted-foreground">{u.email}</p>
+            </div>
+            <Badge variant={u.status === 'Ativo' ? 'success' : 'muted'}>
+              {u.role}
+            </Badge>
+          </div>
+        ))}
+      </Card>
+    </div>
   );
 }

@@ -41,8 +41,8 @@ try {
   await page.waitForSelector('text=Clientes', { timeout: 10000 });
   out('LOGIN_OK -> ' + page.url());
 
-  // Abre o formulário (FAB +)
-  await page.click('ion-fab-button');
+  // Abre o formulário
+  await page.click('button:has-text("Novo cliente")');
   await page.waitForURL(/\/novo-cliente/, { timeout: 10000 });
   await page.waitForSelector('#nf', { timeout: 10000 });
   out('FORM_OK -> ' + page.url());
@@ -55,13 +55,13 @@ try {
   // Resultado: ou volta pra lista, ou mostra erro
   const res = await Promise.race([
     page.waitForURL((u) => /\/clientes$/.test(u.pathname ?? String(u)), { timeout: 12000 }).then(() => 'NAV_LISTA'),
-    page.waitForSelector('p[style*="danger"], [color="danger"]', { timeout: 12000 }).then(() => 'ERRO_VISIVEL'),
+    page.waitForSelector('p.text-destructive', { timeout: 12000 }).then(() => 'ERRO_VISIVEL'),
   ]).catch(() => 'TIMEOUT');
 
   out('RESULTADO: ' + res);
 
   if (res === 'ERRO_VISIVEL') {
-    const txt = await page.locator('p[style*="danger"], [color="danger"]').first().innerText().catch(() => '(sem texto)');
+    const txt = await page.locator('p.text-destructive').first().innerText().catch(() => '(sem texto)');
     out('MSG_ERRO: ' + txt);
   }
 
@@ -72,7 +72,7 @@ try {
       .catch(() => false);
     out('CLIENTE_NA_LISTA: ' + ok);
     if (!ok) {
-      const itens = await page.locator('ion-item h2').allInnerTexts().catch(() => []);
+      const itens = await page.locator('main button p.font-medium').allInnerTexts().catch(() => []);
       out('ITENS_VISIVEIS: ' + JSON.stringify(itens.slice(0, 10)));
     }
   }

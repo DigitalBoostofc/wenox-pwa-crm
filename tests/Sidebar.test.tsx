@@ -1,0 +1,31 @@
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { SidebarNav } from '@/components/layout/Sidebar';
+import { NAV_ITEMS } from '@/components/layout/nav';
+
+describe('SidebarNav', () => {
+  it('renderiza os 11 módulos do Wenox OS', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes']}>
+        <SidebarNav />
+      </MemoryRouter>,
+    );
+    expect(NAV_ITEMS).toHaveLength(11);
+    for (const item of NAV_ITEMS) {
+      expect(screen.getByText(item.label)).toBeInTheDocument();
+    }
+  });
+
+  it('Clientes é um link navegável; módulos futuros não', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes']}>
+        <SidebarNav />
+      </MemoryRouter>,
+    );
+    const clientes = screen.getByText('Clientes').closest('a');
+    expect(clientes).toHaveAttribute('href', '/clientes');
+    // Dashboard é módulo futuro: não deve ser <a>
+    expect(screen.getByText('Dashboard').closest('a')).toBeNull();
+  });
+});

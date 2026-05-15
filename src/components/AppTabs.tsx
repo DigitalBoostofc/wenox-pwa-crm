@@ -24,9 +24,9 @@ export function AppTabs() {
     <IonTabs>
       <IonRouterOutlet>
         <Route exact path="/clientes" component={ClientesListPage} />
-        <Route exact path="/clientes/novo" component={ClienteFormPage} />
-        <Route exact path="/clientes/:id" component={ClienteDetailPage} />
+        <Route exact path="/novo-cliente" component={ClienteFormPage} />
         <Route exact path="/clientes/:id/editar" component={ClienteFormPage} />
+        <Route exact path="/clientes/:id" component={ClienteDetailPage} />
         <Route exact path="/config" component={ConfigPage} />
         <Route exact path="/">
           <Redirect to="/clientes" />

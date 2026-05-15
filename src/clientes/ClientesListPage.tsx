@@ -84,7 +84,7 @@ export function ClientesListPage() {
           ))}
         </IonList>
         <IonFab slot="fixed" vertical="bottom" horizontal="end">
-          <IonFabButton onClick={() => history.push('/clientes/novo')}>
+          <IonFabButton onClick={() => history.push('/novo-cliente')}>
             <IonIcon icon={add} />
           </IonFabButton>
         </IonFab>

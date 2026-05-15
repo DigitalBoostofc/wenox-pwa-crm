@@ -2,15 +2,18 @@ import { useEffect, useState } from 'react';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
   IonBackButton, IonButton, IonBadge, IonList, IonItem, IonLabel,
+  IonSegment, IonSegmentButton,
 } from '@ionic/react';
 import { useParams, useHistory } from 'react-router-dom';
 import { getCliente } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
+import { EquipeTab } from '@/equipe/EquipeTab';
 
 export function ClienteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const history = useHistory();
   const [c, setC] = useState<Cliente | null>(null);
+  const [aba, setAba] = useState<'info' | 'equipe'>('info');
 
   useEffect(() => {
     getCliente(id).then(setC);
@@ -48,7 +51,17 @@ export function ClienteDetailPage() {
             {c.status}
           </IonBadge>
         </h2>
-        <IonList>
+        <IonSegment
+          value={aba}
+          onIonChange={(e) => setAba(e.detail.value as 'info' | 'equipe')}
+        >
+          <IonSegmentButton value="info">Info</IonSegmentButton>
+          <IonSegmentButton value="equipe">Equipe</IonSegmentButton>
+        </IonSegment>
+        {aba === 'equipe' ? (
+          <EquipeTab clienteId={c.id} />
+        ) : (
+        <><IonList>
           <IonItem>
             <IonLabel>
               <p>Categoria</p>
@@ -98,6 +111,8 @@ export function ClienteDetailPage() {
             Ligar
           </a>
         </div>
+        </>
+        )}
       </IonContent>
     </IonPage>
   );

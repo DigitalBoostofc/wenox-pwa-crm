@@ -1,0 +1,23 @@
+[
+  {
+    "categoria": "Cliente",
+    "cnpj": "",
+    "collectionId": "pbc_279994318",
+    "collectionName": "clientes",
+    "created": "2026-05-15 15:03:55.002Z",
+    "data_encerramento": "",
+    "data_inicio": "",
+    "email": "",
+    "id": "d3dgiyo0myvj199",
+    "logo": "",
+    "nome_fantasia": "Digital Boost",
+    "observacoes": "",
+    "origem": "",
+    "razao_social": "",
+    "servicos": [],
+    "site": "",
+    "status": "Ativo",
+    "telefone": "47999978018",
+    "updated": "2026-05-15 15:03:55.002Z"
+  }
+]

@@ -10,6 +10,7 @@ const { createCliente, getCliente, updateCliente, push } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/clientes/clientesService', () => ({ createCliente, getCliente, updateCliente }));
+vi.mock('@/opcoes/opcoesService', () => ({ listOpcoes: vi.fn(async () => []) }));
 vi.mock('react-router-dom', () => ({
   useHistory: () => ({ push }),
   useParams: () => ({}),

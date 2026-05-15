@@ -52,9 +52,7 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
         </Button>
         <div className="flex flex-1 items-center gap-3">
           <h2 className="text-xl font-semibold">{c.nome_fantasia}</h2>
-          <Badge variant={c.status === 'Ativo' ? 'success' : 'muted'}>
-            {c.status}
-          </Badge>
+          {c.status && <Badge variant="muted">{c.status}</Badge>}
         </div>
         <Button
           variant="outline"
@@ -88,9 +86,54 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
         <>
           <Card className="divide-y divide-border">
             <Linha rotulo="Categoria" valor={c.categoria} />
+            {c.razao_social && <Linha rotulo="Razão social" valor={c.razao_social} />}
+            {c.cnpj && <Linha rotulo="CPF / CNPJ" valor={c.cnpj} />}
             <Linha rotulo="Telefone" valor={c.telefone} />
             {c.email && <Linha rotulo="E-mail" valor={c.email} />}
+            {c.site && <Linha rotulo="Website" valor={c.site} />}
+            {c.endereco && <Linha rotulo="Endereço" valor={c.endereco} />}
+            {c.origem && <Linha rotulo="Origem" valor={c.origem} />}
+            {(c.data_inicio || c.data_encerramento) && (
+              <Linha
+                rotulo="Período"
+                valor={`${c.data_inicio || '—'} → ${c.data_encerramento || 'ativo'}`}
+              />
+            )}
           </Card>
+
+          {c.servicos && c.servicos.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {c.servicos.map((s) => (
+                <Badge key={s}>{s}</Badge>
+              ))}
+            </div>
+          )}
+
+          {(c.url_dashboard || c.url_drive || c.url_trello) && (
+            <Card className="divide-y divide-border">
+              {c.url_dashboard && (
+                <a className="block px-5 py-3.5 text-sm text-primary hover:underline"
+                  href={c.url_dashboard} target="_blank" rel="noopener">Dashboard</a>
+              )}
+              {c.url_drive && (
+                <a className="block px-5 py-3.5 text-sm text-primary hover:underline"
+                  href={c.url_drive} target="_blank" rel="noopener">Drive</a>
+              )}
+              {c.url_trello && (
+                <a className="block px-5 py-3.5 text-sm text-primary hover:underline"
+                  href={c.url_trello} target="_blank" rel="noopener">Trello</a>
+              )}
+            </Card>
+          )}
+
+          {c.observacoes && (
+            <Card>
+              <div className="px-5 py-4 text-sm text-muted-foreground whitespace-pre-wrap">
+                {c.observacoes}
+              </div>
+            </Card>
+          )}
+
           <div className="flex gap-3">
             <Button asChild className="flex-1">
               <a href={wpp} target="_blank" rel="noopener" aria-label="WhatsApp">

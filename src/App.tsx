@@ -8,6 +8,7 @@ import { ClientesListPage } from '@/clientes/ClientesListPage';
 import { ClienteFormPage } from '@/clientes/ClienteFormPage';
 import { ClienteDetailPage } from '@/clientes/ClienteDetailPage';
 import { UsuariosPage } from '@/usuarios/UsuariosPage';
+import { ParametrosPage } from '@/opcoes/ParametrosPage';
 
 function UnauthedApp() {
   return (
@@ -44,6 +45,7 @@ function AuthedApp() {
             )}
           />
           <Route exact path="/usuarios" component={UsuariosPage} />
+          <Route exact path="/config/parametros" component={ParametrosPage} />
           <Route exact path="/config" component={ConfigPage} />
           <Route exact path="/login">
             <Redirect to="/clientes" />

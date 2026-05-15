@@ -14,7 +14,7 @@ export function ClientesListPage() {
   const history = useHistory();
   const { user } = useAuth();
   const [busca, setBusca] = useState('');
-  const [filtro, setFiltro] = useState<'Todos' | 'Ativo' | 'Inativo'>('Todos');
+  const [filtro, setFiltro] = useState('Todos');
   const [clientes, setClientes] = useState<Cliente[]>([]);
 
   const carregar = useCallback(async (q: string) => {
@@ -25,6 +25,10 @@ export function ClientesListPage() {
     carregar(busca);
   }, [busca, carregar]);
 
+  const statusPresentes = Array.from(
+    new Set(clientes.map((c) => c.status).filter(Boolean)),
+  );
+  const filtros = ['Todos', ...statusPresentes];
   const visiveis = clientes.filter(
     (c) => filtro === 'Todos' || c.status === filtro,
   );
@@ -50,7 +54,7 @@ export function ClientesListPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(['Todos', 'Ativo', 'Inativo'] as const).map((f) => (
+        {filtros.map((f) => (
           <button
             key={f}
             onClick={() => setFiltro(f)}
@@ -87,9 +91,7 @@ export function ClientesListPage() {
                 <Phone className="size-3.5" /> {c.telefone}
               </p>
             </div>
-            <Badge variant={c.status === 'Ativo' ? 'success' : 'muted'}>
-              {c.status}
-            </Badge>
+            {c.status && <Badge variant="muted">{c.status}</Badge>}
           </button>
         ))}
       </Card>

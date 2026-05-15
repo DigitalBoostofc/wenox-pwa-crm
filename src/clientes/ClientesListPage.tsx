@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent,
   IonList, IonItem, IonLabel, IonBadge, IonFab, IonFabButton, IonIcon,
-  IonChip, IonRefresher, IonRefresherContent,
+  IonChip, IonRefresher, IonRefresherContent, useIonViewWillEnter,
 } from '@ionic/react';
 import { add } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
@@ -22,6 +22,10 @@ export function ClientesListPage() {
   useEffect(() => {
     carregar(busca);
   }, [busca, carregar]);
+
+  useIonViewWillEnter(() => {
+    carregar(busca);
+  });
 
   const visiveis = clientes.filter(
     (c) => filtro === 'Todos' || c.status === filtro

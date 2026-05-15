@@ -50,3 +50,4 @@ skills-lock.json
 # PocketBase (caso rode local)
 pb_data/
 pocketbase
+.backups/

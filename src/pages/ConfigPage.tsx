@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Palette } from 'lucide-react';
+import { ShieldCheck, Palette, SlidersHorizontal } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/useAuth';
@@ -41,9 +41,14 @@ export function ConfigPage() {
               <ShieldCheck className="size-4" /> Administração
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <Link to="/usuarios">Gerenciar usuários</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/config/parametros">
+                <SlidersHorizontal /> Parâmetros (listas)
+              </Link>
             </Button>
           </CardContent>
         </Card>

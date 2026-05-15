@@ -19,14 +19,22 @@ export async function getCliente(id: string): Promise<Cliente> {
 }
 
 export async function createCliente(input: ClienteInput): Promise<Cliente> {
-  return (await col().create(input)) as unknown as Cliente;
+  const uid = pb.authStore?.record?.id;
+  return (await col().create({
+    ...input,
+    ...(uid ? { created_by: uid, updated_by: uid } : {}),
+  })) as unknown as Cliente;
 }
 
 export async function updateCliente(
   id: string,
   input: Partial<ClienteInput>
 ): Promise<Cliente> {
-  return (await col().update(id, input)) as unknown as Cliente;
+  const uid = pb.authStore?.record?.id;
+  return (await col().update(id, {
+    ...input,
+    ...(uid ? { updated_by: uid } : {}),
+  })) as unknown as Cliente;
 }
 
 export async function deleteCliente(id: string): Promise<void> {

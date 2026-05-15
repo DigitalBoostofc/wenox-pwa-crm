@@ -14,9 +14,10 @@ const vazio: ClienteInput = {
   nome_fantasia: '', categoria: 'Cliente', telefone: '', status: 'Ativo',
 };
 
-export function ClienteFormPage() {
+export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
   const history = useHistory();
-  const { id } = useParams<{ id?: string }>();
+  const params = useParams<{ id?: string }>();
+  const id = idProp ?? params.id;
   const [form, setForm] = useState<ClienteInput>(vazio);
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);

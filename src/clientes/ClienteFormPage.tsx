@@ -19,6 +19,7 @@ export function ClienteFormPage() {
   const { id } = useParams<{ id?: string }>();
   const [form, setForm] = useState<ClienteInput>(vazio);
   const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -36,13 +37,25 @@ export function ClienteFormPage() {
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
+    setErro('');
     if (!form.nome_fantasia.trim()) {
       setErro('Nome fantasia é obrigatório');
       return;
     }
-    if (id) await updateCliente(id, form);
-    else await createCliente(form);
-    history.push('/clientes');
+    setSalvando(true);
+    try {
+      if (id) await updateCliente(id, form);
+      else await createCliente(form);
+      history.push('/clientes');
+    } catch (err) {
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Erro ao salvar. Verifique sua conexão e tente novamente.';
+      setErro(msg);
+    } finally {
+      setSalvando(false);
+    }
   }
 
   const inputStyle = { width: '100%', padding: 12, marginBottom: 12 };
@@ -94,6 +107,7 @@ export function ClienteFormPage() {
           {erro && <p style={{ color: 'var(--ion-color-danger, #eb445a)' }}>{erro}</p>}
           <button
             type="submit"
+            disabled={salvando}
             style={{
               width: '100%', padding: 14, marginTop: 12,
               background: 'var(--ion-color-primary)',
@@ -101,7 +115,7 @@ export function ClienteFormPage() {
               border: 'none', borderRadius: 8, fontSize: 16,
             }}
           >
-            Salvar
+            {salvando ? 'Salvando…' : 'Salvar'}
           </button>
         </form>
       </IonContent>

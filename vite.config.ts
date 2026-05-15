@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
@@ -7,13 +8,14 @@ import path from 'path'
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Wenox CRM',
+        name: 'Wenox OS',
         short_name: 'Wenox',
-        theme_color: '#0f1115',
-        background_color: '#0f1115',
+        theme_color: '#080A16',
+        background_color: '#080A16',
         display: 'standalone',
         start_url: '/',
         icons: [

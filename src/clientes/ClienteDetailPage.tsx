@@ -1,13 +1,22 @@
 import { useEffect, useState } from 'react';
-import {
-  IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
-  IonBackButton, IonButton, IonBadge, IonList, IonItem, IonLabel,
-  IonSegment, IonSegmentButton,
-} from '@ionic/react';
 import { useParams, useHistory } from 'react-router-dom';
+import { ArrowLeft, MessageCircle, Phone, Pencil } from 'lucide-react';
 import { getCliente } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
 import { EquipeTab } from '@/equipe/EquipeTab';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+
+function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+      <span className="text-sm text-muted-foreground">{rotulo}</span>
+      <span className="text-sm font-medium">{valor}</span>
+    </div>
+  );
+}
 
 export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const params = useParams<{ id?: string }>();
@@ -22,99 +31,80 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
 
   if (!c) {
     return (
-      <IonPage>
-        <IonContent className="ion-padding">Carregando…</IonContent>
-      </IonPage>
+      <p className="py-16 text-center text-sm text-muted-foreground">
+        Carregando…
+      </p>
     );
   }
 
   const wpp = `https://wa.me/${c.telefone.replace(/\D/g, '')}`;
 
   return (
-    <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonButtons slot="start">
-            <IonBackButton defaultHref="/clientes" />
-          </IonButtons>
-          <IonTitle>{c.nome_fantasia}</IonTitle>
-          <IonButtons slot="end">
-            <IonButton onClick={() => history.push(`/clientes/${c.id}/editar`)}>
-              Editar
-            </IonButton>
-          </IonButtons>
-        </IonToolbar>
-      </IonHeader>
-      <IonContent className="ion-padding">
-        <h2>
-          {c.nome_fantasia}{' '}
-          <IonBadge color={c.status === 'Ativo' ? 'success' : 'medium'}>
-            {c.status}
-          </IonBadge>
-        </h2>
-        <IonSegment
-          value={aba}
-          onIonChange={(e) => setAba(e.detail.value as 'info' | 'equipe')}
+    <div className="mx-auto flex max-w-2xl flex-col gap-5">
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => history.push('/clientes')}
+          aria-label="Voltar"
         >
-          <IonSegmentButton value="info">Info</IonSegmentButton>
-          <IonSegmentButton value="equipe">Equipe</IonSegmentButton>
-        </IonSegment>
-        {aba === 'equipe' ? (
-          <EquipeTab clienteId={c.id} />
-        ) : (
-        <><IonList>
-          <IonItem>
-            <IonLabel>
-              <p>Categoria</p>
-              <h3>{c.categoria}</h3>
-            </IonLabel>
-          </IonItem>
-          <IonItem>
-            <IonLabel>
-              <p>Telefone</p>
-              <h3>{c.telefone}</h3>
-            </IonLabel>
-          </IonItem>
-          {c.email && (
-            <IonItem>
-              <IonLabel>
-                <p>E-mail</p>
-                <h3>{c.email}</h3>
-              </IonLabel>
-            </IonItem>
-          )}
-        </IonList>
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <a
-            href={wpp}
-            target="_blank"
-            rel="noopener"
-            aria-label="WhatsApp"
-            style={{
-              flex: 1, textAlign: 'center', padding: 12,
-              background: 'var(--ion-color-primary)',
-              color: 'var(--ion-color-primary-contrast)',
-              borderRadius: 8, textDecoration: 'none',
-            }}
-          >
-            WhatsApp
-          </a>
-          <a
-            href={`tel:${c.telefone}`}
-            aria-label="Ligar"
-            style={{
-              flex: 1, textAlign: 'center', padding: 12,
-              border: '1px solid var(--ion-color-primary)',
-              color: 'var(--ion-color-primary)',
-              borderRadius: 8, textDecoration: 'none',
-            }}
-          >
-            Ligar
-          </a>
+          <ArrowLeft />
+        </Button>
+        <div className="flex flex-1 items-center gap-3">
+          <h2 className="text-xl font-semibold">{c.nome_fantasia}</h2>
+          <Badge variant={c.status === 'Ativo' ? 'success' : 'muted'}>
+            {c.status}
+          </Badge>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => history.push(`/clientes/${c.id}/editar`)}
+        >
+          <Pencil /> Editar
+        </Button>
+      </div>
+
+      <div className="inline-flex w-fit gap-1 rounded-lg border border-border bg-secondary/60 p-1">
+        {(['info', 'equipe'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setAba(t)}
+            className={cn(
+              'rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-all',
+              aba === t
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {t === 'info' ? 'Info' : 'Equipe'}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'equipe' ? (
+        <EquipeTab clienteId={c.id} />
+      ) : (
+        <>
+          <Card className="divide-y divide-border">
+            <Linha rotulo="Categoria" valor={c.categoria} />
+            <Linha rotulo="Telefone" valor={c.telefone} />
+            {c.email && <Linha rotulo="E-mail" valor={c.email} />}
+          </Card>
+          <div className="flex gap-3">
+            <Button asChild className="flex-1">
+              <a href={wpp} target="_blank" rel="noopener" aria-label="WhatsApp">
+                <MessageCircle /> WhatsApp
+              </a>
+            </Button>
+            <Button asChild variant="outline" className="flex-1">
+              <a href={`tel:${c.telefone}`} aria-label="Ligar">
+                <Phone /> Ligar
+              </a>
+            </Button>
+          </div>
         </>
-        )}
-      </IonContent>
-    </IonPage>
+      )}
+    </div>
   );
 }

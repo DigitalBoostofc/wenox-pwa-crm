@@ -9,14 +9,15 @@ import { getCliente } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
 import { EquipeTab } from '@/equipe/EquipeTab';
 
-export function ClienteDetailPage() {
-  const { id } = useParams<{ id: string }>();
+export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
+  const params = useParams<{ id?: string }>();
+  const id = idProp ?? params.id ?? '';
   const history = useHistory();
   const [c, setC] = useState<Cliente | null>(null);
   const [aba, setAba] = useState<'info' | 'equipe'>('info');
 
   useEffect(() => {
-    getCliente(id).then(setC);
+    if (id) getCliente(id).then(setC);
   }, [id]);
 
   if (!c) {

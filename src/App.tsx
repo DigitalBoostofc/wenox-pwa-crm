@@ -3,7 +3,7 @@ import { IonApp, IonRouterOutlet, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { useAuth } from '@/auth/useAuth';
 import { LoginPage } from '@/pages/LoginPage';
-import { HomePage } from '@/pages/HomePage';
+import { AppTabs } from '@/components/AppTabs';
 
 import '@ionic/react/css/core.css';
 import '@ionic/react/css/normalize.css';
@@ -20,10 +20,10 @@ export default function App() {
       <IonReactRouter>
         <IonRouterOutlet>
           <Route exact path="/login">
-            {user ? <Redirect to="/" /> : <LoginPage />}
+            {user ? <Redirect to="/clientes" /> : <LoginPage />}
           </Route>
-          <Route exact path="/">
-            {user ? <HomePage /> : <Redirect to="/login" />}
+          <Route path="/">
+            {user ? <AppTabs /> : <Redirect to="/login" />}
           </Route>
         </IonRouterOutlet>
       </IonReactRouter>

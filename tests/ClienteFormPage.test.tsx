@@ -38,4 +38,14 @@ describe('ClienteFormPage (criar)', () => {
     expect(createCliente).not.toHaveBeenCalled();
     expect(screen.getByText(/nome fantasia é obrigatório/i)).toBeInTheDocument();
   });
+
+  it('mostra a mensagem de erro quando o create falha', async () => {
+    createCliente.mockRejectedValueOnce(new Error('Failed to create record.'));
+    render(<ClienteFormPage />);
+    await userEvent.type(screen.getByLabelText(/nome fantasia/i), 'ACME');
+    await userEvent.type(screen.getByLabelText(/telefone/i), '11999990000');
+    await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
+    expect(await screen.findByText(/failed to create record/i)).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
 });

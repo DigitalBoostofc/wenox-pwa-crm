@@ -1,0 +1,20 @@
+:root {
+  --ion-color-primary: #7C3AED;
+  --ion-color-primary-rgb: 124, 58, 237;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #6d33d0;
+  --ion-color-primary-tint: #894eef;
+}
+
+/* Dark mode por padrão */
+body {
+  --ion-background-color: #0f1115;
+  --ion-background-color-rgb: 15, 17, 21;
+  --ion-text-color: #f4f4f5;
+  --ion-text-color-rgb: 244, 244, 245;
+  --ion-toolbar-background: #16181d;
+  --ion-item-background: #16181d;
+  --ion-card-background: #16181d;
+  color-scheme: dark;
+}

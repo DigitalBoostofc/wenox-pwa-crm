@@ -8,9 +8,12 @@ import { add } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import { listClientes } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
+import { useAuth } from '@/auth/useAuth';
+import { canCriarCliente } from '@/auth/perms';
 
 export function ClientesListPage() {
   const history = useHistory();
+  const { user } = useAuth();
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState<'Todos' | 'Ativo' | 'Inativo'>('Todos');
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -87,11 +90,13 @@ export function ClientesListPage() {
             </IonItem>
           ))}
         </IonList>
-        <IonFab slot="fixed" vertical="bottom" horizontal="end">
-          <IonFabButton onClick={() => history.push('/novo-cliente')}>
-            <IonIcon icon={add} />
-          </IonFabButton>
-        </IonFab>
+        {canCriarCliente(user?.role) && (
+          <IonFab slot="fixed" vertical="bottom" horizontal="end">
+            <IonFabButton onClick={() => history.push('/novo-cliente')}>
+              <IonIcon icon={add} />
+            </IonFabButton>
+          </IonFab>
+        )}
       </IonContent>
     </IonPage>
   );

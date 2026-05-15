@@ -7,13 +7,20 @@ import { Redirect, Route } from 'react-router-dom';
 import { ClientesListPage } from '@/clientes/ClientesListPage';
 import { ClienteFormPage } from '@/clientes/ClienteFormPage';
 import { ClienteDetailPage } from '@/clientes/ClienteDetailPage';
+import { UsuariosPage } from '@/usuarios/UsuariosPage';
 import { useAuth } from '@/auth/useAuth';
+import { canGerirUsuarios } from '@/auth/perms';
 
 function ConfigPage() {
   const { user, logout } = useAuth();
   return (
     <div className="ion-padding">
       <p>{user?.email}</p>
+      {canGerirUsuarios(user?.role) && (
+        <p>
+          <a href="/usuarios">Gerenciar usuários</a>
+        </p>
+      )}
       <button onClick={logout}>Sair</button>
     </div>
   );
@@ -28,6 +35,7 @@ export function AppTabs() {
         <Route exact path="/clientes/:id/editar" component={ClienteFormPage} />
         <Route exact path="/clientes/:id" component={ClienteDetailPage} />
         <Route exact path="/config" component={ConfigPage} />
+        <Route exact path="/usuarios" component={UsuariosPage} />
         <Route render={() => <Redirect to="/clientes" />} />
       </IonRouterOutlet>
       <IonTabBar slot="bottom">

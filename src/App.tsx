@@ -13,20 +13,34 @@ import './theme/variables.css';
 
 setupIonicReact();
 
-export default function App() {
+function UnauthedApp() {
+  return (
+    <IonReactRouter>
+      <IonRouterOutlet>
+        <Route exact path="/login" component={LoginPage} />
+        <Route render={() => <Redirect to="/login" />} />
+      </IonRouterOutlet>
+    </IonReactRouter>
+  );
+}
+
+function AuthedApp() {
+  return (
+    <IonReactRouter>
+      <AppTabs />
+    </IonReactRouter>
+  );
+}
+
+function Root() {
   const { user } = useAuth();
+  return user ? <AuthedApp /> : <UnauthedApp />;
+}
+
+export default function App() {
   return (
     <IonApp>
-      <IonReactRouter>
-        <IonRouterOutlet>
-          <Route exact path="/login">
-            {user ? <Redirect to="/clientes" /> : <LoginPage />}
-          </Route>
-          <Route path="/">
-            {user ? <AppTabs /> : <Redirect to="/login" />}
-          </Route>
-        </IonRouterOutlet>
-      </IonReactRouter>
+      <Root />
     </IonApp>
   );
 }

@@ -153,7 +153,7 @@ function Secao({ tipo }: { tipo: TipoOpcao }) {
 
 export function ParametrosPage() {
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="icon" aria-label="Voltar">
           <Link to="/config"><ArrowLeft /></Link>

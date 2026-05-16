@@ -3,6 +3,10 @@ import { render, screen } from '@testing-library/react';
 
 const { getCliente } = vi.hoisted(() => ({ getCliente: vi.fn() }));
 vi.mock('@/clientes/clientesService', () => ({ getCliente }));
+vi.mock('@/atividade/atividadeService', () => ({
+  listAtividade: vi.fn(async () => []),
+  addComentario: vi.fn(),
+}));
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ id: 'c1' }),
   useHistory: () => ({ push: vi.fn() }),

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import {
   createCliente, getCliente, updateCliente,
 } from '@/clientes/clientesService';
@@ -38,6 +38,7 @@ export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
   const [origens, setOrigens] = useState<Opcao[]>([]);
   const [statusOpts, setStatusOpts] = useState<Opcao[]>([]);
   const [servicosOpts, setServicosOpts] = useState<Opcao[]>([]);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
 
@@ -85,8 +86,8 @@ export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
     }
     setSalvando(true);
     try {
-      if (id) await updateCliente(id, form);
-      else await createCliente(form);
+      if (id) await updateCliente(id, form, logoFile);
+      else await createCliente(form, logoFile);
       history.push('/clientes');
     } catch (err) {
       const msg =
@@ -112,6 +113,24 @@ export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
         <Card>
           <CardHeader><CardTitle>Identificação</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-4">
+            <div className="flex items-center gap-4">
+              <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-secondary text-muted-foreground">
+                {logoFile ? (
+                  <img src={URL.createObjectURL(logoFile)} alt="Prévia"
+                    className="size-full object-cover" />
+                ) : (
+                  <ImageIcon className="size-6" />
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="logo" className="text-sm font-medium text-muted-foreground">
+                  Foto do perfil
+                </label>
+                <input id="logo" type="file" accept="image/png,image/jpeg,image/webp"
+                  className="text-sm"
+                  onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} />
+              </div>
+            </div>
             <Campo id="nf" label="Nome fantasia">
               <Input id="nf" value={form.nome_fantasia}
                 onChange={(e) => set('nome_fantasia', e.target.value)} />

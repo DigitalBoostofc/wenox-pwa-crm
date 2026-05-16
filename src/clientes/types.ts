@@ -19,6 +19,7 @@ export interface Cliente {
   url_drive?: string;
   url_trello?: string;
   observacoes?: string;
+  logo?: string;
   created_by?: string;
   updated_by?: string;
   created?: string;

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const { listClientes } = vi.hoisted(() => ({ listClientes: vi.fn() }));
-vi.mock('@/clientes/clientesService', () => ({ listClientes }));
+vi.mock('@/clientes/clientesService', () => ({ listClientes, logoUrl: () => '' }));
 vi.mock('react-router-dom', () => ({ useHistory: () => ({ push: vi.fn() }) }));
 vi.mock('@/auth/useAuth', () => ({
   useAuth: () => ({ user: { id: 'u1', email: 'o@o.com', role: 'Owner' }, login: vi.fn(), logout: vi.fn() }),

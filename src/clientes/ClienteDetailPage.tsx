@@ -4,7 +4,7 @@ import {
   ArrowLeft, MessageCircle, Phone, Pencil, Activity,
   Users, KeyRound, FileText, LayoutDashboard,
 } from 'lucide-react';
-import { getCliente } from '@/clientes/clientesService';
+import { getCliente, updateCliente, logoUrl } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
 import { ContatosTab } from '@/contatos/ContatosTab';
 import { AcessosTab } from '@/acessos/AcessosTab';
@@ -39,10 +39,22 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const history = useHistory();
   const [c, setC] = useState<Cliente | null>(null);
   const [aba, setAba] = useState<Aba>('visao');
+  const [trocandoFoto, setTrocandoFoto] = useState(false);
 
   useEffect(() => {
     if (id) getCliente(id).then(setC);
   }, [id]);
+
+  async function trocarFoto(file: File | null) {
+    if (!file || !c) return;
+    setTrocandoFoto(true);
+    try {
+      await updateCliente(c.id, {}, file);
+      setC(await getCliente(c.id));
+    } finally {
+      setTrocandoFoto(false);
+    }
+  }
 
   if (!c) {
     return (
@@ -67,13 +79,33 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
         >
           <ArrowLeft />
         </Button>
-        <div
-          className={cn(
-            'grid size-14 shrink-0 place-items-center rounded-2xl text-lg font-bold text-white',
-            corAvatar(c.nome_fantasia),
-          )}
-        >
-          {inicial(c.nome_fantasia)}
+        <div className="relative size-14 shrink-0">
+          <div
+            className={cn(
+              'grid size-14 place-items-center overflow-hidden rounded-2xl text-lg font-bold text-white',
+              !c.logo && corAvatar(c.nome_fantasia),
+            )}
+          >
+            {c.logo ? (
+              <img src={logoUrl(c)} alt={c.nome_fantasia}
+                className="size-full object-cover" />
+            ) : (
+              inicial(c.nome_fantasia)
+            )}
+          </div>
+          <label
+            title="Trocar foto"
+            className="absolute -bottom-1 -right-1 grid size-6 cursor-pointer place-items-center rounded-full border border-border bg-card text-muted-foreground shadow hover:text-foreground"
+          >
+            <Pencil className="size-3" />
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              disabled={trocandoFoto}
+              onChange={(e) => trocarFoto(e.target.files?.[0] ?? null)}
+            />
+          </label>
         </div>
         <div className="flex-1">
           <h2 className="text-xl font-semibold">{c.nome_fantasia}</h2>

@@ -18,6 +18,12 @@ export function urlArquivo(d: Documento): string {
   return pb.files.getURL(d as unknown as Record<string, unknown>, d.arquivo);
 }
 
+/** É um arquivo de imagem? (preview no próprio sistema) */
+export function isImagem(d: Documento): boolean {
+  if (d.tipo !== 'arquivo' || !d.arquivo) return false;
+  return /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(d.arquivo);
+}
+
 /** Endereço para abrir: o link informado ou o arquivo anexado. */
 export function abrir(d: Documento): string {
   if (d.tipo === 'link') {

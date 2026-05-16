@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
-  FileText, Link2, Plus, Trash2, ExternalLink, Download,
+  FileText, Link2, Plus, Trash2, ExternalLink, Download, Eye, Image as ImageIcon,
   ChevronDown, ChevronRight,
 } from 'lucide-react';
 import {
-  listDocumentos, createDocumento, removeDocumento, abrir,
+  listDocumentos, createDocumento, removeDocumento, abrir, isImagem,
 } from '@/documentos/documentosService';
 import type { Documento, TipoDocumento } from '@/documentos/types';
 import { listOpcoes } from '@/opcoes/opcoesService';
@@ -162,6 +162,7 @@ export function DocumentosTab({ clienteId }: { clienteId: string }) {
           {docs.map((d) => {
             const exp = aberto === d.id;
             const link = abrir(d);
+            const img = isImagem(d);
             return (
               <div key={d.id}>
                 <div className="flex items-center gap-3 px-4 py-3">
@@ -172,7 +173,9 @@ export function DocumentosTab({ clienteId }: { clienteId: string }) {
                          : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
                     {d.tipo === 'link'
                       ? <Link2 className="size-4 shrink-0 text-primary" />
-                      : <FileText className="size-4 shrink-0 text-primary" />}
+                      : img
+                        ? <ImageIcon className="size-4 shrink-0 text-primary" />
+                        : <FileText className="size-4 shrink-0 text-primary" />}
                     <div className="min-w-0">
                       <p className="truncate font-medium">{d.nome}</p>
                       <p className="text-xs text-muted-foreground">
@@ -188,7 +191,9 @@ export function DocumentosTab({ clienteId }: { clienteId: string }) {
                         className="text-muted-foreground hover:text-foreground">
                         {d.tipo === 'link'
                           ? <ExternalLink className="size-4" />
-                          : <Download className="size-4" />}
+                          : img
+                            ? <Eye className="size-4" />
+                            : <Download className="size-4" />}
                       </a>
                     )}
                     {podeGerir && (
@@ -200,6 +205,13 @@ export function DocumentosTab({ clienteId }: { clienteId: string }) {
                 </div>
                 {exp && (
                   <div className="px-4 pb-4">
+                    {img && (
+                      <a href={link} target="_blank" rel="noopener"
+                        className="mb-3 block" title="Abrir em tamanho real">
+                        <img src={link} alt={d.nome}
+                          className="max-h-96 w-auto rounded-lg border border-border object-contain" />
+                      </a>
+                    )}
                     {d.observacoes && (
                       <p className="mb-3 rounded-md bg-secondary/50 p-3 text-sm text-muted-foreground">
                         {d.observacoes}

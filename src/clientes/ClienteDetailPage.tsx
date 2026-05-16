@@ -56,7 +56,7 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const clienteDesde = dataBR(c.data_inicio) || dataBR(c.created);
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       {/* Cabeçalho */}
       <div className="flex flex-wrap items-center gap-4">
         <Button

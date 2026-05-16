@@ -47,7 +47,7 @@ export function UsuariosPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <Card>
         <CardHeader>
           <CardTitle>Novo usuário</CardTitle>

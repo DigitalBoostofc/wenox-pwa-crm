@@ -7,6 +7,7 @@ import {
 import { getCliente } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
 import { EquipeTab } from '@/equipe/EquipeTab';
+import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { cn } from '@/lib/utils';
 import { statusVariant, haDias, dataBR, corAvatar, inicial } from '@/clientes/format';
 import { Button } from '@/components/ui/button';
@@ -225,6 +226,8 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
               </CardContent>
             </Card>
           )}
+
+          <AtividadeFeed entidade="cliente" refId={c.id} />
         </div>
       )}
 

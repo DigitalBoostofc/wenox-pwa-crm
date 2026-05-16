@@ -1,4 +1,5 @@
 import { pb } from '@/lib/pocketbase';
+import { registrarHistorico, diffCampos } from '@/atividade/atividadeService';
 import type { Cliente, ClienteInput } from './types';
 
 const col = () => pb.collection('clientes');
@@ -20,10 +21,12 @@ export async function getCliente(id: string): Promise<Cliente> {
 
 export async function createCliente(input: ClienteInput): Promise<Cliente> {
   const uid = pb.authStore?.record?.id;
-  return (await col().create({
+  const rec = (await col().create({
     ...input,
     ...(uid ? { created_by: uid, updated_by: uid } : {}),
   })) as unknown as Cliente;
+  await registrarHistorico('cliente', rec.id, 'Cliente cadastrado');
+  return rec;
 }
 
 export async function updateCliente(
@@ -31,10 +34,25 @@ export async function updateCliente(
   input: Partial<ClienteInput>
 ): Promise<Cliente> {
   const uid = pb.authStore?.record?.id;
-  return (await col().update(id, {
+  let antes: Record<string, unknown> | undefined;
+  try {
+    antes = (await col().getOne(id)) as unknown as Record<string, unknown>;
+  } catch {
+    /* sem 'antes' não há diff */
+  }
+  const rec = (await col().update(id, {
     ...input,
     ...(uid ? { updated_by: uid } : {}),
   })) as unknown as Cliente;
+  const mudancas = diffCampos(antes, input as Record<string, unknown>);
+  if (mudancas.length) {
+    await registrarHistorico(
+      'cliente',
+      id,
+      `Alterou ${mudancas.join(' · ')}`,
+    );
+  }
+  return rec;
 }
 
 export async function deleteCliente(id: string): Promise<void> {

@@ -26,6 +26,16 @@ export function statusVariant(status?: string): BadgeVariant {
   return 'default';
 }
 
+/** Data ISO do PocketBase → "DD/MM/AAAA" (vazio se inválida). */
+export function dataBR(dataIso?: string): string {
+  if (!dataIso) return '';
+  const d = new Date(dataIso.replace(' ', 'T'));
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+}
+
 /** "Hoje" / "Há 1 dia" / "Há N dias" a partir de uma data ISO do PocketBase. */
 export function haDias(dataIso?: string): string {
   if (!dataIso) return '';

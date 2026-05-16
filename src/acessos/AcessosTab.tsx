@@ -28,6 +28,20 @@ const vazio: Omit<AcessoInput, 'cliente'> = {
 const inputCls =
   'h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
+function Login({ valor }: { valor?: string }) {
+  if (!valor) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="max-w-[180px] truncate font-mono text-sm">{valor}</span>
+      <button type="button" aria-label="Copiar login"
+        onClick={() => navigator.clipboard?.writeText(valor)}
+        className="text-muted-foreground hover:text-foreground">
+        <Copy className="size-3.5" />
+      </button>
+    </span>
+  );
+}
+
 function Senha({ valor }: { valor?: string }) {
   const [ver, setVer] = useState(false);
   if (!valor) return <span className="text-muted-foreground">—</span>;
@@ -218,11 +232,12 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
                         )}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {a.login || 'sem login'} · {nomeResp(a)} · atualizado {haDias(a.updated) || '—'}
+                        {nomeResp(a)} · atualizado {haDias(a.updated) || '—'}
                       </p>
                     </div>
                   </button>
                   <div className="flex items-center gap-3">
+                    <Login valor={a.login} />
                     <Senha valor={a.senha} />
                     {a.tem_2fa && (
                       <Badge variant="info" className="gap-1">

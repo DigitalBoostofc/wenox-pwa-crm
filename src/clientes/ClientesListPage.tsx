@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Plus, Search, Phone } from 'lucide-react';
 import { listClientes } from '@/clientes/clientesService';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function ClientesListPage() {
   const history = useHistory();
@@ -16,14 +17,36 @@ export function ClientesListPage() {
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('Todos');
   const [clientes, setClientes] = useState<Cliente[]>([]);
-
-  const carregar = useCallback(async (q: string) => {
-    setClientes(await listClientes(q));
-  }, []);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+  // sequencia: só aplica a resposta mais recente (evita "clientes sumindo"
+  // por respostas fora de ordem com autoCancellation desligado)
+  const seqRef = useRef(0);
 
   useEffect(() => {
-    carregar(busca);
-  }, [busca, carregar]);
+    const seq = ++seqRef.current;
+    const q = busca.trim();
+    setCarregando(true);
+    const timer = setTimeout(
+      () => {
+        listClientes(q)
+          .then((res) => {
+            if (seq !== seqRef.current) return; // resposta obsoleta: ignora
+            setClientes(res);
+            setErro('');
+          })
+          .catch(() => {
+            if (seq !== seqRef.current) return;
+            setErro('Não foi possível carregar os clientes. Tente de novo.');
+          })
+          .finally(() => {
+            if (seq === seqRef.current) setCarregando(false);
+          });
+      },
+      q ? 300 : 0,
+    );
+    return () => clearTimeout(timer);
+  }, [busca]);
 
   const statusPresentes = Array.from(
     new Set(clientes.map((c) => c.status).filter(Boolean)),
@@ -70,8 +93,24 @@ export function ClientesListPage() {
         ))}
       </div>
 
+      {erro && (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
+          {erro}
+        </p>
+      )}
+
       <Card className="divide-y divide-border">
-        {visiveis.length === 0 && (
+        {carregando && clientes.length === 0 &&
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-5 py-4">
+              <Skeleton className="size-10 rounded-xl" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+            </div>
+          ))}
+        {!carregando && visiveis.length === 0 && (
           <p className="px-5 py-10 text-center text-sm text-muted-foreground">
             Nenhum cliente encontrado.
           </p>

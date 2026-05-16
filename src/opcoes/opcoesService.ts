@@ -40,11 +40,17 @@ export async function reordenarOpcao(
   return (await col().update(id, { ordem })) as unknown as Opcao;
 }
 
-/** Quantos clientes usam este valor neste tipo de opção. */
+/** Quantos registros usam este valor neste tipo de opção. */
 export async function contarUsoOpcao(
   tipo: TipoOpcao,
   valor: string,
 ): Promise<number> {
+  if (tipo === 'status_contato') {
+    const contatos = (await pb
+      .collection('contatos')
+      .getFullList({ fields: 'status' })) as unknown as { status?: string }[];
+    return contatos.filter((c) => c.status === valor).length;
+  }
   const clientes = (await pb
     .collection('clientes')
     .getFullList({ fields: 'origem,status,servicos' })) as unknown as Cliente[];
@@ -60,7 +66,7 @@ export async function removerOpcao(op: Opcao): Promise<void> {
   const uso = await contarUsoOpcao(op.tipo, op.valor);
   if (uso > 0) {
     throw new Error(
-      `Não é possível remover "${op.valor}": ${uso} cliente(s) ainda usam esta opção.`,
+      `Não é possível remover "${op.valor}": ${uso} registro(s) ainda usam esta opção.`,
     );
   }
   await col().delete(op.id);

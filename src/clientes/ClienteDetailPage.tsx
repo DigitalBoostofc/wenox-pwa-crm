@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { getCliente } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
-import { EquipeTab } from '@/equipe/EquipeTab';
+import { ContatosTab } from '@/contatos/ContatosTab';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { cn } from '@/lib/utils';
 import { statusVariant, haDias, dataBR, corAvatar, inicial } from '@/clientes/format';
@@ -231,7 +231,7 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
         </div>
       )}
 
-      {aba === 'equipe' && <EquipeTab clienteId={c.id} />}
+      {aba === 'equipe' && <ContatosTab clienteId={c.id} />}
       {aba === 'acessos' && <EmBreve titulo="Dados de acesso" />}
       {aba === 'documentos' && <EmBreve titulo="Documentos" />}
     </div>

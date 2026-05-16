@@ -122,6 +122,9 @@ const ROTULOS: Record<string, string> = {
   url_drive: 'link Drive',
   url_trello: 'link Trello',
   observacoes: 'observação',
+  nome: 'nome',
+  cargo: 'cargo',
+  ultimo_acesso: 'último acesso',
 };
 
 /** Diferenças legíveis entre dois estados de um registro. */

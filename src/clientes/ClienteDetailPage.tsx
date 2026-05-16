@@ -8,6 +8,7 @@ import { getCliente } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
 import { ContatosTab } from '@/contatos/ContatosTab';
 import { AcessosTab } from '@/acessos/AcessosTab';
+import { DocumentosTab } from '@/documentos/DocumentosTab';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { cn } from '@/lib/utils';
 import { statusVariant, haDias, dataBR, corAvatar, inicial } from '@/clientes/format';
@@ -21,16 +22,6 @@ function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
       <span className="text-sm text-muted-foreground">{rotulo}</span>
       <span className="text-sm font-medium">{valor}</span>
     </div>
-  );
-}
-
-function EmBreve({ titulo }: { titulo: string }) {
-  return (
-    <Card>
-      <CardContent className="py-12 text-center text-sm text-muted-foreground">
-        {titulo} chega numa próxima fase do Wenox OS.
-      </CardContent>
-    </Card>
   );
 }
 
@@ -234,7 +225,7 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
 
       {aba === 'equipe' && <ContatosTab clienteId={c.id} />}
       {aba === 'acessos' && <AcessosTab clienteId={c.id} />}
-      {aba === 'documentos' && <EmBreve titulo="Documentos" />}
+      {aba === 'documentos' && <DocumentosTab clienteId={c.id} />}
     </div>
   );
 }

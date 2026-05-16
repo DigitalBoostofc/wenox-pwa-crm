@@ -57,6 +57,12 @@ export async function contarUsoOpcao(
       .getFullList({ fields: 'categoria' })) as unknown as { categoria?: string }[];
     return acessos.filter((a) => a.categoria === valor).length;
   }
+  if (tipo === 'categoria_documento') {
+    const docs = (await pb
+      .collection('documentos')
+      .getFullList({ fields: 'categoria' })) as unknown as { categoria?: string }[];
+    return docs.filter((d) => d.categoria === valor).length;
+  }
   const clientes = (await pb
     .collection('clientes')
     .getFullList({ fields: 'origem,status,servicos' })) as unknown as Cliente[];

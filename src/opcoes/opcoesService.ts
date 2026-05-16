@@ -51,6 +51,12 @@ export async function contarUsoOpcao(
       .getFullList({ fields: 'status' })) as unknown as { status?: string }[];
     return contatos.filter((c) => c.status === valor).length;
   }
+  if (tipo === 'categoria_acesso') {
+    const acessos = (await pb
+      .collection('acessos')
+      .getFullList({ fields: 'categoria' })) as unknown as { categoria?: string }[];
+    return acessos.filter((a) => a.categoria === valor).length;
+  }
   const clientes = (await pb
     .collection('clientes')
     .getFullList({ fields: 'origem,status,servicos' })) as unknown as Cliente[];

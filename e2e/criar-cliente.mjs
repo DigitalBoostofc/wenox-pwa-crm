@@ -72,7 +72,7 @@ try {
       .catch(() => false);
     out('CLIENTE_NA_LISTA: ' + ok);
     if (!ok) {
-      const itens = await page.locator('main button p.font-medium').allInnerTexts().catch(() => []);
+      const itens = await page.locator('tbody tr td p.font-medium').allInnerTexts().catch(() => []);
       out('ITENS_VISIVEIS: ' + JSON.stringify(itens.slice(0, 10)));
     }
   }

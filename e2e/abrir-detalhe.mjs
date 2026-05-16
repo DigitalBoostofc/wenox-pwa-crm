@@ -25,8 +25,8 @@ try {
   await p.click('button:has-text("Salvar")');
   await p.waitForSelector(`text=${NOME}`, { timeout: 12000 });
   console.log('CRIADO_OK');
-  // clica no cliente
-  await p.click(`main button:has-text("${NOME}")`);
+  // clica no cliente (desktop = linha de tabela <tr>)
+  await p.click(`tr:has-text("${NOME}")`);
   await p.waitForTimeout(6000);
   console.log('URL:', p.url());
   const txt = (await p.locator('body').innerText().catch(() => '')).slice(0, 200);

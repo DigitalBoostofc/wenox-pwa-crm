@@ -19,19 +19,42 @@ export async function getCliente(id: string): Promise<Cliente> {
   return (await col().getOne(id)) as unknown as Cliente;
 }
 
-export async function createCliente(input: ClienteInput): Promise<Cliente> {
+/** URL pública da foto/logo do cliente ('' se não tiver). */
+export function logoUrl(c: Pick<Cliente, 'id' | 'logo'>): string {
+  if (!c?.logo) return '';
+  return pb.files.getURL(c as unknown as Record<string, unknown>, c.logo);
+}
+
+function comArquivo(
+  dados: Record<string, unknown>,
+  logo: File,
+): FormData {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(dados)) {
+    if (v === undefined || v === null) continue;
+    fd.append(k, Array.isArray(v) ? JSON.stringify(v) : String(v));
+  }
+  fd.append('logo', logo);
+  return fd;
+}
+
+export async function createCliente(
+  input: ClienteInput,
+  logo?: File | null,
+): Promise<Cliente> {
   const uid = pb.authStore?.record?.id;
-  const rec = (await col().create({
-    ...input,
-    ...(uid ? { created_by: uid, updated_by: uid } : {}),
-  })) as unknown as Cliente;
+  const dados = { ...input, ...(uid ? { created_by: uid, updated_by: uid } : {}) };
+  const rec = (await col().create(
+    logo ? comArquivo(dados, logo) : dados,
+  )) as unknown as Cliente;
   await registrarHistorico('cliente', rec.id, 'Cliente cadastrado');
   return rec;
 }
 
 export async function updateCliente(
   id: string,
-  input: Partial<ClienteInput>
+  input: Partial<ClienteInput>,
+  logo?: File | null,
 ): Promise<Cliente> {
   const uid = pb.authStore?.record?.id;
   let antes: Record<string, unknown> | undefined;
@@ -40,11 +63,13 @@ export async function updateCliente(
   } catch {
     /* sem 'antes' não há diff */
   }
-  const rec = (await col().update(id, {
-    ...input,
-    ...(uid ? { updated_by: uid } : {}),
-  })) as unknown as Cliente;
+  const dados = { ...input, ...(uid ? { updated_by: uid } : {}) };
+  const rec = (await col().update(
+    id,
+    logo ? comArquivo(dados, logo) : dados,
+  )) as unknown as Cliente;
   const mudancas = diffCampos(antes, input as Record<string, unknown>);
+  if (logo) mudancas.push('foto atualizada');
   if (mudancas.length) {
     await registrarHistorico(
       'cliente',

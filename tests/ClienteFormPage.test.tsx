@@ -28,7 +28,8 @@ describe('ClienteFormPage (criar)', () => {
     await userEvent.type(screen.getByLabelText(/telefone/i), '11988887777');
     await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
     expect(createCliente).toHaveBeenCalledWith(
-      expect.objectContaining({ nome_fantasia: 'ACME', telefone: '11988887777' })
+      expect.objectContaining({ nome_fantasia: 'ACME', telefone: '11988887777' }),
+      null,
     );
     expect(push).toHaveBeenCalledWith('/clientes');
   });

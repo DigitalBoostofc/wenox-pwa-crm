@@ -3,7 +3,7 @@ import { useHistory } from 'react-router-dom';
 import {
   Plus, Search, Phone, Mail, Building2, ChevronRight, SlidersHorizontal,
 } from 'lucide-react';
-import { listClientes } from '@/clientes/clientesService';
+import { listClientes, logoUrl } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
 import { useAuth } from '@/auth/useAuth';
 import { canCriarCliente } from '@/auth/perms';
@@ -40,7 +40,13 @@ function carregarColunas(): Record<ColKey, boolean> {
   }
 }
 
-function Avatar({ nome }: { nome: string }) {
+function Avatar({ nome, src }: { nome: string; src?: string }) {
+  if (src) {
+    return (
+      <img src={src} alt={nome}
+        className="size-10 shrink-0 rounded-xl object-cover" />
+    );
+  }
   return (
     <div className={cn('grid size-10 shrink-0 place-items-center rounded-xl text-sm font-bold text-white', corAvatar(nome))}>
       {inicial(nome)}
@@ -229,7 +235,7 @@ export function ClientesListPage() {
                 >
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
-                      <Avatar nome={c.nome_fantasia} />
+                      <Avatar nome={c.nome_fantasia} src={logoUrl(c)} />
                       <div className="min-w-0">
                         <p className="truncate font-medium">{c.nome_fantasia}</p>
                         <p className="text-xs text-muted-foreground">{c.categoria}</p>
@@ -263,7 +269,7 @@ export function ClientesListPage() {
               onClick={() => history.push(`/clientes/${c.id}`)}
               className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40"
             >
-              <Avatar nome={c.nome_fantasia} />
+              <Avatar nome={c.nome_fantasia} src={logoUrl(c)} />
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <p className="truncate font-semibold">{c.nome_fantasia}</p>

@@ -7,6 +7,7 @@ import {
 import { getCliente } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
 import { ContatosTab } from '@/contatos/ContatosTab';
+import { AcessosTab } from '@/acessos/AcessosTab';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { cn } from '@/lib/utils';
 import { statusVariant, haDias, dataBR, corAvatar, inicial } from '@/clientes/format';
@@ -232,7 +233,7 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
       )}
 
       {aba === 'equipe' && <ContatosTab clienteId={c.id} />}
-      {aba === 'acessos' && <EmBreve titulo="Dados de acesso" />}
+      {aba === 'acessos' && <AcessosTab clienteId={c.id} />}
       {aba === 'documentos' && <EmBreve titulo="Documentos" />}
     </div>
   );

@@ -125,6 +125,10 @@ const ROTULOS: Record<string, string> = {
   nome: 'nome',
   cargo: 'cargo',
   ultimo_acesso: 'último acesso',
+  plataforma: 'plataforma',
+  url: 'URL',
+  login: 'login',
+  tem_2fa: '2FA',
 };
 
 /** Diferenças legíveis entre dois estados de um registro. */

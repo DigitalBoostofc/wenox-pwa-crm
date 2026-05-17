@@ -25,12 +25,20 @@ export function logoUrl(c: Pick<Cliente, 'id' | 'logo'>): string {
   return pb.files.getURL(c as unknown as Record<string, unknown>, c.logo);
 }
 
+/** `logo` é campo de arquivo no PocketBase: nunca enviar como texto/JSON
+ *  (mandar o nome do arquivo como string faz o update falhar). */
+function semLogo(dados: Record<string, unknown>): Record<string, unknown> {
+  const { logo: _omit, ...resto } = dados;
+  void _omit;
+  return resto;
+}
+
 function comArquivo(
   dados: Record<string, unknown>,
   logo: File,
 ): FormData {
   const fd = new FormData();
-  for (const [k, v] of Object.entries(dados)) {
+  for (const [k, v] of Object.entries(semLogo(dados))) {
     if (v === undefined || v === null) continue;
     fd.append(k, Array.isArray(v) ? JSON.stringify(v) : String(v));
   }
@@ -45,7 +53,7 @@ export async function createCliente(
   const uid = pb.authStore?.record?.id;
   const dados = { ...input, ...(uid ? { created_by: uid, updated_by: uid } : {}) };
   const rec = (await col().create(
-    logo ? comArquivo(dados, logo) : dados,
+    logo ? comArquivo(dados, logo) : semLogo(dados),
   )) as unknown as Cliente;
   await registrarHistorico('cliente', rec.id, 'Cliente cadastrado');
   return rec;
@@ -66,7 +74,7 @@ export async function updateCliente(
   const dados = { ...input, ...(uid ? { updated_by: uid } : {}) };
   const rec = (await col().update(
     id,
-    logo ? comArquivo(dados, logo) : dados,
+    logo ? comArquivo(dados, logo) : semLogo(dados),
   )) as unknown as Cliente;
   const mudancas = diffCampos(antes, input as Record<string, unknown>);
   if (logo) mudancas.push('foto atualizada');

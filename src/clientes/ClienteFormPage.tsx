@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
-import { ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Image as ImageIcon, Camera } from 'lucide-react';
 import {
   createCliente, getCliente, updateCliente,
 } from '@/clientes/clientesService';
@@ -134,22 +134,53 @@ export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
         <Card>
           <CardHeader><CardTitle>Identificação</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="flex items-center gap-4">
-              <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-secondary text-muted-foreground">
-                {logoFile ? (
-                  <img src={URL.createObjectURL(logoFile)} alt="Prévia"
-                    className="size-full object-cover" />
-                ) : (
-                  <ImageIcon className="size-6" />
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="logo" className="text-sm font-medium text-muted-foreground">
-                  Foto do perfil
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-muted-foreground">
+                Foto do perfil
+              </span>
+              <div className="flex items-center gap-4">
+                <label
+                  title="Selecionar foto"
+                  className="group relative grid size-20 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-2xl border border-dashed border-border bg-secondary text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                >
+                  {logoFile ? (
+                    <img src={URL.createObjectURL(logoFile)} alt="Prévia"
+                      className="size-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 text-center">
+                      <Camera className="size-6" />
+                      <span className="text-[10px] leading-tight">Adicionar<br />foto</span>
+                    </div>
+                  )}
+                  <span className="absolute inset-0 hidden place-items-center bg-black/50 text-xs font-medium text-white group-hover:grid">
+                    {logoFile ? 'Trocar' : 'Selecionar'}
+                  </span>
+                  <input type="file" accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} />
                 </label>
-                <input id="logo" type="file" accept="image/png,image/jpeg,image/webp"
-                  className="text-sm"
-                  onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} />
+                <div className="flex flex-col gap-2">
+                  <label className="cursor-pointer">
+                    <span className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium hover:bg-secondary">
+                      <ImageIcon className="size-4" />
+                      {logoFile ? 'Trocar foto' : 'Escolher foto'}
+                    </span>
+                    <input type="file" accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} />
+                  </label>
+                  {logoFile ? (
+                    <button type="button"
+                      onClick={() => setLogoFile(null)}
+                      className="text-left text-xs text-muted-foreground hover:text-destructive">
+                      Remover seleção
+                    </button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      PNG, JPG ou WEBP
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <Campo id="nf" label="Nome fantasia">

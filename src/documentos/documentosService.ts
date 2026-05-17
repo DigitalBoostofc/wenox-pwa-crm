@@ -12,10 +12,16 @@ export async function listDocumentos(clienteId: string): Promise<Documento[]> {
   return res as unknown as Documento[];
 }
 
-/** URL pública do arquivo anexado (ou '' se for link). */
-export function urlArquivo(d: Documento): string {
+/** URL pública do arquivo anexado (ou '' se for link).
+ *  `thumb` (ex: '600x0') pede miniatura — usado no preview pra não baixar
+ *  a imagem inteira só pra mostrar pequeno. */
+export function urlArquivo(d: Documento, thumb?: string): string {
   if (d.tipo !== 'arquivo' || !d.arquivo) return '';
-  return pb.files.getURL(d as unknown as Record<string, unknown>, d.arquivo);
+  return pb.files.getURL(
+    d as unknown as Record<string, unknown>,
+    d.arquivo,
+    thumb ? { thumb } : undefined,
+  );
 }
 
 /** É um arquivo de imagem? (preview no próprio sistema) */

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import {
   listDocumentos, createDocumento, removeDocumento, abrir, isImagem,
+  urlArquivo,
 } from '@/documentos/documentosService';
 import type { Documento, TipoDocumento } from '@/documentos/types';
 import { listOpcoes } from '@/opcoes/opcoesService';
@@ -208,7 +209,8 @@ export function DocumentosTab({ clienteId }: { clienteId: string }) {
                     {img && (
                       <a href={link} target="_blank" rel="noopener"
                         className="mb-3 block" title="Abrir em tamanho real">
-                        <img src={link} alt={d.nome}
+                        <img src={urlArquivo(d, '600x0')} alt={d.nome}
+                          loading="lazy" decoding="async"
                           className="max-h-96 w-auto rounded-lg border border-border object-contain" />
                       </a>
                     )}

@@ -87,7 +87,8 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
             )}
           >
             {c.logo ? (
-              <img src={logoUrl(c)} alt={c.nome_fantasia}
+              <img src={logoUrl(c, '200x200')} alt={c.nome_fantasia}
+                loading="lazy" decoding="async"
                 className="size-full object-cover" />
             ) : (
               inicial(c.nome_fantasia)

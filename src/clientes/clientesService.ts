@@ -4,14 +4,21 @@ import type { Cliente, ClienteInput } from './types';
 
 const col = () => pb.collection('clientes');
 
+/** Só as colunas que a lista usa — evita trafegar observação/HTML pesado.
+ *  collectionId/collectionName/logo são necessários p/ montar a URL da foto. */
+const CAMPOS_LISTA = [
+  'id', 'collectionId', 'collectionName', 'nome_fantasia', 'categoria',
+  'telefone', 'email', 'origem', 'servicos', 'status', 'created', 'logo',
+].join(',');
+
 export async function listClientes(busca: string): Promise<Cliente[]> {
-  const opts: Record<string, unknown> = { sort: '-created' };
+  const opts: Record<string, unknown> = { sort: '-created', fields: CAMPOS_LISTA };
   const q = busca.trim();
   if (q) {
     const safe = q.replace(/"/g, '');
     opts.filter = `nome_fantasia ~ "${safe}" || razao_social ~ "${safe}"`;
   }
-  const res = await col().getList(1, 100, opts);
+  const res = await col().getList(1, 200, opts);
   return res.items as unknown as Cliente[];
 }
 
@@ -19,10 +26,19 @@ export async function getCliente(id: string): Promise<Cliente> {
   return (await col().getOne(id)) as unknown as Cliente;
 }
 
-/** URL pública da foto/logo do cliente ('' se não tiver). */
-export function logoUrl(c: Pick<Cliente, 'id' | 'logo'>): string {
+/** URL pública da foto/logo do cliente ('' se não tiver).
+ *  `thumb` (ex: '100x100') pede uma miniatura ao PocketBase — muito mais
+ *  leve que a imagem original (essencial p/ listas com muitos clientes). */
+export function logoUrl(
+  c: Pick<Cliente, 'id' | 'logo'>,
+  thumb?: string,
+): string {
   if (!c?.logo) return '';
-  return pb.files.getURL(c as unknown as Record<string, unknown>, c.logo);
+  return pb.files.getURL(
+    c as unknown as Record<string, unknown>,
+    c.logo,
+    thumb ? { thumb } : undefined,
+  );
 }
 
 /** `logo` é campo de arquivo no PocketBase: nunca enviar como texto/JSON

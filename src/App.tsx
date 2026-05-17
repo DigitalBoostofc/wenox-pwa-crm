@@ -1,24 +1,43 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Redirect, Route, Switch } from 'react-router-dom';
 import { useAuth } from '@/auth/useAuth';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
 import { AppShell } from '@/components/layout/AppShell';
-import { LoginPage } from '@/pages/LoginPage';
-import { ConfigPage } from '@/pages/ConfigPage';
-import { ClientesListPage } from '@/clientes/ClientesListPage';
-import { ClienteFormPage } from '@/clientes/ClienteFormPage';
-import { ClienteDetailPage } from '@/clientes/ClienteDetailPage';
-import { UsuariosPage } from '@/usuarios/UsuariosPage';
-import { ParametrosPage } from '@/opcoes/ParametrosPage';
+
+/* Cada página vira um chunk separado: o navegador só baixa a tela
+ * que o usuário abrir, deixando o carregamento inicial bem mais leve. */
+const LoginPage = lazy(() =>
+  import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })));
+const ConfigPage = lazy(() =>
+  import('@/pages/ConfigPage').then((m) => ({ default: m.ConfigPage })));
+const ClientesListPage = lazy(() =>
+  import('@/clientes/ClientesListPage').then((m) => ({ default: m.ClientesListPage })));
+const ClienteFormPage = lazy(() =>
+  import('@/clientes/ClienteFormPage').then((m) => ({ default: m.ClienteFormPage })));
+const ClienteDetailPage = lazy(() =>
+  import('@/clientes/ClienteDetailPage').then((m) => ({ default: m.ClienteDetailPage })));
+const UsuariosPage = lazy(() =>
+  import('@/usuarios/UsuariosPage').then((m) => ({ default: m.UsuariosPage })));
+const ParametrosPage = lazy(() =>
+  import('@/opcoes/ParametrosPage').then((m) => ({ default: m.ParametrosPage })));
+
+function CarregandoTela() {
+  return (
+    <p className="py-16 text-center text-sm text-muted-foreground">Carregando…</p>
+  );
+}
 
 function UnauthedApp() {
   return (
     <BrowserRouter>
-      <Switch>
-        <Route exact path="/login" component={LoginPage} />
-        <Route>
-          <Redirect to="/login" />
-        </Route>
-      </Switch>
+      <Suspense fallback={<CarregandoTela />}>
+        <Switch>
+          <Route exact path="/login" component={LoginPage} />
+          <Route>
+            <Redirect to="/login" />
+          </Route>
+        </Switch>
+      </Suspense>
     </BrowserRouter>
   );
 }
@@ -27,6 +46,7 @@ function AuthedApp() {
   return (
     <BrowserRouter>
       <AppShell>
+        <Suspense fallback={<CarregandoTela />}>
         <Switch>
           <Route exact path="/clientes" component={ClientesListPage} />
           <Route exact path="/novo-cliente" component={ClienteFormPage} />
@@ -54,6 +74,7 @@ function AuthedApp() {
             <Redirect to="/clientes" />
           </Route>
         </Switch>
+        </Suspense>
       </AppShell>
     </BrowserRouter>
   );

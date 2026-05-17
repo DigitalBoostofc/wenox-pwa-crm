@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Plus, Search, Phone, Mail, Building2, ChevronRight, SlidersHorizontal,
@@ -62,7 +62,8 @@ const ORDENACOES: { v: Ordenacao; label: string }[] = [
 function Avatar({ nome, src }: { nome: string; src?: string }) {
   if (src) {
     return (
-      <img src={src} alt={nome}
+      <img src={src} alt={nome} loading="lazy" decoding="async"
+        width={40} height={40}
         className="size-10 shrink-0 rounded-xl object-cover" />
     );
   }
@@ -143,18 +144,23 @@ export function ClientesListPage() {
     });
   }
 
-  const statusPresentes = Array.from(
-    new Set(clientes.map((c) => c.status).filter(Boolean)),
+  const { statusPresentes, origensPresentes, servicosPresentes } = useMemo(() => ({
+    statusPresentes: Array.from(
+      new Set(clientes.map((c) => c.status).filter(Boolean)),
+    ),
+    origensPresentes: Array.from(
+      new Set(clientes.map((c) => c.origem).filter(Boolean) as string[]),
+    ),
+    servicosPresentes: Array.from(
+      new Set(clientes.flatMap((c) => c.servicos ?? [])),
+    ),
+  }), [clientes]);
+  const filtros = useMemo(
+    () => ['Todos', ...statusPresentes],
+    [statusPresentes],
   );
-  const origensPresentes = Array.from(
-    new Set(clientes.map((c) => c.origem).filter(Boolean) as string[]),
-  );
-  const servicosPresentes = Array.from(
-    new Set(clientes.flatMap((c) => c.servicos ?? [])),
-  );
-  const filtros = ['Todos', ...statusPresentes];
 
-  const visiveis = clientes
+  const visiveis = useMemo(() => clientes
     .filter((c) => filtro === 'Todos' || c.status === filtro)
     .filter((c) => fOrigem === 'Todas' || c.origem === fOrigem)
     .filter((c) => fServico === 'Todos' || (c.servicos ?? []).includes(fServico))
@@ -167,9 +173,14 @@ export function ClientesListPage() {
         b.nome_fantasia ?? '', 'pt-BR', { sensitivity: 'base' },
       );
       return ordenacao === 'za' ? -cmp : cmp;
-    });
+    }),
+    [clientes, filtro, fOrigem, fServico, ordenacao],
+  );
 
-  const colsVisiveis = colDefs.filter((c) => c.visivel);
+  const colsVisiveis = useMemo(
+    () => colDefs.filter((c) => c.visivel),
+    [colDefs],
+  );
   const selectCls =
     'h-10 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
@@ -345,7 +356,7 @@ export function ClientesListPage() {
                 >
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
-                      <Avatar nome={c.nome_fantasia} src={logoUrl(c)} />
+                      <Avatar nome={c.nome_fantasia} src={logoUrl(c, '100x100')} />
                       <div className="min-w-0">
                         <p className="truncate font-medium">{c.nome_fantasia}</p>
                         <p className="text-xs text-muted-foreground">{c.categoria}</p>
@@ -374,7 +385,7 @@ export function ClientesListPage() {
               onClick={() => history.push(`/clientes/${c.id}`)}
               className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40"
             >
-              <Avatar nome={c.nome_fantasia} src={logoUrl(c)} />
+              <Avatar nome={c.nome_fantasia} src={logoUrl(c, '100x100')} />
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <p className="truncate font-semibold">{c.nome_fantasia}</p>

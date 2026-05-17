@@ -19,6 +19,31 @@ const vazio: ClienteInput = {
 const selectClass =
   'h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
+const ROTULO_CAMPO: Record<string, string> = {
+  nome_fantasia: 'Nome fantasia', razao_social: 'Razão social', cnpj: 'CPF/CNPJ',
+  telefone: 'Telefone', email: 'E-mail', site: 'Website', endereco: 'Endereço',
+  origem: 'Origem', status: 'Status', servicos: 'Serviços',
+  data_inicio: 'Início', data_encerramento: 'Encerramento',
+  url_dashboard: 'Dashboard', url_drive: 'Drive', url_trello: 'Trello',
+  observacoes: 'Observação', categoria: 'Categoria',
+};
+
+/** Extrai a mensagem real do erro do PocketBase (campo a campo, em PT). */
+function mensagemErro(err: unknown): string {
+  const e = err as { response?: { data?: Record<string, { message?: string }> }; message?: string };
+  const campos = e?.response?.data;
+  if (campos && typeof campos === 'object' && Object.keys(campos).length) {
+    const partes = Object.entries(campos).map(
+      ([campo, info]) =>
+        `${ROTULO_CAMPO[campo] ?? campo}: ${info?.message ?? 'inválido'}`,
+    );
+    return `Não foi possível salvar — ${partes.join(' · ')}`;
+  }
+  return e?.message
+    ? `Não foi possível salvar: ${e.message}`
+    : 'Erro ao salvar. Verifique sua conexão e tente novamente.';
+}
+
 function Campo({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -84,17 +109,17 @@ export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
       setErro('Nome fantasia é obrigatório');
       return;
     }
+    if (!form.telefone.trim()) {
+      setErro('Telefone é obrigatório');
+      return;
+    }
     setSalvando(true);
     try {
       if (id) await updateCliente(id, form, logoFile);
       else await createCliente(form, logoFile);
       history.push('/clientes');
     } catch (err) {
-      const msg =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Erro ao salvar. Verifique sua conexão e tente novamente.';
-      setErro(msg);
+      setErro(mensagemErro(err));
     } finally {
       setSalvando(false);
     }

@@ -109,10 +109,6 @@ export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
       setErro('Nome fantasia é obrigatório');
       return;
     }
-    if (!form.telefone.trim()) {
-      setErro('Telefone é obrigatório');
-      return;
-    }
     setSalvando(true);
     try {
       if (id) await updateCliente(id, form, logoFile);

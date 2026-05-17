@@ -26,4 +26,22 @@ export default defineConfig({
     }),
   ],
   resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
+  build: {
+    target: 'es2022',
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        // Bibliotecas em chunks próprios → ficam em cache entre deploys
+        // (o usuário só rebaixa o código que realmente mudou).
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return;
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id))
+            return 'vendor-react';
+          if (id.includes('@radix-ui')) return 'vendor-radix';
+          if (id.includes('pocketbase')) return 'vendor-pocketbase';
+          return 'vendor';
+        },
+      },
+    },
+  },
 })

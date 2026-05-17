@@ -26,9 +26,10 @@ describe('clientesService', () => {
   it('listClientes repassa busca como filtro e retorna items', async () => {
     getList.mockResolvedValue({ items: [{ id: '1', nome_fantasia: 'ACME' }] });
     const r = await listClientes('acme');
-    expect(getList).toHaveBeenCalledWith(1, 100, expect.objectContaining({
+    expect(getList).toHaveBeenCalledWith(1, 200, expect.objectContaining({
       filter: expect.stringContaining('acme'),
       sort: '-created',
+      fields: expect.stringContaining('nome_fantasia'),
     }));
     expect(r).toEqual([{ id: '1', nome_fantasia: 'ACME' }]);
   });
@@ -36,7 +37,10 @@ describe('clientesService', () => {
   it('listClientes sem busca não envia filtro de texto', async () => {
     getList.mockResolvedValue({ items: [] });
     await listClientes('');
-    expect(getList).toHaveBeenCalledWith(1, 100, expect.objectContaining({ sort: '-created' }));
+    expect(getList).toHaveBeenCalledWith(1, 200, expect.objectContaining({
+      sort: '-created',
+      fields: expect.stringContaining('logo'),
+    }));
   });
 
   it('getCliente delega para getOne', async () => {

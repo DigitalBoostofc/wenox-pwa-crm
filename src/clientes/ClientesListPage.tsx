@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Plus, Search, Phone, Mail, Building2, ChevronRight, SlidersHorizontal,
+  GripVertical,
 } from 'lucide-react';
 import { listClientes, logoUrl } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
@@ -16,29 +17,47 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 
 type ColKey = 'telefone' | 'email' | 'origem' | 'servicos' | 'status' | 'desde';
-const COLUNAS: { key: ColKey; label: string }[] = [
-  { key: 'telefone', label: 'Telefone' },
-  { key: 'email', label: 'E-mail' },
-  { key: 'origem', label: 'Origem' },
-  { key: 'servicos', label: 'Serviços' },
-  { key: 'status', label: 'Status' },
-  { key: 'desde', label: 'Cliente desde' },
+interface ColDef { key: ColKey; label: string; visivel: boolean }
+const COLS_PADRAO: ColDef[] = [
+  { key: 'telefone', label: 'Telefone', visivel: true },
+  { key: 'email', label: 'E-mail', visivel: true },
+  { key: 'origem', label: 'Origem', visivel: false },
+  { key: 'servicos', label: 'Serviços', visivel: true },
+  { key: 'status', label: 'Status', visivel: true },
+  { key: 'desde', label: 'Cliente desde', visivel: true },
 ];
-const COL_KEY = 'wenox-colunas-clientes';
+const COL_KEY = 'wenox-colunas-clientes-v2';
 
-function carregarColunas(): Record<ColKey, boolean> {
-  const padrao = { telefone: true, email: true, origem: false, servicos: true, status: true, desde: true };
+function carregarColunas(): ColDef[] {
   try {
     const s = localStorage.getItem(COL_KEY);
-    return s ? { ...padrao, ...JSON.parse(s) } : padrao;
+    if (!s) return COLS_PADRAO;
+    const salvo = JSON.parse(s) as ColDef[];
+    const conhecidas = new Map(COLS_PADRAO.map((c) => [c.key, c]));
+    const ord: ColDef[] = salvo
+      .filter((c) => conhecidas.has(c.key))
+      .map((c) => ({ ...conhecidas.get(c.key)!, visivel: !!c.visivel }));
+    for (const c of COLS_PADRAO) if (!ord.some((o) => o.key === c.key)) ord.push(c);
+    return ord;
   } catch {
-    return padrao;
+    return COLS_PADRAO;
   }
 }
+function salvarColunas(cols: ColDef[]) {
+  try { localStorage.setItem(COL_KEY, JSON.stringify(cols)); } catch { /* */ }
+}
+
+type Ordenacao = 'az' | 'za' | 'recentes' | 'antigos';
+const ORDENACOES: { v: Ordenacao; label: string }[] = [
+  { v: 'az', label: 'Nome (A→Z)' },
+  { v: 'za', label: 'Nome (Z→A)' },
+  { v: 'recentes', label: 'Mais recentes' },
+  { v: 'antigos', label: 'Mais antigos' },
+];
 
 function Avatar({ nome, src }: { nome: string; src?: string }) {
   if (src) {
@@ -77,8 +96,12 @@ export function ClientesListPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
-  const [cols, setCols] = useState<Record<ColKey, boolean>>(carregarColunas);
+  const [colDefs, setColDefs] = useState<ColDef[]>(carregarColunas);
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>('az');
+  const [fOrigem, setFOrigem] = useState('Todas');
+  const [fServico, setFServico] = useState('Todos');
   const seqRef = useRef(0);
+  const dragIdx = useRef<number | null>(null);
 
   useEffect(() => {
     const seq = ++seqRef.current;
@@ -103,9 +126,19 @@ export function ClientesListPage() {
   }, [busca]);
 
   function toggleCol(k: ColKey) {
-    setCols((c) => {
-      const next = { ...c, [k]: !c[k] };
-      try { localStorage.setItem(COL_KEY, JSON.stringify(next)); } catch { /* */ }
+    setColDefs((cs) => {
+      const next = cs.map((c) => (c.key === k ? { ...c, visivel: !c.visivel } : c));
+      salvarColunas(next);
+      return next;
+    });
+  }
+  function moverCol(de: number, para: number) {
+    setColDefs((cs) => {
+      if (de === para || para < 0 || para >= cs.length) return cs;
+      const next = [...cs];
+      const [item] = next.splice(de, 1);
+      next.splice(para, 0, item);
+      salvarColunas(next);
       return next;
     });
   }
@@ -113,10 +146,42 @@ export function ClientesListPage() {
   const statusPresentes = Array.from(
     new Set(clientes.map((c) => c.status).filter(Boolean)),
   );
-  const filtros = ['Todos', ...statusPresentes];
-  const visiveis = clientes.filter(
-    (c) => filtro === 'Todos' || c.status === filtro,
+  const origensPresentes = Array.from(
+    new Set(clientes.map((c) => c.origem).filter(Boolean) as string[]),
   );
+  const servicosPresentes = Array.from(
+    new Set(clientes.flatMap((c) => c.servicos ?? [])),
+  );
+  const filtros = ['Todos', ...statusPresentes];
+
+  const visiveis = clientes
+    .filter((c) => filtro === 'Todos' || c.status === filtro)
+    .filter((c) => fOrigem === 'Todas' || c.origem === fOrigem)
+    .filter((c) => fServico === 'Todos' || (c.servicos ?? []).includes(fServico))
+    .sort((a, b) => {
+      if (ordenacao === 'recentes')
+        return +new Date(b.created ?? 0) - +new Date(a.created ?? 0);
+      if (ordenacao === 'antigos')
+        return +new Date(a.created ?? 0) - +new Date(b.created ?? 0);
+      const cmp = (a.nome_fantasia ?? '').localeCompare(
+        b.nome_fantasia ?? '', 'pt-BR', { sensitivity: 'base' },
+      );
+      return ordenacao === 'za' ? -cmp : cmp;
+    });
+
+  const colsVisiveis = colDefs.filter((c) => c.visivel);
+  const selectCls =
+    'h-10 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+
+  function celula(c: Cliente, key: ColKey) {
+    if (key === 'telefone') return c.telefone;
+    if (key === 'email') return c.email || '—';
+    if (key === 'origem') return c.origem || '—';
+    if (key === 'servicos') return <TagsServicos servicos={c.servicos} />;
+    if (key === 'status')
+      return c.status ? <Badge variant={statusVariant(c.status)}>{c.status}</Badge> : null;
+    return haDias(c.created);
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -138,6 +203,16 @@ export function ClientesListPage() {
             className="h-10 w-full rounded-md border border-input bg-background/40 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           />
         </div>
+        <select
+          aria-label="Ordenar"
+          value={ordenacao}
+          onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
+          className={selectCls}
+        >
+          {ORDENACOES.map((o) => (
+            <option key={o.v} value={o.v}>{o.label}</option>
+          ))}
+        </select>
         {isDesktop && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -145,19 +220,31 @@ export function ClientesListPage() {
                 <SlidersHorizontal /> Colunas
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Colunas visíveis</DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>
+                Colunas — arraste para reordenar
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {COLUNAS.map((c) => (
-                <DropdownMenuItem
+              {colDefs.map((c, idx) => (
+                <div
                   key={c.key}
-                  onSelect={(e) => { e.preventDefault(); toggleCol(c.key); }}
+                  draggable
+                  onDragStart={() => { dragIdx.current = idx; }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragIdx.current !== null) moverCol(dragIdx.current, idx);
+                    dragIdx.current = null;
+                  }}
+                  className="flex cursor-grab items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-secondary active:cursor-grabbing"
+                  onClick={() => toggleCol(c.key)}
                 >
-                  <span className={cn('grid size-4 place-items-center rounded border', cols[c.key] ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}>
-                    {cols[c.key] ? '✓' : ''}
+                  <GripVertical className="size-4 shrink-0 text-muted-foreground" />
+                  <span className={cn('grid size-4 shrink-0 place-items-center rounded border text-[10px]', c.visivel ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}>
+                    {c.visivel ? '✓' : ''}
                   </span>
-                  {c.label}
-                </DropdownMenuItem>
+                  <span className="flex-1">{c.label}</span>
+                </div>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -169,7 +256,7 @@ export function ClientesListPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {filtros.map((f) => (
           <button
             key={f}
@@ -184,6 +271,32 @@ export function ClientesListPage() {
             {f}
           </button>
         ))}
+        {origensPresentes.length > 0 && (
+          <select
+            aria-label="Filtrar por origem"
+            value={fOrigem}
+            onChange={(e) => setFOrigem(e.target.value)}
+            className={selectCls}
+          >
+            <option value="Todas">Origem: todas</option>
+            {origensPresentes.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+          </select>
+        )}
+        {servicosPresentes.length > 0 && (
+          <select
+            aria-label="Filtrar por serviço"
+            value={fServico}
+            onChange={(e) => setFServico(e.target.value)}
+            className={selectCls}
+          >
+            <option value="Todos">Serviço: todos</option>
+            {servicosPresentes.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {erro && (
@@ -217,12 +330,9 @@ export function ClientesListPage() {
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-5 py-3 font-medium">Cliente</th>
-                {cols.telefone && <th className="px-4 py-3 font-medium">Telefone</th>}
-                {cols.email && <th className="px-4 py-3 font-medium">E-mail</th>}
-                {cols.origem && <th className="px-4 py-3 font-medium">Origem</th>}
-                {cols.servicos && <th className="px-4 py-3 font-medium">Serviços</th>}
-                {cols.status && <th className="px-4 py-3 font-medium">Status</th>}
-                {cols.desde && <th className="px-4 py-3 font-medium">Cliente desde</th>}
+                {colsVisiveis.map((col) => (
+                  <th key={col.key} className="px-4 py-3 font-medium">{col.label}</th>
+                ))}
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -242,16 +352,11 @@ export function ClientesListPage() {
                       </div>
                     </div>
                   </td>
-                  {cols.telefone && <td className="px-4 py-3 text-muted-foreground">{c.telefone}</td>}
-                  {cols.email && <td className="px-4 py-3 text-muted-foreground">{c.email || '—'}</td>}
-                  {cols.origem && <td className="px-4 py-3 text-muted-foreground">{c.origem || '—'}</td>}
-                  {cols.servicos && <td className="px-4 py-3"><TagsServicos servicos={c.servicos} /></td>}
-                  {cols.status && (
-                    <td className="px-4 py-3">
-                      {c.status && <Badge variant={statusVariant(c.status)}>{c.status}</Badge>}
+                  {colsVisiveis.map((col) => (
+                    <td key={col.key} className="px-4 py-3 text-muted-foreground">
+                      {celula(c, col.key)}
                     </td>
-                  )}
-                  {cols.desde && <td className="px-4 py-3 text-muted-foreground">{haDias(c.created)}</td>}
+                  ))}
                   <td className="px-4 py-3 text-right text-muted-foreground">
                     <ChevronRight className="ml-auto size-4" />
                   </td>

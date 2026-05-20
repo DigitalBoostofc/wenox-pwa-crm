@@ -18,12 +18,14 @@ export function inicial(nome?: string): string {
 }
 
 /** Badge colorida por status — convenção do Leonardo:
- *  Ativo = verde, Pendente/Pausado = roxo, Inativo/Encerrado = vermelho. */
+ *  Ativo = verde, Pendente/Pausado = roxo, Inativo/Encerrado = vermelho.
+ *  Testa "inativo" ANTES de "ativo" — "ativo" é substring de "inativo"
+ *  e casaria o branch errado se a ordem fosse invertida. */
 export function statusVariant(status?: string): BadgeVariant {
   const s = (status ?? '').toLowerCase();
-  if (/(ativo|ativa|on)/.test(s)) return 'success';
   if (/(inativo|inativa|encerrad|cancelad|off)/.test(s)) return 'destructive';
   if (/(pausad|espera|pendente)/.test(s)) return 'default';
+  if (/(ativo|ativa|on)/.test(s)) return 'success';
   return 'muted';
 }
 

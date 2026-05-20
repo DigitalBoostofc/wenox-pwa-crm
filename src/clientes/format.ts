@@ -17,13 +17,14 @@ export function inicial(nome?: string): string {
   return (nome ?? '?').trim().charAt(0).toUpperCase() || '?';
 }
 
-/** Badge colorida por status (heurística + fallback). */
+/** Badge colorida por status — convenção do Leonardo:
+ *  Ativo = verde, Pendente/Pausado = roxo, Inativo/Encerrado = vermelho. */
 export function statusVariant(status?: string): BadgeVariant {
   const s = (status ?? '').toLowerCase();
   if (/(ativo|ativa|on)/.test(s)) return 'success';
-  if (/(inativo|inativa|encerrad|cancelad|off)/.test(s)) return 'muted';
-  if (/(pausad|espera|pendente)/.test(s)) return 'info';
-  return 'default';
+  if (/(inativo|inativa|encerrad|cancelad|off)/.test(s)) return 'destructive';
+  if (/(pausad|espera|pendente)/.test(s)) return 'default';
+  return 'muted';
 }
 
 /** Data ISO do PocketBase → "DD/MM/AAAA" (vazio se inválida). */

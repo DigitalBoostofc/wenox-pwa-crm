@@ -110,7 +110,7 @@ function MenuMoverEtapa({
 }
 
 function CardProjeto({
-  p, etapasDoTipo, onClick, onChanged, draggable, arrastando,
+  p, etapasDoTipo, onClick, onChanged, draggable, arrastando, mostrarTipo = true,
 }: {
   p: Projeto;
   etapasDoTipo: EtapaProjeto[];
@@ -118,6 +118,7 @@ function CardProjeto({
   onChanged: () => void;
   draggable?: boolean;
   arrastando?: boolean;
+  mostrarTipo?: boolean;
 }) {
   const cliNome = nomeCliente(p);
   const logo = logoCliente(p);
@@ -175,7 +176,9 @@ function CardProjeto({
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{cliNome}</p>
-          <p className="truncate text-xs text-muted-foreground">{p.tipo || 'Sem tipo'}</p>
+          {mostrarTipo && (
+            <p className="truncate text-xs text-muted-foreground">{p.tipo || 'Sem tipo'}</p>
+          )}
         </div>
       </div>
 
@@ -427,6 +430,7 @@ export function ProjetosListPage() {
               etapasDoTipo={etapasPorTipo[p.tipo ?? ''] ?? []}
               onClick={() => abrirProjeto(p.id)}
               onChanged={recarregar}
+              mostrarTipo={tipoFiltro === 'Todos'}
             />
           ))}
         </div>
@@ -618,6 +622,7 @@ function ColunaKanban({
               onClick={() => onAbrir(p.id)}
               onChanged={onChanged}
               draggable={aceitaDrop}
+              mostrarTipo={false}
             />
           ))}
         </div>

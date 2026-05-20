@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Plus, Search, FolderKanban, LayoutGrid, List, Columns3, MoreHorizontal,
+  LayoutList,
 } from 'lucide-react';
 import { listProjetos, atualizarProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
@@ -27,10 +28,18 @@ function carregarView(): ViewMode {
     const s = localStorage.getItem(VIEW_KEY);
     if (s === 'cards' || s === 'kanban' || s === 'lista') return s;
   } catch { /* */ }
-  return 'cards';
+  return 'lista';
 }
 function salvarView(v: ViewMode) {
   try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ }
+}
+
+/** Iniciais (até 2 letras) pra um botão compacto. */
+function iniciaisTipo(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
+  if (partes[0]?.length >= 2) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0]?.[0] ?? '?').toUpperCase();
 }
 
 function nomeCliente(p: Projeto): string {
@@ -195,6 +204,46 @@ function CardProjeto({
   );
 }
 
+/** Coluna estreita à esquerda da página com botões compactos por tipo. */
+function BarraTipos({
+  tipos, ativo, onChange,
+}: {
+  tipos: string[];
+  ativo: string;
+  onChange: (t: string) => void;
+}) {
+  const itens: { valor: string; label: string; icone?: typeof LayoutGrid }[] = [
+    { valor: 'Todos', label: 'Todos', icone: LayoutList },
+    ...tipos.map((t) => ({ valor: t, label: t })),
+  ];
+  return (
+    <aside className="hidden shrink-0 flex-col gap-2 lg:flex">
+      {itens.map((it) => {
+        const selecionado = ativo === it.valor;
+        const Icon = it.icone;
+        return (
+          <button
+            key={it.valor}
+            type="button"
+            onClick={() => onChange(it.valor)}
+            title={it.label}
+            aria-label={it.label}
+            aria-pressed={selecionado}
+            className={cn(
+              'grid size-12 place-items-center rounded-xl border text-xs font-bold transition-colors',
+              selecionado
+                ? 'border-primary/50 bg-primary/15 text-primary shadow-[inset_0_0_0_1px_rgba(139,92,246,0.35)]'
+                : 'border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground',
+            )}
+          >
+            {Icon ? <Icon className="size-5" /> : iniciaisTipo(it.valor)}
+          </button>
+        );
+      })}
+    </aside>
+  );
+}
+
 function ViewToggleBtn({
   ativo, onClick, icon: Icon, label,
 }: {
@@ -292,7 +341,13 @@ export function ProjetosListPage() {
   }
 
   return (
-    <div className="flex max-w-7xl flex-col gap-5">
+    <div className="flex max-w-7xl gap-4">
+      <BarraTipos
+        tipos={tipos.map((t) => t.valor)}
+        ativo={tipoFiltro}
+        onChange={setTipoFiltro}
+      />
+      <div className="flex min-w-0 flex-1 flex-col gap-5">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Projetos</h1>
         <p className="text-sm text-muted-foreground">
@@ -321,7 +376,7 @@ export function ProjetosListPage() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 lg:hidden">
         {filtros.map((f) => (
           <button
             key={f}
@@ -399,6 +454,7 @@ export function ProjetosListPage() {
           {projetos.length} {projetos.length === 1 ? 'projeto' : 'projetos'}
         </p>
       )}
+      </div>
     </div>
   );
 }

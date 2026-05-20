@@ -29,6 +29,22 @@ export function statusVariant(status?: string): BadgeVariant {
   return 'muted';
 }
 
+/** Classes da pill de filtro quando selecionada — mesma paleta da badge. */
+export function pillSelectedClass(status?: string): string {
+  const v = statusVariant(status);
+  switch (v) {
+    case 'success':
+      return 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400';
+    case 'destructive':
+      return 'border-destructive/50 bg-destructive/15 text-destructive';
+    case 'muted':
+      return 'border-border bg-secondary text-foreground';
+    case 'default':
+    default:
+      return 'border-primary/50 bg-primary/15 text-primary';
+  }
+}
+
 /** Data ISO do PocketBase → "DD/MM/AAAA" (vazio se inválida). */
 export function dataBR(dataIso?: string): string {
   if (!dataIso) return '';

@@ -495,6 +495,14 @@ export function ClientesListPage() {
           })}
         </div>
       )}
+
+      {!carregando && clientes.length > 0 && (
+        <p className="pt-1 text-right text-xs text-muted-foreground">
+          {visiveis.length === clientes.length
+            ? `${clientes.length} ${clientes.length === 1 ? 'cliente' : 'clientes'}`
+            : `${visiveis.length} de ${clientes.length} clientes`}
+        </p>
+      )}
     </div>
   );
 }

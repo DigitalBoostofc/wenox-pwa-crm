@@ -91,7 +91,9 @@ function Avatar({ nome, src }: { nome: string; src?: string }) {
   );
 }
 
-/** Alça de redimensionamento na borda direita do <th>. */
+/** Alça de redimensionamento na borda direita do <th>.
+ *  Área clicável de 8px (fácil de pegar) com indicador visual permanente
+ *  (linha vertical no meio) que destaca no hover. */
 function ResizeHandle({
   onMouseDown,
 }: { onMouseDown: (e: React.MouseEvent<HTMLSpanElement>) => void }) {
@@ -102,8 +104,13 @@ function ResizeHandle({
       aria-label="Arraste para redimensionar coluna"
       onMouseDown={onMouseDown}
       onClick={(e) => e.stopPropagation()}
-      className="absolute -right-0.5 top-0 z-10 h-full w-1.5 cursor-col-resize select-none hover:bg-primary/50"
-    />
+      className="group absolute -right-1 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center"
+    >
+      <span
+        aria-hidden
+        className="h-2/3 w-px bg-border transition-colors group-hover:w-0.5 group-hover:bg-primary"
+      />
+    </span>
   );
 }
 

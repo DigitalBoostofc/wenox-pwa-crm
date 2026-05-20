@@ -483,6 +483,17 @@ export function ProjetosListPage() {
             </Card>
           ))}
         </div>
+      ) : view === 'lista' ? (
+        // Em "lista" sempre renderiza o componente (mantém o botão Colunas
+        // visível mesmo quando o filtro resulta em zero projetos).
+        <ListaProjetos
+          projetos={projetosFiltrados}
+          etapasPorTipo={etapasPorTipo}
+          onAbrir={abrirProjeto}
+          mostrarColTipo={tipoFiltro === 'Todos'}
+          onStatusChange={atualizarStatus}
+          totalBruto={projetos.length}
+        />
       ) : projetosFiltrados.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
@@ -507,7 +518,7 @@ export function ProjetosListPage() {
             />
           ))}
         </div>
-      ) : view === 'kanban' ? (
+      ) : (
         <KanbanProjetos
           projetos={projetosFiltrados}
           tipoFiltro={tipoFiltro}
@@ -517,14 +528,6 @@ export function ProjetosListPage() {
           tiposDisponiveis={tipos.map((t) => t.valor)}
           onChanged={recarregar}
           onMover={moverProjeto}
-        />
-      ) : (
-        <ListaProjetos
-          projetos={projetosFiltrados}
-          etapasPorTipo={etapasPorTipo}
-          onAbrir={abrirProjeto}
-          mostrarColTipo={tipoFiltro === 'Todos'}
-          onStatusChange={atualizarStatus}
         />
       )}
 
@@ -750,12 +753,14 @@ function salvarColunasProj(cols: ColProjDef[]) {
 
 function ListaProjetos({
   projetos, etapasPorTipo, onAbrir, mostrarColTipo = true, onStatusChange,
+  totalBruto,
 }: {
   projetos: Projeto[];
   etapasPorTipo: Record<string, EtapaProjeto[]>;
   onAbrir: (id: string) => void;
   mostrarColTipo?: boolean;
   onStatusChange?: (id: string, status: string) => void;
+  totalBruto?: number;
 }) {
   const [colDefs, setColDefs] = useState<ColProjDef[]>(carregarColunasProj);
   const dragIdx = useRef<number | null>(null);
@@ -931,7 +936,16 @@ function ListaProjetos({
             </tr>
           </thead>
           <tbody>
-            {projetos.map((p) => (
+            {projetos.length === 0 ? (
+              <tr>
+                <td colSpan={colsVisiveis.length || 1}
+                  className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  {totalBruto === 0
+                    ? 'Nenhum projeto ainda. Use o botão "Novo projeto" pra cadastrar.'
+                    : 'Nenhum projeto neste filtro.'}
+                </td>
+              </tr>
+            ) : projetos.map((p) => (
               <tr
                 key={p.id}
                 onClick={() => onAbrir(p.id)}

@@ -20,6 +20,14 @@ const UsuariosPage = lazy(() =>
   import('@/usuarios/UsuariosPage').then((m) => ({ default: m.UsuariosPage })));
 const ParametrosPage = lazy(() =>
   import('@/opcoes/ParametrosPage').then((m) => ({ default: m.ParametrosPage })));
+const ProjetosListPage = lazy(() =>
+  import('@/projetos/ProjetosListPage').then((m) => ({ default: m.ProjetosListPage })));
+const ProjetoFormPage = lazy(() =>
+  import('@/projetos/ProjetoFormPage').then((m) => ({ default: m.ProjetoFormPage })));
+const ProjetoDetailPage = lazy(() =>
+  import('@/projetos/ProjetoDetailPage').then((m) => ({ default: m.ProjetoDetailPage })));
+const EtapasProjetoPage = lazy(() =>
+  import('@/projetos/EtapasProjetoPage').then((m) => ({ default: m.EtapasProjetoPage })));
 
 function CarregandoTela() {
   return (
@@ -64,8 +72,25 @@ function AuthedApp() {
               <ClienteDetailPage id={(props.match.params as { id: string }).id} />
             )}
           />
+          <Route exact path="/projetos" component={ProjetosListPage} />
+          <Route exact path="/projetos/novo" component={ProjetoFormPage} />
+          <Route
+            exact
+            path="/projetos/:id/editar"
+            render={(props) => (
+              <ProjetoFormPage id={(props.match.params as { id: string }).id} />
+            )}
+          />
+          <Route
+            exact
+            path="/projetos/:id"
+            render={(props) => (
+              <ProjetoDetailPage id={(props.match.params as { id: string }).id} />
+            )}
+          />
           <Route exact path="/usuarios" component={UsuariosPage} />
           <Route exact path="/config/parametros" component={ParametrosPage} />
+          <Route exact path="/config/etapas-projeto" component={EtapasProjetoPage} />
           <Route exact path="/config" component={ConfigPage} />
           <Route exact path="/login">
             <Redirect to="/clientes" />

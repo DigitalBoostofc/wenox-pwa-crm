@@ -50,6 +50,9 @@ export function ConfigPage() {
                 <SlidersHorizontal /> Parâmetros (listas)
               </Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link to="/config/etapas-projeto">Etapas de projeto</Link>
+            </Button>
           </CardContent>
         </Card>
       )}

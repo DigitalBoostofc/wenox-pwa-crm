@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 type ColKey = 'telefone' | 'email' | 'origem' | 'servicos' | 'status' | 'desde';
+/** Chave usada também pelo mapa de larguras (inclui 'cliente', que é a 1ª coluna). */
+type LarguraKey = ColKey | 'cliente';
 interface ColDef { key: ColKey; label: string; visivel: boolean }
 const COLS_PADRAO: ColDef[] = [
   { key: 'telefone', label: 'Telefone', visivel: true },
@@ -32,6 +34,20 @@ const COLS_PADRAO: ColDef[] = [
   { key: 'desde', label: 'Cliente desde', visivel: true },
 ];
 const COL_KEY = 'wenox-colunas-clientes-v2';
+const LARGURA_KEY = 'wenox-larguras-clientes-v1';
+
+type Larguras = Partial<Record<LarguraKey, number>>;
+function carregarLarguras(): Larguras {
+  try {
+    const s = localStorage.getItem(LARGURA_KEY);
+    return s ? (JSON.parse(s) as Larguras) : {};
+  } catch {
+    return {};
+  }
+}
+function salvarLarguras(l: Larguras) {
+  try { localStorage.setItem(LARGURA_KEY, JSON.stringify(l)); } catch { /* */ }
+}
 
 function carregarColunas(): ColDef[] {
   try {
@@ -75,6 +91,22 @@ function Avatar({ nome, src }: { nome: string; src?: string }) {
   );
 }
 
+/** Alça de redimensionamento na borda direita do <th>. */
+function ResizeHandle({
+  onMouseDown,
+}: { onMouseDown: (e: React.MouseEvent<HTMLSpanElement>) => void }) {
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Arraste para redimensionar coluna"
+      onMouseDown={onMouseDown}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute -right-0.5 top-0 z-10 h-full w-1.5 cursor-col-resize select-none hover:bg-primary/50"
+    />
+  );
+}
+
 function TagsServicos({ servicos }: { servicos?: string[] }) {
   if (!servicos || servicos.length === 0) return null;
   const visiveis = servicos.slice(0, 2);
@@ -99,6 +131,7 @@ export function ClientesListPage() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [colDefs, setColDefs] = useState<ColDef[]>(carregarColunas);
+  const [larguras, setLarguras] = useState<Larguras>(carregarLarguras);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>('az');
   const [fOrigem, setFOrigem] = useState('Todas');
   const [fServico, setFServico] = useState('Todos');
@@ -126,6 +159,30 @@ export function ClientesListPage() {
     }, q ? 300 : 0);
     return () => clearTimeout(timer);
   }, [busca]);
+
+  /** Inicia o arraste de redimensionamento de uma coluna. */
+  function iniciarResize(key: LarguraKey, thEl: HTMLElement, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const base = thEl.getBoundingClientRect().width;
+    const startX = e.clientX;
+    const MIN = 80;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    function onMove(ev: MouseEvent) {
+      const nova = Math.max(MIN, Math.round(base + (ev.clientX - startX)));
+      setLarguras((prev) => ({ ...prev, [key]: nova }));
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setLarguras((prev) => { salvarLarguras(prev); return prev; });
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
 
   function toggleCol(k: ColKey) {
     setColDefs((cs) => {
@@ -340,14 +397,27 @@ export function ClientesListPage() {
       ) : isDesktop ? (
         /* ---------- DESKTOP: tabela ---------- */
         <Card className="overflow-hidden">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-5 py-3 font-medium">Cliente</th>
+                <th
+                  className="relative px-5 py-3 font-medium"
+                  style={larguras.cliente ? { width: larguras.cliente } : undefined}
+                >
+                  Cliente
+                  <ResizeHandle onMouseDown={(e) => iniciarResize('cliente', e.currentTarget.parentElement!, e)} />
+                </th>
                 {colsVisiveis.map((col) => (
-                  <th key={col.key} className="px-4 py-3 font-medium">{col.label}</th>
+                  <th
+                    key={col.key}
+                    className="relative px-4 py-3 font-medium"
+                    style={larguras[col.key] ? { width: larguras[col.key] } : undefined}
+                  >
+                    {col.label}
+                    <ResizeHandle onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)} />
+                  </th>
                 ))}
-                <th className="px-4 py-3" />
+                <th className="w-10 px-4 py-3" />
               </tr>
             </thead>
             <tbody>
@@ -359,7 +429,7 @@ export function ClientesListPage() {
                   onClick={() => history.push(`/clientes/${c.id}`)}
                   className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50"
                 >
-                  <td className="px-5 py-3">
+                  <td className="overflow-hidden px-5 py-3">
                     <div className="flex items-center gap-3">
                       <Avatar nome={nome} src={logoUrl(c, '100x100')} />
                       <div className="min-w-0">
@@ -369,11 +439,11 @@ export function ClientesListPage() {
                     </div>
                   </td>
                   {colsVisiveis.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-muted-foreground">
+                    <td key={col.key} className="overflow-hidden truncate px-4 py-3 text-muted-foreground">
                       {celula(c, col.key)}
                     </td>
                   ))}
-                  <td className="px-4 py-3 text-right text-muted-foreground">
+                  <td className="w-10 px-4 py-3 text-right text-muted-foreground">
                     <ChevronRight className="ml-auto size-4" />
                   </td>
                 </tr>

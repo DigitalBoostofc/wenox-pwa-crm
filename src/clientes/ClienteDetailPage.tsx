@@ -11,6 +11,7 @@ import { nomeExibicao, telefonePrincipal } from '@/clientes/types';
 import { ContatosTab } from '@/contatos/ContatosTab';
 import { AcessosTab } from '@/acessos/AcessosTab';
 import { DocumentosTab } from '@/documentos/DocumentosTab';
+import { ProjetosTabCliente } from '@/projetos/ProjetosTabCliente';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { cn } from '@/lib/utils';
 import { statusVariant, haDias, dataBR, corAvatar, inicial } from '@/clientes/format';
@@ -37,7 +38,7 @@ type Aba =
 const ABAS: { id: Aba; label: string; icon: typeof Users; emBreve?: boolean }[] = [
   { id: 'visao', label: 'Visão Geral', icon: LayoutDashboard },
   { id: 'acessos', label: 'Acessos', icon: KeyRound },
-  { id: 'projetos', label: 'Projetos', icon: FolderKanban, emBreve: true },
+  { id: 'projetos', label: 'Projetos', icon: FolderKanban },
   { id: 'tarefas', label: 'Tarefas', icon: CheckSquare, emBreve: true },
   { id: 'financeiro', label: 'Financeiro', icon: Wallet, emBreve: true },
   { id: 'documentos', label: 'Documentos', icon: FileText },
@@ -323,19 +324,16 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
       {aba === 'acessos' && <AcessosTab clienteId={c.id} />}
       {aba === 'documentos' && <DocumentosTab clienteId={c.id} />}
       {aba === 'equipe' && <ContatosTab clienteId={c.id} />}
-      {(aba === 'projetos' || aba === 'tarefas' || aba === 'financeiro') && (
+      {aba === 'projetos' && <ProjetosTabCliente clienteId={c.id} />}
+      {(aba === 'tarefas' || aba === 'financeiro') && (
         <EmBreveAba aba={aba} />
       )}
     </div>
   );
 }
 
-function EmBreveAba({ aba }: { aba: 'projetos' | 'tarefas' | 'financeiro' }) {
+function EmBreveAba({ aba }: { aba: 'tarefas' | 'financeiro' }) {
   const textos = {
-    projetos: {
-      titulo: 'Projetos deste cliente',
-      desc: 'Em breve você verá aqui todos os projetos (Social Media, Web Design, Tráfego Pago, etc.) deste cliente, com status e responsáveis.',
-    },
     tarefas: {
       titulo: 'Tarefas deste cliente',
       desc: 'Lista de tarefas em andamento, com prazo, responsável e etapa. Disponível quando o módulo de Tarefas for entregue.',

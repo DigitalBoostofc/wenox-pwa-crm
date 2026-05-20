@@ -27,7 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Minha Área', path: '/minha-area', icon: UserCircle, enabled: false },
   { label: 'Equipe', path: '/equipe', icon: Users, enabled: false },
   { label: 'Clientes', path: '/clientes', icon: Building2, enabled: true },
-  { label: 'Projetos', path: '/projetos', icon: FolderKanban, enabled: false },
+  { label: 'Projetos', path: '/projetos', icon: FolderKanban, enabled: true },
   { label: 'Tarefas', path: '/tarefas', icon: ListChecks, enabled: false },
   { label: 'Financeiro', path: '/financeiro', icon: Wallet, enabled: false },
   { label: 'Contratos & Propostas', path: '/contratos', icon: FileSignature, enabled: false },

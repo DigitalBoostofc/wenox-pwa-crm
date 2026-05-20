@@ -446,6 +446,7 @@ export function ProjetosListPage() {
           projetos={projetos}
           etapasPorTipo={etapasPorTipo}
           onAbrir={abrirProjeto}
+          mostrarColTipo={tipoFiltro === 'Todos'}
         />
       )}
 
@@ -630,11 +631,12 @@ function ColunaKanban({
 /* --------------------------------------------------------------------- */
 
 function ListaProjetos({
-  projetos, etapasPorTipo, onAbrir,
+  projetos, etapasPorTipo, onAbrir, mostrarColTipo = true,
 }: {
   projetos: Projeto[];
   etapasPorTipo: Record<string, EtapaProjeto[]>;
   onAbrir: (id: string) => void;
+  mostrarColTipo?: boolean;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -643,7 +645,7 @@ function ListaProjetos({
           <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
             <th className="px-5 py-3 font-medium">Projeto</th>
             <th className="px-4 py-3 font-medium">Cliente</th>
-            <th className="px-4 py-3 font-medium">Tipo</th>
+            {mostrarColTipo && <th className="px-4 py-3 font-medium">Tipo</th>}
             <th className="px-4 py-3 font-medium">Etapa</th>
             <th className="px-4 py-3 font-medium">Entrega</th>
             <th className="px-4 py-3 font-medium">Responsáveis</th>
@@ -662,7 +664,9 @@ function ListaProjetos({
               >
                 <td className="px-5 py-3 font-medium">{p.nome}</td>
                 <td className="px-4 py-3 text-muted-foreground">{nomeCliente(p)}</td>
-                <td className="px-4 py-3 text-muted-foreground">{p.tipo || '—'}</td>
+                {mostrarColTipo && (
+                  <td className="px-4 py-3 text-muted-foreground">{p.tipo || '—'}</td>
+                )}
                 <td className="px-4 py-3">
                   {p.etapa ? (
                     <Badge variant="default" className="text-[10px]">

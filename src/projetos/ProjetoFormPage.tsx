@@ -6,6 +6,7 @@ import {
 } from './projetosService';
 import { listEtapas } from './etapasService';
 import type { ProjetoInput, EtapaProjeto } from './types';
+import { STATUS_PROJETO } from './format';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import { listClientes } from '@/clientes/clientesService';
 import { listUsuarios } from '@/usuarios/usuariosService';
@@ -17,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const vazio: ProjetoInput = {
-  nome: '', cliente: '', tipo: '', etapa: '',
+  nome: '', cliente: '', tipo: '', status: 'Desenvolvimento', etapa: '',
   etiquetas: [], responsaveis: [], briefing: '', observacoes: '',
 };
 
@@ -66,6 +67,7 @@ export function ProjetoFormPage({ id: idProp }: { id?: string } = {}) {
           nome: p.nome,
           cliente: p.cliente,
           tipo: p.tipo ?? '',
+          status: p.status ?? '',
           etapa: p.etapa ?? '',
           etiquetas: p.etiquetas ?? [],
           responsaveis: p.responsaveis ?? [],
@@ -173,6 +175,15 @@ export function ProjetoFormPage({ id: idProp }: { id?: string } = {}) {
                   <option value="">—</option>
                   {tipos.map((t) => (
                     <option key={t.id} value={t.valor}>{t.valor}</option>
+                  ))}
+                </select>
+              </Campo>
+              <Campo id="status" label="Status">
+                <select id="status" value={form.status ?? ''} className={selectClass}
+                  onChange={(e) => set('status', e.target.value)}>
+                  <option value="">—</option>
+                  {STATUS_PROJETO.map((s) => (
+                    <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
               </Campo>

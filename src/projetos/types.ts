@@ -15,6 +15,7 @@ export interface Projeto {
   nome: string;
   cliente: string; // id do cliente
   tipo?: string;
+  status?: string;
   etapa?: string;
   etiquetas?: string[];
   responsaveis?: string[];

@@ -49,7 +49,10 @@ try {
 
   // Preenche e salva
   await page.fill('#nf', NOME);
-  await page.fill('#tel', '11955554444');
+  // Telefones agora é lista: adiciona uma linha e preenche tipo+valor
+  await page.locator('button:has-text("Adicionar")').first().click();
+  await page.getByPlaceholder('Tipo (ex: Comercial)').fill('Comercial');
+  await page.getByPlaceholder('(85) 9 9999-9999').fill('11955554444');
   await page.click('button:has-text("Salvar")');
 
   // Resultado: ou volta pra lista, ou mostra erro

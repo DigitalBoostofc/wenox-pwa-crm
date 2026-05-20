@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { getCliente, updateCliente, logoUrl } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
+import { nomeExibicao, telefonePrincipal } from '@/clientes/types';
 import { ContatosTab } from '@/contatos/ContatosTab';
 import { AcessosTab } from '@/acessos/AcessosTab';
 import { DocumentosTab } from '@/documentos/DocumentosTab';
@@ -16,11 +17,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
+function Linha({
+  rotulo, valor, children,
+}: { rotulo: string; valor?: string; children?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-      <span className="text-sm text-muted-foreground">{rotulo}</span>
-      <span className="text-sm font-medium">{valor}</span>
+    <div className="flex items-start justify-between gap-4 px-5 py-3.5">
+      <span className="shrink-0 pt-0.5 text-sm text-muted-foreground">{rotulo}</span>
+      <div className="text-right text-sm font-medium">
+        {children ?? valor}
+      </div>
     </div>
   );
 }
@@ -64,8 +69,12 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
     );
   }
 
-  const wpp = `https://wa.me/${c.telefone.replace(/\D/g, '')}`;
+  const nome = nomeExibicao(c);
+  const telPrincipal = telefonePrincipal(c);
+  const wpp = `https://wa.me/${telPrincipal.replace(/\D/g, '')}`;
   const clienteDesde = dataBR(c.data_inicio) || dataBR(c.created);
+  const telefones = (c.telefones ?? []).filter((t) => t.valor?.trim());
+  const emails = (c.emails ?? []).filter((e) => e.valor?.trim());
 
   return (
     <div className="flex flex-col gap-5">
@@ -83,15 +92,15 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
           <div
             className={cn(
               'grid size-14 place-items-center overflow-hidden rounded-2xl text-lg font-bold text-white',
-              !c.logo && corAvatar(c.nome_fantasia),
+              !c.logo && corAvatar(nome),
             )}
           >
             {c.logo ? (
-              <img src={logoUrl(c, '200x200')} alt={c.nome_fantasia}
+              <img src={logoUrl(c, '200x200')} alt={nome}
                 loading="lazy" decoding="async"
                 className="size-full object-cover" />
             ) : (
-              inicial(c.nome_fantasia)
+              inicial(nome)
             )}
           </div>
           <label
@@ -109,7 +118,10 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
           </label>
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-semibold">{c.nome_fantasia}</h2>
+          <h2 className="text-xl font-semibold">{nome}</h2>
+          {c.nome && c.nome_fantasia && c.nome_fantasia !== c.nome && (
+            <p className="text-sm text-muted-foreground">{c.nome_fantasia}</p>
+          )}
           <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             {c.status && (
               <Badge variant={statusVariant(c.status)}>{c.status}</Badge>
@@ -117,16 +129,20 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
             {clienteDesde && <span>Cliente desde {clienteDesde}</span>}
           </div>
         </div>
-        <Button asChild size="sm" variant="outline">
-          <a href={wpp} target="_blank" rel="noopener" aria-label="WhatsApp">
-            <MessageCircle /> WhatsApp
-          </a>
-        </Button>
-        <Button asChild size="sm" variant="outline">
-          <a href={`tel:${c.telefone}`} aria-label="Ligar">
-            <Phone /> Ligar
-          </a>
-        </Button>
+        {telPrincipal && (
+          <Button asChild size="sm" variant="outline">
+            <a href={wpp} target="_blank" rel="noopener" aria-label="WhatsApp">
+              <MessageCircle /> WhatsApp
+            </a>
+          </Button>
+        )}
+        {telPrincipal && (
+          <Button asChild size="sm" variant="outline">
+            <a href={`tel:${telPrincipal}`} aria-label="Ligar">
+              <Phone /> Ligar
+            </a>
+          </Button>
+        )}
         <Button
           size="sm"
           onClick={() => history.push(`/clientes/${c.id}/editar`)}
@@ -166,12 +182,49 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
               </CardHeader>
               <CardContent className="divide-y divide-border p-0">
                 <Linha rotulo="Categoria" valor={c.categoria} />
+                {c.nome && c.nome_fantasia && c.nome_fantasia !== c.nome && (
+                  <Linha rotulo="Nome fantasia" valor={c.nome_fantasia} />
+                )}
                 {c.razao_social && (
                   <Linha rotulo="Razão social" valor={c.razao_social} />
                 )}
                 {c.cnpj && <Linha rotulo="CPF / CNPJ" valor={c.cnpj} />}
-                <Linha rotulo="Telefone" valor={c.telefone} />
-                {c.email && <Linha rotulo="E-mail" valor={c.email} />}
+                {telefones.length > 0 ? (
+                  <Linha rotulo={telefones.length > 1 ? 'Telefones' : 'Telefone'}>
+                    <div className="flex flex-col gap-1">
+                      {telefones.map((t, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          {t.tipo && (
+                            <Badge variant="muted" className="text-[10px]">{t.tipo}</Badge>
+                          )}
+                          <a className="text-primary hover:underline" href={`tel:${t.valor}`}>
+                            {t.valor}
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </Linha>
+                ) : c.telefone ? (
+                  <Linha rotulo="Telefone" valor={c.telefone} />
+                ) : null}
+                {emails.length > 0 ? (
+                  <Linha rotulo={emails.length > 1 ? 'E-mails' : 'E-mail'}>
+                    <div className="flex flex-col gap-1">
+                      {emails.map((e, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          {e.tipo && (
+                            <Badge variant="muted" className="text-[10px]">{e.tipo}</Badge>
+                          )}
+                          <a className="text-primary hover:underline" href={`mailto:${e.valor}`}>
+                            {e.valor}
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </Linha>
+                ) : c.email ? (
+                  <Linha rotulo="E-mail" valor={c.email} />
+                ) : null}
                 {c.site && <Linha rotulo="Website" valor={c.site} />}
                 {c.endereco && <Linha rotulo="Endereço" valor={c.endereco} />}
                 {c.origem && <Linha rotulo="Origem" valor={c.origem} />}

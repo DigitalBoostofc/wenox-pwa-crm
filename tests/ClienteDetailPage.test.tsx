@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 const { getCliente } = vi.hoisted(() => ({ getCliente: vi.fn() }));
-vi.mock('@/clientes/clientesService', () => ({ getCliente }));
+vi.mock('@/clientes/clientesService', () => ({
+  getCliente,
+  updateCliente: vi.fn(),
+  logoUrl: () => '',
+}));
 vi.mock('@/atividade/atividadeService', () => ({
   listAtividade: vi.fn(async () => []),
   addComentario: vi.fn(),

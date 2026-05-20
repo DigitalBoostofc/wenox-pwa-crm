@@ -15,10 +15,19 @@ vi.mock('@/lib/pocketbase', () => ({
       update,
       delete: del,
     }),
+    authStore: { record: { id: 'u1' } },
+    files: { getURL: () => '' },
   },
 }));
+vi.mock('@/atividade/atividadeService', () => ({
+  registrarHistorico: vi.fn(),
+  diffCampos: () => [],
+}));
 
-import { listClientes, getCliente, createCliente, updateCliente, deleteCliente } from '@/clientes/clientesService';
+import {
+  listClientes, getCliente, createCliente, updateCliente, deleteCliente,
+  REMOVER_LOGO,
+} from '@/clientes/clientesService';
 
 describe('clientesService', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -34,13 +43,21 @@ describe('clientesService', () => {
     expect(r).toEqual([{ id: '1', nome_fantasia: 'ACME' }]);
   });
 
-  it('listClientes sem busca não envia filtro de texto', async () => {
+  it('listClientes busca também por nome (pessoa)', async () => {
+    getList.mockResolvedValue({ items: [] });
+    await listClientes('joao');
+    expect(getList).toHaveBeenCalledWith(1, 200, expect.objectContaining({
+      filter: expect.stringContaining('nome ~'),
+    }));
+  });
+
+  it('listClientes inclui nome/telefones/emails nos fields', async () => {
     getList.mockResolvedValue({ items: [] });
     await listClientes('');
-    expect(getList).toHaveBeenCalledWith(1, 200, expect.objectContaining({
-      sort: '-created',
-      fields: expect.stringContaining('logo'),
-    }));
+    const opts = (getList.mock.calls[0] as unknown[])[2] as { fields: string };
+    expect(opts.fields).toContain('nome');
+    expect(opts.fields).toContain('telefones');
+    expect(opts.fields).toContain('emails');
   });
 
   it('getCliente delega para getOne', async () => {
@@ -56,10 +73,24 @@ describe('clientesService', () => {
     expect(r).toEqual({ id: 'new' });
   });
 
-  it('updateCliente delega para update', async () => {
+  it('updateCliente delega para update sem arquivo', async () => {
     update.mockResolvedValue({ id: '1' });
+    getOne.mockResolvedValue({ id: '1' });
     await updateCliente('1', { nome_fantasia: 'Y' } as any);
-    expect(update).toHaveBeenCalledWith('1', { nome_fantasia: 'Y' });
+    expect(update).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ nome_fantasia: 'Y', updated_by: 'u1' }),
+    );
+  });
+
+  it('updateCliente com REMOVER_LOGO envia FormData com logo vazio', async () => {
+    update.mockResolvedValue({ id: '1' });
+    getOne.mockResolvedValue({ id: '1' });
+    await updateCliente('1', { nome_fantasia: 'Y' } as any, REMOVER_LOGO);
+    const [, corpo] = update.mock.calls[0] as [string, FormData];
+    expect(corpo).toBeInstanceOf(FormData);
+    expect(corpo.get('logo')).toBe('');
+    expect(corpo.get('nome_fantasia')).toBe('Y');
   });
 
   it('deleteCliente delega para delete', async () => {

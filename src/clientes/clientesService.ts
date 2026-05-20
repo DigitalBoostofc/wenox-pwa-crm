@@ -7,8 +7,9 @@ const col = () => pb.collection('clientes');
 /** Só as colunas que a lista usa — evita trafegar observação/HTML pesado.
  *  collectionId/collectionName/logo são necessários p/ montar a URL da foto. */
 const CAMPOS_LISTA = [
-  'id', 'collectionId', 'collectionName', 'nome_fantasia', 'categoria',
-  'telefone', 'email', 'origem', 'servicos', 'status', 'created', 'logo',
+  'id', 'collectionId', 'collectionName', 'nome', 'nome_fantasia', 'categoria',
+  'telefone', 'telefones', 'email', 'emails', 'origem', 'servicos', 'status',
+  'created', 'logo',
 ].join(',');
 
 export async function listClientes(busca: string): Promise<Cliente[]> {
@@ -16,7 +17,8 @@ export async function listClientes(busca: string): Promise<Cliente[]> {
   const q = busca.trim();
   if (q) {
     const safe = q.replace(/"/g, '');
-    opts.filter = `nome_fantasia ~ "${safe}" || razao_social ~ "${safe}"`;
+    opts.filter =
+      `nome ~ "${safe}" || nome_fantasia ~ "${safe}" || razao_social ~ "${safe}"`;
   }
   const res = await col().getList(1, 200, opts);
   return res.items as unknown as Cliente[];
@@ -75,10 +77,24 @@ export async function createCliente(
   return rec;
 }
 
+/** Sentinela para remover a foto atual em updateCliente. */
+export const REMOVER_LOGO = Symbol('REMOVER_LOGO');
+export type LogoArg = File | null | undefined | typeof REMOVER_LOGO;
+
+function comRemocaoDeLogo(dados: Record<string, unknown>): FormData {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(semLogo(dados))) {
+    if (v === undefined || v === null) continue;
+    fd.append(k, Array.isArray(v) ? JSON.stringify(v) : String(v));
+  }
+  fd.append('logo', '');
+  return fd;
+}
+
 export async function updateCliente(
   id: string,
   input: Partial<ClienteInput>,
-  logo?: File | null,
+  logo?: LogoArg,
 ): Promise<Cliente> {
   const uid = pb.authStore?.record?.id;
   let antes: Record<string, unknown> | undefined;
@@ -88,12 +104,14 @@ export async function updateCliente(
     /* sem 'antes' não há diff */
   }
   const dados = { ...input, ...(uid ? { updated_by: uid } : {}) };
-  const rec = (await col().update(
-    id,
-    logo ? comArquivo(dados, logo) : semLogo(dados),
-  )) as unknown as Cliente;
+  const corpo =
+    logo instanceof File ? comArquivo(dados, logo)
+    : logo === REMOVER_LOGO ? comRemocaoDeLogo(dados)
+    : semLogo(dados);
+  const rec = (await col().update(id, corpo)) as unknown as Cliente;
   const mudancas = diffCampos(antes, input as Record<string, unknown>);
-  if (logo) mudancas.push('foto atualizada');
+  if (logo instanceof File) mudancas.push('foto atualizada');
+  if (logo === REMOVER_LOGO) mudancas.push('foto removida');
   if (mudancas.length) {
     await registrarHistorico(
       'cliente',

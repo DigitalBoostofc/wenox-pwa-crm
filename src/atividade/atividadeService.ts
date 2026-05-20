@@ -112,7 +112,9 @@ const ROTULOS: Record<string, string> = {
   origem: 'origem',
   servicos: 'serviços',
   telefone: 'telefone',
+  telefones: 'telefones',
   email: 'e-mail',
+  emails: 'e-mails',
   site: 'website',
   endereco: 'endereço',
   status: 'status',
@@ -131,6 +133,27 @@ const ROTULOS: Record<string, string> = {
   tem_2fa: '2FA',
 };
 
+/** Formata um array de {tipo,valor} como "Comercial: 85 9..., Financeiro: ...". */
+function formatarContatos(v: unknown): string {
+  if (!Array.isArray(v) || v.length === 0) return '—';
+  return v
+    .map((c) => {
+      const obj = c as { tipo?: string; valor?: string };
+      const t = (obj?.tipo ?? '').trim();
+      const val = (obj?.valor ?? '').trim();
+      if (!val) return '';
+      return t ? `${t}: ${val}` : val;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
+function formatarValor(k: string, v: unknown): string {
+  if (k === 'telefones' || k === 'emails') return formatarContatos(v);
+  if (Array.isArray(v)) return v.length ? v.join(', ') : '—';
+  return String(v ?? '—');
+}
+
 /** Diferenças legíveis entre dois estados de um registro. */
 export function diffCampos(
   antes: Record<string, unknown> | undefined,
@@ -143,9 +166,7 @@ export function diffCampos(
     const d = JSON.stringify(depois[k] ?? '');
     if (k in depois && a !== d) {
       const rot = ROTULOS[k];
-      const av = String(antes[k] ?? '—');
-      const dv = String(depois[k] ?? '—');
-      mudancas.push(`${rot}: ${av} → ${dv}`);
+      mudancas.push(`${rot}: ${formatarValor(k, antes[k])} → ${formatarValor(k, depois[k])}`);
     }
   }
   return mudancas;

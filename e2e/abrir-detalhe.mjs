@@ -21,7 +21,10 @@ try {
   await p.waitForURL(/\/clientes/, { timeout: 15000 });
   // cria um cliente
   await p.click('button:has-text("Novo cliente")'); await p.waitForSelector('#nf');
-  await p.fill('#nf', NOME); await p.fill('#tel', '11955551234');
+  await p.fill('#nf', NOME);
+  await p.locator('button:has-text("Adicionar")').first().click();
+  await p.getByPlaceholder('Tipo (ex: Comercial)').fill('Comercial');
+  await p.getByPlaceholder('(85) 9 9999-9999').fill('11955551234');
   await p.click('button:has-text("Salvar")');
   await p.waitForSelector(`text=${NOME}`, { timeout: 12000 });
   console.log('CRIADO_OK');

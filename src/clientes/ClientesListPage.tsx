@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { listClientes, logoUrl } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
+import { nomeExibicao, telefonePrincipal, emailPrincipal } from '@/clientes/types';
 import { useAuth } from '@/auth/useAuth';
 import { canCriarCliente } from '@/auth/perms';
 import { cn } from '@/lib/utils';
@@ -185,8 +186,8 @@ export function ClientesListPage() {
     'h-10 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
   function celula(c: Cliente, key: ColKey) {
-    if (key === 'telefone') return c.telefone;
-    if (key === 'email') return c.email || '—';
+    if (key === 'telefone') return telefonePrincipal(c) || '—';
+    if (key === 'email') return emailPrincipal(c) || '—';
     if (key === 'origem') return c.origem || '—';
     if (key === 'servicos') return <TagsServicos servicos={c.servicos} />;
     if (key === 'status')
@@ -348,7 +349,9 @@ export function ClientesListPage() {
               </tr>
             </thead>
             <tbody>
-              {visiveis.map((c) => (
+              {visiveis.map((c) => {
+                const nome = nomeExibicao(c);
+                return (
                 <tr
                   key={c.id}
                   onClick={() => history.push(`/clientes/${c.id}`)}
@@ -356,9 +359,9 @@ export function ClientesListPage() {
                 >
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
-                      <Avatar nome={c.nome_fantasia} src={logoUrl(c, '100x100')} />
+                      <Avatar nome={nome} src={logoUrl(c, '100x100')} />
                       <div className="min-w-0">
-                        <p className="truncate font-medium">{c.nome_fantasia}</p>
+                        <p className="truncate font-medium">{nome}</p>
                         <p className="text-xs text-muted-foreground">{c.categoria}</p>
                       </div>
                     </div>
@@ -372,29 +375,34 @@ export function ClientesListPage() {
                     <ChevronRight className="ml-auto size-4" />
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </Card>
       ) : (
         /* ---------- MOBILE: cards ---------- */
         <div className="flex flex-col gap-3">
-          {visiveis.map((c) => (
+          {visiveis.map((c) => {
+            const nome = nomeExibicao(c);
+            const tel = telefonePrincipal(c);
+            const em = emailPrincipal(c);
+            return (
             <button
               key={c.id}
               onClick={() => history.push(`/clientes/${c.id}`)}
               className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40"
             >
-              <Avatar nome={c.nome_fantasia} src={logoUrl(c, '100x100')} />
+              <Avatar nome={nome} src={logoUrl(c, '100x100')} />
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <p className="truncate font-semibold">{c.nome_fantasia}</p>
+                  <p className="truncate font-semibold">{nome}</p>
                   <Building2 className="size-3.5 shrink-0 text-muted-foreground" />
                 </div>
                 <p className="text-xs text-muted-foreground">{c.categoria}</p>
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Phone className="size-3" />{c.telefone}</span>
-                  {c.email && <span className="flex items-center gap-1"><Mail className="size-3" />{c.email}</span>}
+                  {tel && <span className="flex items-center gap-1"><Phone className="size-3" />{tel}</span>}
+                  {em && <span className="flex items-center gap-1"><Mail className="size-3" />{em}</span>}
                 </p>
                 <TagsServicos servicos={c.servicos} />
               </div>
@@ -404,7 +412,8 @@ export function ClientesListPage() {
                 <ChevronRight className="size-4 text-muted-foreground" />
               </div>
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

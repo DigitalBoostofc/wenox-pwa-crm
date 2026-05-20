@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Plus, Search, FolderKanban, LayoutGrid, List, Columns3, MoreHorizontal,
-  LayoutList,
+  LayoutList, SlidersHorizontal, GripVertical,
 } from 'lucide-react';
 import { listProjetos, atualizarProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
@@ -11,16 +11,17 @@ import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial, dataBR } from '@/clientes/format';
-import { STATUS_PROJETO, statusProjetoVariant, pillStatusProjetoClass } from './format';
+import { STATUS_PROJETO, statusProjetoVariant } from './format';
+import { useAuth } from '@/auth/useAuth';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuLabel, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuLabel, DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
 
 type ViewMode = 'cards' | 'kanban' | 'lista';
 const VIEW_KEY = 'wenox-projetos-view-v1';
@@ -282,11 +283,15 @@ function ViewToggleBtn({
 
 export function ProjetosListPage() {
   const history = useHistory();
+  const { user } = useAuth();
+  const uid = user?.id;
   const [busca, setBusca] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
-  // Default sempre "Desenvolvimento" (não persiste) — pedido do Leonardo:
-  // é o que ele quer ver primeiro ao abrir Projetos.
-  const [statusFiltro, setStatusFiltro] = useState<string>('Desenvolvimento');
+  /** Filtros principais — default "execucao" (pedido do Leonardo).
+   *  Não persistem entre sessões: sempre reseta ao entrar na página. */
+  const [pillProjetos, setPillProjetos] = useState<
+    'execucao' | 'meus' | 'todos' | 'concluidos'
+  >('execucao');
   const [view, setView] = useState<ViewMode>(carregarView);
   const [tipos, setTipos] = useState<Opcao[]>([]);
   const [todasEtapas, setTodasEtapas] = useState<EtapaProjeto[]>([]);
@@ -309,7 +314,6 @@ export function ProjetosListPage() {
       const opts = {
         busca: q || undefined,
         tipo: tipoFiltro === 'Todos' ? undefined : tipoFiltro,
-        status: statusFiltro === 'Todos' ? undefined : statusFiltro,
       };
       listProjetos(opts)
         .then((res) => {
@@ -326,7 +330,7 @@ export function ProjetosListPage() {
         });
     }, q ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [busca, tipoFiltro, statusFiltro, recarregaTrigger]);
+  }, [busca, tipoFiltro, recarregaTrigger]);
 
   const etapasPorTipo = useMemo(() => {
     const m: Record<string, EtapaProjeto[]> = {};
@@ -334,6 +338,24 @@ export function ProjetosListPage() {
     for (const k of Object.keys(m)) m[k].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
     return m;
   }, [todasEtapas]);
+
+  /** Aplica o filtro de pills client-side. */
+  const projetosFiltrados = useMemo(() => {
+    return projetos.filter((p) => {
+      switch (pillProjetos) {
+        case 'execucao':
+          return p.status === 'Desenvolvimento' || p.status === 'Manutenção';
+        case 'meus':
+          return uid ? (p.responsaveis ?? []).includes(uid) : false;
+        case 'concluidos':
+          return (p.etapa ?? '').trim().toLowerCase() === 'concluído'
+            || (p.etapa ?? '').trim().toLowerCase() === 'concluido';
+        case 'todos':
+        default:
+          return true;
+      }
+    });
+  }, [projetos, pillProjetos, uid]);
 
   const filtros = useMemo(() => ['Todos', ...tipos.map((t) => t.valor)], [tipos]);
   const trocarView = (v: ViewMode) => { setView(v); salvarView(v); };
@@ -349,6 +371,19 @@ export function ProjetosListPage() {
       await atualizarProjeto(projetoId, { etapa: novaEtapa });
     } catch {
       setErro('Não foi possível mover o projeto. Tente novamente.');
+      recarregar();
+    }
+  }
+
+  /** Atualiza o status de um projeto inline (também otimista). */
+  async function atualizarStatus(projetoId: string, novoStatus: string) {
+    const alvo = projetos.find((p) => p.id === projetoId);
+    if (!alvo || alvo.status === novoStatus) return;
+    setProjetos((lst) => lst.map((p) => (p.id === projetoId ? { ...p, status: novoStatus } : p)));
+    try {
+      await atualizarProjeto(projetoId, { status: novoStatus });
+    } catch {
+      setErro('Não foi possível atualizar o status. Tente novamente.');
       recarregar();
     }
   }
@@ -406,25 +441,27 @@ export function ProjetosListPage() {
         ))}
       </div>
 
-      {/* Filtro de status — sempre visível (desktop+mobile). Ordem definida
-          pelo Leonardo: Desenvolvimento → Manutenção → Ativo → Inativo. */}
+      {/* Filtros principais (substituem o filtro por status) */}
       <div className="flex flex-wrap items-center gap-2">
-        {['Todos', ...STATUS_PROJETO].map((s) => {
-          const ativo = statusFiltro === s;
+        {([
+          ['execucao', 'Em execução'],
+          ['meus', 'Meus projetos'],
+          ['todos', 'Todos'],
+          ['concluidos', 'Concluídos'],
+        ] as const).map(([v, label]) => {
+          const ativo = pillProjetos === v;
           return (
             <button
-              key={s}
-              onClick={() => setStatusFiltro(s)}
+              key={v}
+              onClick={() => setPillProjetos(v)}
               className={cn(
                 'rounded-full border px-3.5 py-1 text-sm transition-colors',
                 ativo
-                  ? s === 'Todos'
-                    ? 'border-primary/50 bg-primary/15 text-primary'
-                    : pillStatusProjetoClass(s)
+                  ? 'border-primary/50 bg-primary/15 text-primary'
                   : 'border-border text-muted-foreground hover:bg-secondary',
               )}
             >
-              {s}
+              {label}
             </button>
           );
         })}
@@ -446,18 +483,20 @@ export function ProjetosListPage() {
             </Card>
           ))}
         </div>
-      ) : projetos.length === 0 ? (
+      ) : projetosFiltrados.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
             <FolderKanban className="size-10 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              Nenhum projeto ainda. Clica em <strong>Novo projeto</strong> pra cadastrar.
+              {projetos.length === 0
+                ? <>Nenhum projeto ainda. Clica em <strong>Novo projeto</strong> pra cadastrar.</>
+                : 'Nenhum projeto neste filtro.'}
             </p>
           </div>
         </Card>
       ) : view === 'cards' ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {projetos.map((p) => (
+          {projetosFiltrados.map((p) => (
             <CardProjeto
               key={p.id}
               p={p}
@@ -470,7 +509,7 @@ export function ProjetosListPage() {
         </div>
       ) : view === 'kanban' ? (
         <KanbanProjetos
-          projetos={projetos}
+          projetos={projetosFiltrados}
           tipoFiltro={tipoFiltro}
           etapasPorTipo={etapasPorTipo}
           onAbrir={abrirProjeto}
@@ -481,16 +520,17 @@ export function ProjetosListPage() {
         />
       ) : (
         <ListaProjetos
-          projetos={projetos}
+          projetos={projetosFiltrados}
           etapasPorTipo={etapasPorTipo}
           onAbrir={abrirProjeto}
           mostrarColTipo={tipoFiltro === 'Todos'}
+          onStatusChange={atualizarStatus}
         />
       )}
 
-      {!carregando && projetos.length > 0 && (
+      {!carregando && projetosFiltrados.length > 0 && (
         <p className="pt-1 text-right text-xs text-muted-foreground">
-          {projetos.length} {projetos.length === 1 ? 'projeto' : 'projetos'}
+          {projetosFiltrados.length} {projetosFiltrados.length === 1 ? 'projeto' : 'projetos'}
         </p>
       )}
       </div>
@@ -669,82 +709,244 @@ function ColunaKanban({
 /*                                 Lista                                 */
 /* --------------------------------------------------------------------- */
 
+/* --------------------------- Lista colunas --------------------------- */
+
+type ColProjKey =
+  | 'cliente' | 'projeto' | 'etapa' | 'prazo' | 'status'
+  | 'responsaveis' | 'observacao' | 'tipo';
+
+interface ColProjDef { key: ColProjKey; label: string; visivel: boolean }
+
+const COLS_PROJ_PADRAO: ColProjDef[] = [
+  { key: 'cliente',      label: 'Cliente',      visivel: true },
+  { key: 'projeto',      label: 'Projeto',      visivel: true },
+  { key: 'etapa',        label: 'Etapa',        visivel: true },
+  { key: 'prazo',        label: 'Prazo',        visivel: true },
+  { key: 'status',       label: 'Status',       visivel: true },
+  { key: 'responsaveis', label: 'Responsáveis', visivel: true },
+  { key: 'observacao',   label: 'Observação',   visivel: true },
+  { key: 'tipo',         label: 'Tipo',         visivel: false },
+];
+const COL_PROJ_KEY = 'wenox-colunas-projetos-v1';
+
+function carregarColunasProj(): ColProjDef[] {
+  try {
+    const s = localStorage.getItem(COL_PROJ_KEY);
+    if (!s) return COLS_PROJ_PADRAO;
+    const salvo = JSON.parse(s) as ColProjDef[];
+    const conhecidas = new Map(COLS_PROJ_PADRAO.map((c) => [c.key, c]));
+    const ord: ColProjDef[] = salvo
+      .filter((c) => conhecidas.has(c.key))
+      .map((c) => ({ ...conhecidas.get(c.key)!, visivel: !!c.visivel }));
+    for (const c of COLS_PROJ_PADRAO) if (!ord.some((o) => o.key === c.key)) ord.push(c);
+    return ord;
+  } catch {
+    return COLS_PROJ_PADRAO;
+  }
+}
+function salvarColunasProj(cols: ColProjDef[]) {
+  try { localStorage.setItem(COL_PROJ_KEY, JSON.stringify(cols)); } catch { /* */ }
+}
+
 function ListaProjetos({
-  projetos, etapasPorTipo, onAbrir, mostrarColTipo = true,
+  projetos, etapasPorTipo, onAbrir, mostrarColTipo = true, onStatusChange,
 }: {
   projetos: Projeto[];
   etapasPorTipo: Record<string, EtapaProjeto[]>;
   onAbrir: (id: string) => void;
   mostrarColTipo?: boolean;
+  onStatusChange?: (id: string, status: string) => void;
 }) {
+  const [colDefs, setColDefs] = useState<ColProjDef[]>(carregarColunasProj);
+  const dragIdx = useRef<number | null>(null);
+
+  function toggleCol(k: ColProjKey) {
+    setColDefs((cs) => {
+      const next = cs.map((c) => (c.key === k ? { ...c, visivel: !c.visivel } : c));
+      salvarColunasProj(next);
+      return next;
+    });
+  }
+  function moverCol(de: number, para: number) {
+    setColDefs((cs) => {
+      if (de === para || para < 0 || para >= cs.length) return cs;
+      const next = [...cs];
+      const [item] = next.splice(de, 1);
+      next.splice(para, 0, item);
+      salvarColunasProj(next);
+      return next;
+    });
+  }
+
+  // Quando o filtro de tipo esconde a coluna Tipo, sempre escondemos por força
+  // (o filtro lateral garante que todos da lista são do mesmo tipo).
+  const colsVisiveis = useMemo(
+    () => colDefs.filter((c) => c.visivel && (c.key !== 'tipo' || mostrarColTipo)),
+    [colDefs, mostrarColTipo],
+  );
+
+  function celula(p: Projeto, key: ColProjKey) {
+    if (key === 'cliente') {
+      const cliNome = nomeCliente(p);
+      const logo = logoCliente(p);
+      return (
+        <div className="flex items-center gap-3">
+          {logo ? (
+            <img src={logo} alt={cliNome} loading="lazy" decoding="async"
+              className="size-8 shrink-0 rounded-lg object-cover" />
+          ) : (
+            <div className={cn('grid size-8 shrink-0 place-items-center rounded-lg text-xs font-bold text-white', corAvatar(cliNome))}>
+              {inicial(cliNome)}
+            </div>
+          )}
+          <span className="truncate font-medium">{cliNome}</span>
+        </div>
+      );
+    }
+    if (key === 'projeto') return <span className="font-medium">{p.nome}</span>;
+    if (key === 'etapa') {
+      const etapas = etapasPorTipo[p.tipo ?? ''] ?? [];
+      const idx = p.etapa ? etapas.findIndex((e) => e.nome === p.etapa) : -1;
+      return p.etapa ? (
+        <Badge variant="muted" className="text-[10px]">
+          {p.etapa}{etapas.length > 0 && idx >= 0 && ` (${idx + 1}/${etapas.length})`}
+        </Badge>
+      ) : <span className="text-muted-foreground">—</span>;
+    }
+    if (key === 'prazo') {
+      return <span className="text-muted-foreground">{dataBR(p.data_entrega) || '—'}</span>;
+    }
+    if (key === 'status') {
+      if (!onStatusChange) {
+        return p.status ? (
+          <Badge variant={statusProjetoVariant(p.status)} className="text-[10px]">
+            {p.status}
+          </Badge>
+        ) : <span className="text-muted-foreground">—</span>;
+      }
+      return (
+        <select
+          value={p.status ?? ''}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => { e.stopPropagation(); onStatusChange(p.id, e.target.value); }}
+          className={cn(
+            'cursor-pointer rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+            p.status === 'Desenvolvimento' && 'border-amber-500/50 bg-amber-500/15 text-amber-400',
+            p.status === 'Manutenção'      && 'border-primary/50 bg-primary/15 text-primary',
+            p.status === 'Ativo'           && 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400',
+            p.status === 'Inativo'         && 'border-destructive/50 bg-destructive/15 text-destructive',
+            !p.status && 'border-border bg-secondary text-muted-foreground',
+          )}
+        >
+          <option value="">—</option>
+          {STATUS_PROJETO.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      );
+    }
+    if (key === 'responsaveis') {
+      const resps = p.expand?.responsaveis ?? [];
+      if (resps.length === 0) return <span className="text-muted-foreground">—</span>;
+      return (
+        <div className="flex -space-x-2">
+          {resps.slice(0, 3).map((r) => (
+            <div
+              key={r.id}
+              title={r.nome ?? r.email}
+              className={cn('grid size-7 place-items-center rounded-full border-2 border-card text-[10px] font-bold text-white', corAvatar(r.nome ?? r.email ?? r.id))}
+            >
+              {iniciaisResponsavel(r)}
+            </div>
+          ))}
+          {resps.length > 3 && (
+            <div className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-[10px] font-bold text-muted-foreground">
+              +{resps.length - 3}
+            </div>
+          )}
+        </div>
+      );
+    }
+    if (key === 'observacao') {
+      const obs = (p.observacoes ?? '').trim();
+      return obs ? (
+        <span className="line-clamp-2 max-w-xs text-xs text-muted-foreground" title={obs}>
+          {obs}
+        </span>
+      ) : <span className="text-muted-foreground">—</span>;
+    }
+    if (key === 'tipo') {
+      return <span className="text-muted-foreground">{p.tipo || '—'}</span>;
+    }
+    return null;
+  }
+
   return (
-    <Card className="overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <th className="px-5 py-3 font-medium">Projeto</th>
-            <th className="px-4 py-3 font-medium">Cliente</th>
-            {mostrarColTipo && <th className="px-4 py-3 font-medium">Tipo</th>}
-            <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium">Etapa</th>
-            <th className="px-4 py-3 font-medium">Entrega</th>
-            <th className="px-4 py-3 font-medium">Responsáveis</th>
-          </tr>
-        </thead>
-        <tbody>
-          {projetos.map((p) => {
-            const etapas = etapasPorTipo[p.tipo ?? ''] ?? [];
-            const idx = p.etapa ? etapas.findIndex((e) => e.nome === p.etapa) : -1;
-            const resps = p.expand?.responsaveis ?? [];
-            return (
+    <div className="flex flex-col gap-2">
+      <div className="flex justify-end">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <SlidersHorizontal /> Colunas
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel>Colunas — arraste para reordenar</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {colDefs.map((c, idx) => (
+              <div
+                key={c.key}
+                draggable
+                onDragStart={() => { dragIdx.current = idx; }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragIdx.current !== null) moverCol(dragIdx.current, idx);
+                  dragIdx.current = null;
+                }}
+                className="flex cursor-grab items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-secondary active:cursor-grabbing"
+                onClick={() => toggleCol(c.key)}
+              >
+                <GripVertical className="size-4 shrink-0 text-muted-foreground" />
+                <span className={cn(
+                  'grid size-4 shrink-0 place-items-center rounded border text-[10px]',
+                  c.visivel ? 'border-primary bg-primary text-primary-foreground' : 'border-border',
+                )}>
+                  {c.visivel ? '✓' : ''}
+                </span>
+                <span className="flex-1">{c.label}</span>
+              </div>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <Card className="overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+              {colsVisiveis.map((col) => (
+                <th key={col.key} className="px-4 py-3 font-medium">{col.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {projetos.map((p) => (
               <tr
                 key={p.id}
                 onClick={() => onAbrir(p.id)}
                 className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50"
               >
-                <td className="px-5 py-3 font-medium">{p.nome}</td>
-                <td className="px-4 py-3 text-muted-foreground">{nomeCliente(p)}</td>
-                {mostrarColTipo && (
-                  <td className="px-4 py-3 text-muted-foreground">{p.tipo || '—'}</td>
-                )}
-                <td className="px-4 py-3">
-                  {p.status ? (
-                    <Badge variant={statusProjetoVariant(p.status)} className="text-[10px]">
-                      {p.status}
-                    </Badge>
-                  ) : '—'}
-                </td>
-                <td className="px-4 py-3">
-                  {p.etapa ? (
-                    <Badge variant="muted" className="text-[10px]">
-                      {p.etapa}{etapas.length > 0 && idx >= 0 && ` (${idx + 1}/${etapas.length})`}
-                    </Badge>
-                  ) : '—'}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{dataBR(p.data_entrega) || '—'}</td>
-                <td className="px-4 py-3">
-                  <div className="flex -space-x-2">
-                    {resps.slice(0, 3).map((r) => (
-                      <div
-                        key={r.id}
-                        title={r.nome ?? r.email}
-                        className={cn('grid size-7 place-items-center rounded-full border-2 border-card text-[10px] font-bold text-white', corAvatar(r.nome ?? r.email ?? r.id))}
-                      >
-                        {iniciaisResponsavel(r)}
-                      </div>
-                    ))}
-                    {resps.length > 3 && (
-                      <div className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-[10px] font-bold text-muted-foreground">
-                        +{resps.length - 3}
-                      </div>
-                    )}
-                  </div>
-                </td>
+                {colsVisiveis.map((col) => (
+                  <td key={col.key} className="px-4 py-3 text-muted-foreground">
+                    {celula(p, col.key)}
+                  </td>
+                ))}
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
   );
 }

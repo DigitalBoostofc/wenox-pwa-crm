@@ -11,8 +11,7 @@ import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial, dataBR } from '@/clientes/format';
-import { STATUS_PROJETO, statusProjetoVariant } from './format';
-import { useAuth } from '@/auth/useAuth';
+import { STATUS_PROJETO, statusProjetoVariant, pillStatusProjetoClass } from './format';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuLabel, DropdownMenuSeparator,
@@ -283,15 +282,14 @@ function ViewToggleBtn({
 
 export function ProjetosListPage() {
   const history = useHistory();
-  const { user } = useAuth();
-  const uid = user?.id;
   const [busca, setBusca] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
-  /** Filtros principais — default "execucao" (pedido do Leonardo).
-   *  Não persistem entre sessões: sempre reseta ao entrar na página. */
-  const [pillProjetos, setPillProjetos] = useState<
-    'execucao' | 'meus' | 'todos' | 'concluidos'
-  >('execucao');
+  /** Pill de status — default "Desenvolvimento" (pedido do Leonardo). */
+  const [statusFiltro, setStatusFiltro] = useState<string>('Desenvolvimento');
+  /** Filtro extra (dropdown) — independente do pill de status. */
+  const [filtroExtra, setFiltroExtra] = useState<
+    'nenhum' | 'execucao' | 'todos' | 'concluidos'
+  >('nenhum');
   const [view, setView] = useState<ViewMode>(carregarView);
   const [tipos, setTipos] = useState<Opcao[]>([]);
   const [todasEtapas, setTodasEtapas] = useState<EtapaProjeto[]>([]);
@@ -339,23 +337,22 @@ export function ProjetosListPage() {
     return m;
   }, [todasEtapas]);
 
-  /** Aplica o filtro de pills client-side. */
+  /** Aplica os 2 filtros (pill de status + select Filtro) client-side. */
   const projetosFiltrados = useMemo(() => {
     return projetos.filter((p) => {
-      switch (pillProjetos) {
-        case 'execucao':
-          return p.status === 'Desenvolvimento' || p.status === 'Manutenção';
-        case 'meus':
-          return uid ? (p.responsaveis ?? []).includes(uid) : false;
-        case 'concluidos':
-          return (p.etapa ?? '').trim().toLowerCase() === 'concluído'
-            || (p.etapa ?? '').trim().toLowerCase() === 'concluido';
-        case 'todos':
-        default:
-          return true;
+      // Pill de status
+      if (statusFiltro !== 'Todos' && p.status !== statusFiltro) return false;
+      // Filtro extra (dropdown)
+      if (filtroExtra === 'execucao'
+          && p.status !== 'Desenvolvimento' && p.status !== 'Manutenção') return false;
+      if (filtroExtra === 'todos' && p.status === 'Inativo') return false;
+      if (filtroExtra === 'concluidos') {
+        const e = (p.etapa ?? '').trim().toLowerCase();
+        if (e !== 'concluído' && e !== 'concluido') return false;
       }
+      return true;
     });
-  }, [projetos, pillProjetos, uid]);
+  }, [projetos, statusFiltro, filtroExtra]);
 
   const filtros = useMemo(() => ['Todos', ...tipos.map((t) => t.valor)], [tipos]);
   const trocarView = (v: ViewMode) => { setView(v); salvarView(v); };
@@ -441,30 +438,38 @@ export function ProjetosListPage() {
         ))}
       </div>
 
-      {/* Filtros principais (substituem o filtro por status) */}
+      {/* Pills de status + dropdown Filtro (igual a /clientes). */}
       <div className="flex flex-wrap items-center gap-2">
-        {([
-          ['execucao', 'Em execução'],
-          ['meus', 'Meus projetos'],
-          ['todos', 'Todos'],
-          ['concluidos', 'Concluídos'],
-        ] as const).map(([v, label]) => {
-          const ativo = pillProjetos === v;
+        {['Todos', ...STATUS_PROJETO].map((s) => {
+          const ativo = statusFiltro === s;
           return (
             <button
-              key={v}
-              onClick={() => setPillProjetos(v)}
+              key={s}
+              onClick={() => setStatusFiltro(s)}
               className={cn(
                 'rounded-full border px-3.5 py-1 text-sm transition-colors',
                 ativo
-                  ? 'border-primary/50 bg-primary/15 text-primary'
+                  ? s === 'Todos'
+                    ? 'border-primary/50 bg-primary/15 text-primary'
+                    : pillStatusProjetoClass(s)
                   : 'border-border text-muted-foreground hover:bg-secondary',
               )}
             >
-              {label}
+              {s}
             </button>
           );
         })}
+        <select
+          aria-label="Filtro extra"
+          value={filtroExtra}
+          onChange={(e) => setFiltroExtra(e.target.value as typeof filtroExtra)}
+          className="h-10 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          <option value="nenhum">Filtro: nenhum</option>
+          <option value="execucao">Em execução</option>
+          <option value="todos">Todos (exceto Inativos)</option>
+          <option value="concluidos">Concluídos</option>
+        </select>
       </div>
 
       {erro && (

@@ -5,8 +5,8 @@ import type { Projeto, ProjetoInput } from './types';
 const col = () => pb.collection('projetos');
 
 const CAMPOS_LISTA = [
-  'id', 'collectionId', 'collectionName', 'nome', 'cliente', 'tipo', 'etapa',
-  'etiquetas', 'responsaveis', 'data_inicio', 'data_entrega', 'created',
+  'id', 'collectionId', 'collectionName', 'nome', 'cliente', 'tipo', 'status',
+  'etapa', 'etiquetas', 'responsaveis', 'data_inicio', 'data_entrega', 'created',
 ].join(',');
 
 interface ListOpts {
@@ -14,6 +14,7 @@ interface ListOpts {
   tipo?: string;
   clienteId?: string;
   etapa?: string;
+  status?: string;
 }
 
 export async function listProjetos(o: ListOpts = {}): Promise<Projeto[]> {
@@ -24,6 +25,7 @@ export async function listProjetos(o: ListOpts = {}): Promise<Projeto[]> {
     filtros.push(`(nome ~ "${safe}" || cliente.nome_fantasia ~ "${safe}" || cliente.nome ~ "${safe}")`);
   }
   if (o.tipo) filtros.push(`tipo = "${o.tipo.replace(/"/g, '')}"`);
+  if (o.status) filtros.push(`status = "${o.status.replace(/"/g, '')}"`);
   if (o.clienteId) filtros.push(`cliente = "${o.clienteId}"`);
   if (o.etapa) filtros.push(`etapa = "${o.etapa.replace(/"/g, '')}"`);
 

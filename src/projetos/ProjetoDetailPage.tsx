@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dataBR } from '@/clientes/format';
+import { statusProjetoVariant } from './format';
 
 function Linha({ rotulo, valor }: { rotulo: string; valor?: React.ReactNode }) {
   if (!valor) return null;
@@ -56,18 +57,20 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
         </div>
         <div className="flex-1">
           <h2 className="text-xl font-semibold">{p.nome}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {cliNome} · {p.tipo || 'Sem tipo'}
-            {p.etapa && (
-              <>
-                {' · '}
-                <Badge variant="default" className="ml-1 text-[10px]">{p.etapa}</Badge>
-                {etapas.length > 0 && etapaIdx >= 0 && (
-                  <span className="ml-1 text-xs">({etapaIdx + 1}/{etapas.length})</span>
-                )}
-              </>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span>{cliNome} · {p.tipo || 'Sem tipo'}</span>
+            {p.status && (
+              <Badge variant={statusProjetoVariant(p.status)} className="text-[10px]">
+                {p.status}
+              </Badge>
             )}
-          </p>
+            {p.etapa && (
+              <Badge variant="muted" className="text-[10px]">
+                {p.etapa}
+                {etapas.length > 0 && etapaIdx >= 0 && ` (${etapaIdx + 1}/${etapas.length})`}
+              </Badge>
+            )}
+          </div>
         </div>
         {cli && (
           <Button variant="outline" size="sm" onClick={() => history.push(`/clientes/${cli.id}`)}>
@@ -85,6 +88,11 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
           <CardContent className="divide-y divide-border p-0">
             <Linha rotulo="Cliente" valor={cliNome} />
             <Linha rotulo="Tipo" valor={p.tipo} />
+            <Linha rotulo="Status" valor={p.status ? (
+              <Badge variant={statusProjetoVariant(p.status)} className="text-[10px]">
+                {p.status}
+              </Badge>
+            ) : undefined} />
             <Linha rotulo="Etapa" valor={p.etapa} />
             <Linha rotulo="Início" valor={dataBR(p.data_inicio)} />
             <Linha rotulo="Entrega" valor={dataBR(p.data_entrega)} />

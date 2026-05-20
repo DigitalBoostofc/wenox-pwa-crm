@@ -11,6 +11,7 @@ import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial, dataBR } from '@/clientes/format';
+import { STATUS_PROJETO, statusProjetoVariant, pillStatusProjetoClass } from './format';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -157,8 +158,13 @@ function CardProjeto({
           )}
         </div>
         <div className="flex items-center gap-1">
+          {p.status && (
+            <Badge variant={statusProjetoVariant(p.status)} className="text-[10px]">
+              {p.status}
+            </Badge>
+          )}
           {p.etapa && (
-            <Badge variant="default" className="text-[10px]">{p.etapa}</Badge>
+            <Badge variant="muted" className="text-[10px]">{p.etapa}</Badge>
           )}
           <MenuMoverEtapa projeto={p} etapasDoTipo={etapasDoTipo} onChanged={onChanged} />
         </div>
@@ -278,6 +284,9 @@ export function ProjetosListPage() {
   const history = useHistory();
   const [busca, setBusca] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
+  // Default sempre "Desenvolvimento" (não persiste) — pedido do Leonardo:
+  // é o que ele quer ver primeiro ao abrir Projetos.
+  const [statusFiltro, setStatusFiltro] = useState<string>('Desenvolvimento');
   const [view, setView] = useState<ViewMode>(carregarView);
   const [tipos, setTipos] = useState<Opcao[]>([]);
   const [todasEtapas, setTodasEtapas] = useState<EtapaProjeto[]>([]);
@@ -300,6 +309,7 @@ export function ProjetosListPage() {
       const opts = {
         busca: q || undefined,
         tipo: tipoFiltro === 'Todos' ? undefined : tipoFiltro,
+        status: statusFiltro === 'Todos' ? undefined : statusFiltro,
       };
       listProjetos(opts)
         .then((res) => {
@@ -316,7 +326,7 @@ export function ProjetosListPage() {
         });
     }, q ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [busca, tipoFiltro, recarregaTrigger]);
+  }, [busca, tipoFiltro, statusFiltro, recarregaTrigger]);
 
   const etapasPorTipo = useMemo(() => {
     const m: Record<string, EtapaProjeto[]> = {};
@@ -394,6 +404,30 @@ export function ProjetosListPage() {
             {f}
           </button>
         ))}
+      </div>
+
+      {/* Filtro de status — sempre visível (desktop+mobile). Ordem definida
+          pelo Leonardo: Desenvolvimento → Manutenção → Ativo → Inativo. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {['Todos', ...STATUS_PROJETO].map((s) => {
+          const ativo = statusFiltro === s;
+          return (
+            <button
+              key={s}
+              onClick={() => setStatusFiltro(s)}
+              className={cn(
+                'rounded-full border px-3.5 py-1 text-sm transition-colors',
+                ativo
+                  ? s === 'Todos'
+                    ? 'border-primary/50 bg-primary/15 text-primary'
+                    : pillStatusProjetoClass(s)
+                  : 'border-border text-muted-foreground hover:bg-secondary',
+              )}
+            >
+              {s}
+            </button>
+          );
+        })}
       </div>
 
       {erro && (
@@ -651,6 +685,7 @@ function ListaProjetos({
             <th className="px-5 py-3 font-medium">Projeto</th>
             <th className="px-4 py-3 font-medium">Cliente</th>
             {mostrarColTipo && <th className="px-4 py-3 font-medium">Tipo</th>}
+            <th className="px-4 py-3 font-medium">Status</th>
             <th className="px-4 py-3 font-medium">Etapa</th>
             <th className="px-4 py-3 font-medium">Entrega</th>
             <th className="px-4 py-3 font-medium">Responsáveis</th>
@@ -673,8 +708,15 @@ function ListaProjetos({
                   <td className="px-4 py-3 text-muted-foreground">{p.tipo || '—'}</td>
                 )}
                 <td className="px-4 py-3">
+                  {p.status ? (
+                    <Badge variant={statusProjetoVariant(p.status)} className="text-[10px]">
+                      {p.status}
+                    </Badge>
+                  ) : '—'}
+                </td>
+                <td className="px-4 py-3">
                   {p.etapa ? (
-                    <Badge variant="default" className="text-[10px]">
+                    <Badge variant="muted" className="text-[10px]">
                       {p.etapa}{etapas.length > 0 && idx >= 0 && ` (${idx + 1}/${etapas.length})`}
                     </Badge>
                   ) : '—'}

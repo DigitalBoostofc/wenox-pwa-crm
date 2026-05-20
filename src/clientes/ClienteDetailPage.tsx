@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 import {
   ArrowLeft, MessageCircle, Phone, Pencil, Activity,
-  Users, KeyRound, FileText, LayoutDashboard,
+  Users, KeyRound, FileText, LayoutDashboard, FolderKanban,
+  CheckSquare, Wallet,
 } from 'lucide-react';
 import { getCliente, updateCliente, logoUrl } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
@@ -30,12 +31,17 @@ function Linha({
   );
 }
 
-type Aba = 'visao' | 'equipe' | 'acessos' | 'documentos';
-const ABAS: { id: Aba; label: string; icon: typeof Users }[] = [
+type Aba =
+  | 'visao' | 'acessos' | 'projetos' | 'tarefas'
+  | 'financeiro' | 'documentos' | 'equipe';
+const ABAS: { id: Aba; label: string; icon: typeof Users; emBreve?: boolean }[] = [
   { id: 'visao', label: 'Visão Geral', icon: LayoutDashboard },
-  { id: 'equipe', label: 'Equipe', icon: Users },
   { id: 'acessos', label: 'Acessos', icon: KeyRound },
+  { id: 'projetos', label: 'Projetos', icon: FolderKanban, emBreve: true },
+  { id: 'tarefas', label: 'Tarefas', icon: CheckSquare, emBreve: true },
+  { id: 'financeiro', label: 'Financeiro', icon: Wallet, emBreve: true },
   { id: 'documentos', label: 'Documentos', icon: FileText },
+  { id: 'equipe', label: 'Equipe', icon: Users },
 ];
 
 export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
@@ -168,6 +174,11 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
             >
               <Icon className="size-4" />
               {t.label}
+              {t.emBreve && (
+                <span className="ml-1 rounded-full border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
+                  em breve
+                </span>
+              )}
             </button>
           );
         })}
@@ -309,9 +320,38 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
         </div>
       )}
 
-      {aba === 'equipe' && <ContatosTab clienteId={c.id} />}
       {aba === 'acessos' && <AcessosTab clienteId={c.id} />}
       {aba === 'documentos' && <DocumentosTab clienteId={c.id} />}
+      {aba === 'equipe' && <ContatosTab clienteId={c.id} />}
+      {(aba === 'projetos' || aba === 'tarefas' || aba === 'financeiro') && (
+        <EmBreveAba aba={aba} />
+      )}
     </div>
+  );
+}
+
+function EmBreveAba({ aba }: { aba: 'projetos' | 'tarefas' | 'financeiro' }) {
+  const textos = {
+    projetos: {
+      titulo: 'Projetos deste cliente',
+      desc: 'Em breve você verá aqui todos os projetos (Social Media, Web Design, Tráfego Pago, etc.) deste cliente, com status e responsáveis.',
+    },
+    tarefas: {
+      titulo: 'Tarefas deste cliente',
+      desc: 'Lista de tarefas em andamento, com prazo, responsável e etapa. Disponível quando o módulo de Tarefas for entregue.',
+    },
+    financeiro: {
+      titulo: 'Financeiro deste cliente',
+      desc: 'Contratos, faturas e histórico de pagamentos. Disponível quando o módulo Financeiro for entregue.',
+    },
+  } as const;
+  const t = textos[aba];
+  return (
+    <Card>
+      <CardHeader><CardTitle>{t.titulo}</CardTitle></CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground">{t.desc}</p>
+      </CardContent>
+    </Card>
   );
 }

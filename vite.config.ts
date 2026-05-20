@@ -11,6 +11,14 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Atualização "instantânea": ao detectar um SW novo, ele assume controle
+      // imediato (skipWaiting+clientsClaim) e limpa caches antigos. A próxima
+      // navegação/refresh já carrega o bundle novo, sem precisar unregister.
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+      },
       manifest: {
         name: 'Wenox OS',
         short_name: 'Wenox',

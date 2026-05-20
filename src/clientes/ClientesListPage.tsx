@@ -11,7 +11,7 @@ import { useAuth } from '@/auth/useAuth';
 import { canCriarCliente } from '@/auth/perms';
 import { cn } from '@/lib/utils';
 import { useIsDesktop } from '@/lib/useMediaQuery';
-import { corAvatar, inicial, statusVariant, haDias } from '@/clientes/format';
+import { corAvatar, inicial, statusVariant, haDias, pillSelectedClass } from '@/clientes/format';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -276,7 +276,9 @@ export function ClientesListPage() {
             className={cn(
               'rounded-full border px-3.5 py-1 text-sm transition-colors',
               filtro === f
-                ? 'border-primary/50 bg-primary/15 text-primary'
+                ? f === 'Todos'
+                  ? 'border-primary/50 bg-primary/15 text-primary'
+                  : pillSelectedClass(f)
                 : 'border-border text-muted-foreground hover:bg-secondary',
             )}
           >

@@ -238,7 +238,7 @@ export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
     : (!removerLogo && logoAtualUrl) || '';
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-4xl flex-col gap-4">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => history.push('/clientes')} aria-label="Voltar">
           <ArrowLeft />

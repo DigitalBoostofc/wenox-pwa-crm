@@ -101,12 +101,14 @@ function MenuMoverEtapa({
 }
 
 function CardProjeto({
-  p, etapasDoTipo, onClick, onChanged,
+  p, etapasDoTipo, onClick, onChanged, draggable, arrastando,
 }: {
   p: Projeto;
   etapasDoTipo: EtapaProjeto[];
   onClick: () => void;
   onChanged: () => void;
+  draggable?: boolean;
+  arrastando?: boolean;
 }) {
   const cliNome = nomeCliente(p);
   const logo = logoCliente(p);
@@ -123,7 +125,17 @@ function CardProjeto({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
-      className="group flex cursor-pointer flex-col gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40"
+      draggable={draggable}
+      onDragStart={(e) => {
+        if (!draggable) return;
+        e.dataTransfer.setData('text/projeto-id', p.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      className={cn(
+        'group flex flex-col gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40',
+        draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
+        arrastando && 'opacity-50',
+      )}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex flex-wrap gap-1.5">
@@ -266,6 +278,19 @@ export function ProjetosListPage() {
   const recarregar = () => setRecarregaTrigger((n) => n + 1);
   const abrirProjeto = (id: string) => history.push(`/projetos/${id}`);
 
+  /** Move um projeto para outra etapa com update otimista (recarrega no fim). */
+  async function moverProjeto(projetoId: string, novaEtapa: string) {
+    const alvo = projetos.find((p) => p.id === projetoId);
+    if (!alvo || alvo.etapa === novaEtapa) return;
+    setProjetos((lst) => lst.map((p) => (p.id === projetoId ? { ...p, etapa: novaEtapa } : p)));
+    try {
+      await atualizarProjeto(projetoId, { etapa: novaEtapa });
+    } catch {
+      setErro('Não foi possível mover o projeto. Tente novamente.');
+      recarregar();
+    }
+  }
+
   return (
     <div className="flex max-w-7xl flex-col gap-5">
       <div>
@@ -359,6 +384,7 @@ export function ProjetosListPage() {
           onTrocarTipo={setTipoFiltro}
           tiposDisponiveis={tipos.map((t) => t.valor)}
           onChanged={recarregar}
+          onMover={moverProjeto}
         />
       ) : (
         <ListaProjetos
@@ -383,7 +409,7 @@ export function ProjetosListPage() {
 
 function KanbanProjetos({
   projetos, tipoFiltro, etapasPorTipo, tiposDisponiveis,
-  onAbrir, onTrocarTipo, onChanged,
+  onAbrir, onTrocarTipo, onChanged, onMover,
 }: {
   projetos: Projeto[];
   tipoFiltro: string;
@@ -392,6 +418,7 @@ function KanbanProjetos({
   onAbrir: (id: string) => void;
   onTrocarTipo: (t: string) => void;
   onChanged: () => void;
+  onMover: (projetoId: string, novaEtapa: string) => Promise<void>;
 }) {
   if (tipoFiltro === 'Todos') {
     return (
@@ -445,12 +472,14 @@ function KanbanProjetos({
           <ColunaKanban
             key={et.id}
             titulo={et.nome}
+            etapaAlvo={et.nome}
             ordem={et.ordem}
             total={etapas.length}
             projetos={buckets.get(et.nome) ?? []}
             etapasDoTipo={etapas}
             onAbrir={onAbrir}
             onChanged={onChanged}
+            onSoltar={onMover}
           />
         ))}
         {semEtapa.length > 0 && (
@@ -469,9 +498,11 @@ function KanbanProjetos({
 }
 
 function ColunaKanban({
-  titulo, ordem, total, projetos, etapasDoTipo, onAbrir, onChanged, destaque,
+  titulo, etapaAlvo, ordem, total, projetos, etapasDoTipo,
+  onAbrir, onChanged, destaque, onSoltar,
 }: {
   titulo: string;
+  etapaAlvo?: string;
   ordem?: number;
   total?: number;
   projetos: Projeto[];
@@ -479,12 +510,32 @@ function ColunaKanban({
   onAbrir: (id: string) => void;
   onChanged: () => void;
   destaque?: boolean;
+  onSoltar?: (projetoId: string, novaEtapa: string) => Promise<void>;
 }) {
+  const [recebendo, setRecebendo] = useState(false);
+  const aceitaDrop = !!(onSoltar && etapaAlvo);
   return (
-    <div className={cn(
-      'flex w-72 shrink-0 flex-col gap-2 rounded-lg border border-border bg-background/40 p-3',
-      destaque && 'border-dashed border-muted-foreground/30',
-    )}>
+    <div
+      onDragOver={(e) => {
+        if (!aceitaDrop) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (!recebendo) setRecebendo(true);
+      }}
+      onDragLeave={() => setRecebendo(false)}
+      onDrop={async (e) => {
+        if (!aceitaDrop) return;
+        e.preventDefault();
+        setRecebendo(false);
+        const id = e.dataTransfer.getData('text/projeto-id');
+        if (id && etapaAlvo) await onSoltar!(id, etapaAlvo);
+      }}
+      className={cn(
+        'flex w-72 shrink-0 flex-col gap-2 rounded-lg border border-border bg-background/40 p-3 transition-colors',
+        destaque && 'border-dashed border-muted-foreground/30',
+        recebendo && 'border-primary bg-primary/5',
+      )}
+    >
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           {ordem != null && total != null && (
@@ -498,7 +549,7 @@ function ColunaKanban({
       </div>
       {projetos.length === 0 ? (
         <p className="rounded-md border border-dashed border-border/60 px-3 py-3 text-center text-xs text-muted-foreground">
-          Nenhum
+          {aceitaDrop ? 'Arraste um projeto aqui' : 'Nenhum'}
         </p>
       ) : (
         <div className="flex flex-col gap-2">
@@ -509,6 +560,7 @@ function ColunaKanban({
               etapasDoTipo={etapasDoTipo}
               onClick={() => onAbrir(p.id)}
               onChanged={onChanged}
+              draggable={aceitaDrop}
             />
           ))}
         </div>

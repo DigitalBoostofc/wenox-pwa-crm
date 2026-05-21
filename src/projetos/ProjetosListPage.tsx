@@ -504,8 +504,8 @@ export function ProjetosListPage() {
       <div className="flex min-w-0 flex-1 flex-col gap-5">
 
       <HeaderSlot>
-        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-          <div className="relative min-w-40 max-w-md flex-1">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <div className="relative min-w-40 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               placeholder="Buscar projeto ou cliente"

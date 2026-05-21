@@ -545,13 +545,14 @@ export function ProjetosListPage() {
         </div>
       </HeaderSlot>
 
-      <div className="flex flex-wrap items-center gap-2 lg:hidden">
+      {/* Pills de tipo — mobile apenas, scroll horizontal */}
+      <div className="flex gap-2 overflow-x-auto pb-0.5 lg:hidden [&::-webkit-scrollbar]:hidden">
         {filtros.map((f) => (
           <button
             key={f}
             onClick={() => setTipoFiltro(f)}
             className={cn(
-              'rounded-full border px-3.5 py-1 text-sm transition-colors',
+              'shrink-0 rounded-full border px-3.5 py-1 text-sm transition-colors',
               tipoFiltro === f
                 ? 'border-primary/50 bg-primary/15 text-primary'
                 : 'border-border text-muted-foreground hover:bg-secondary',
@@ -562,8 +563,8 @@ export function ProjetosListPage() {
         ))}
       </div>
 
-      {/* Pills de status + dropdown Filtro. Ordem: status do tipo, Todos no fim. */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Pills de status — scroll horizontal no mobile, wrap no desktop */}
+      <div className="flex gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-visible lg:pb-0">
         {[...statusesParaTipo(tipoFiltro === 'Todos' ? undefined : tipoFiltro), 'Todos'].map((s) => {
           const ativo = statusFiltro === s;
           return (
@@ -571,7 +572,7 @@ export function ProjetosListPage() {
               key={s}
               onClick={() => setStatusFiltro(s)}
               className={cn(
-                'rounded-full border px-3.5 py-1 text-sm transition-colors',
+                'shrink-0 rounded-full border px-3.5 py-1 text-sm transition-colors',
                 ativo
                   ? s === 'Todos'
                     ? 'border-primary/50 bg-primary/15 text-primary'
@@ -588,7 +589,7 @@ export function ProjetosListPage() {
             aria-label="Filtro extra"
             value={filtroExtra}
             onChange={(e) => setFiltroExtra(e.target.value as typeof filtroExtra)}
-            className="h-10 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="hidden h-10 shrink-0 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 lg:block"
           >
             <option value="nenhum">Filtro: nenhum</option>
             <option value="execucao">Em execução</option>

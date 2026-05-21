@@ -360,7 +360,7 @@ export function ProjetosListPage() {
   const [busca, setBusca] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
   /** Pill de status — default "Desenvolvimento" (pedido do Leonardo). */
-  const [statusFiltro, setStatusFiltro] = useState<string>('Todos');
+  const [statusFiltro, setStatusFiltro] = useState<string>('Ativo');
   /** Filtro extra (dropdown) — independente do pill de status. */
   const [filtroExtra, setFiltroExtra] = useState<
     'nenhum' | 'execucao' | 'todos' | 'concluidos'
@@ -451,8 +451,9 @@ export function ProjetosListPage() {
     });
   }, [projetos, statusFiltro, filtroExtra]);
 
-  // Reseta statusFiltro ao trocar tipo para evitar filtros inconsistentes
-  useEffect(() => { setStatusFiltro('Todos'); }, [tipoFiltro]);
+  // Reseta statusFiltro ao trocar tipo para evitar filtros inconsistentes.
+  // "Ativo" existe em todos os tipos (inclusive Social Media).
+  useEffect(() => { setStatusFiltro('Ativo'); }, [tipoFiltro]);
 
   const filtros = useMemo(() => ['Todos', ...tipos.map((t) => t.valor)], [tipos]);
   const trocarView = (v: ViewMode) => { setView(v); salvarView(v); };

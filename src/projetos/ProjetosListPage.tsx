@@ -910,8 +910,11 @@ function ListaProjetos({
           value={p.status ?? ''}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => { e.stopPropagation(); onStatusChange(p.id, e.target.value); }}
+          /* color-scheme:dark força o Chrome a abrir o popup com fundo escuro
+             (sem isso, fundos translúcidos como bg-emerald/15 fazem o popup
+             vir branco — fora da identidade visual). */
           className={cn(
-            'cursor-pointer rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+            'cursor-pointer rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
             p.status === 'Desenvolvimento' && 'border-amber-500/50 bg-amber-500/15 text-amber-400',
             p.status === 'Manutenção'      && 'border-primary/50 bg-primary/15 text-primary',
             p.status === 'Ativo'           && 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400',

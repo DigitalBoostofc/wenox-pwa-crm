@@ -3,7 +3,7 @@ import { useHistory } from 'react-router-dom';
 import { Search, UserPlus } from 'lucide-react';
 import { listMembros } from './equipeService';
 import type { Usuario } from '@/usuarios/types';
-import { AREAS } from '@/usuarios/types';
+import { listOpcoes } from '@/opcoes/opcoesService';
 import { useAuth } from '@/auth/useAuth';
 import { canGerirUsuarios } from '@/auth/perms';
 import { Badge } from '@/components/ui/badge';
@@ -71,11 +71,13 @@ export function EquipePage() {
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState('');
   const [areaFiltro, setAreaFiltro] = useState('Todos');
+  const [funcoes, setFuncoes] = useState<string[]>([]);
 
   useEffect(() => {
     listMembros()
       .then(setMembros)
       .finally(() => setCarregando(false));
+    listOpcoes('tipo_projeto').then((o) => setFuncoes(o.map((x) => x.valor)));
   }, []);
 
   const filtrados = useMemo(() => {
@@ -93,7 +95,7 @@ export function EquipePage() {
     });
   }, [membros, busca, areaFiltro]);
 
-  const areas = useMemo(() => ['Todos', ...AREAS], []);
+  const areas = useMemo(() => ['Todos', ...funcoes], [funcoes]);
 
   return (
     <>

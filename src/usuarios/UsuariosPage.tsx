@@ -3,6 +3,8 @@ import { Camera, Image as ImageIcon, X } from 'lucide-react';
 import { listUsuarios, criarUsuario, fotoUrl } from '@/usuarios/usuariosService';
 import { ROLES } from '@/usuarios/types';
 import type { Usuario } from '@/usuarios/types';
+import { listOpcoes } from '@/opcoes/opcoesService';
+import type { Opcao } from '@/opcoes/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,14 +15,16 @@ const selectClass =
 
 export function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [novo, setNovo] = useState({ nome: '', email: '', role: 'Membro' });
+  const [novo, setNovo] = useState({ nome: '', email: '', role: 'Membro', area: '' });
   const [senha, setSenha] = useState('');
   const [foto, setFoto] = useState<File | null>(null);
+  const [funcoes, setFuncoes] = useState<Opcao[]>([]);
   const [erro, setErro] = useState('');
 
   const carregar = async () => setUsuarios(await listUsuarios());
   useEffect(() => {
     carregar();
+    listOpcoes('tipo_projeto').then(setFuncoes);
   }, []);
 
   async function add(e: React.FormEvent) {
@@ -32,12 +36,13 @@ export function UsuariosPage() {
           nome: novo.nome,
           email: novo.email,
           role: novo.role as Usuario['role'],
+          area: novo.area || undefined,
           status: 'Ativo',
         },
         senha,
         foto,
       );
-      setNovo({ nome: '', email: '', role: 'Membro' });
+      setNovo({ nome: '', email: '', role: 'Membro', area: '' });
       setSenha('');
       setFoto(null);
       await carregar();
@@ -139,6 +144,20 @@ export function UsuariosPage() {
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
+              <label htmlFor="uf" className="text-sm font-medium text-muted-foreground">
+                Função
+              </label>
+              <select
+                id="uf"
+                value={novo.area}
+                onChange={(e) => setNovo({ ...novo, area: e.target.value })}
+                className={selectClass}
+              >
+                <option value="">—</option>
+                {funcoes.map((f) => <option key={f.id} value={f.valor}>{f.valor}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
               <label htmlFor="up" className="text-sm font-medium text-muted-foreground">
                 Senha inicial
               </label>
@@ -173,9 +192,12 @@ export function UsuariosPage() {
               <p className="font-medium">{u.nome}</p>
               <p className="text-sm text-muted-foreground">{u.email}</p>
             </div>
-            <Badge variant={u.status === 'Ativo' ? 'success' : 'muted'}>
-              {u.role}
-            </Badge>
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {u.area && <Badge variant="muted">{u.area}</Badge>}
+              <Badge variant={u.status === 'Ativo' ? 'success' : 'muted'}>
+                {u.role}
+              </Badge>
+            </div>
           </div>
         ))}
       </Card>

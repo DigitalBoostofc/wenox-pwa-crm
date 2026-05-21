@@ -15,8 +15,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dataBR } from '@/clientes/format';
 import {
-  statusVariantParaTipo, statusSocialMediaVariant,
-  STATUS_ATIVIDADE_SOCIAL, statusAtividadeSocialVariant,
+  statusVariantParaTipo,
+  STATUS_ATIVIDADE_SOCIAL,
   TIPO_SOCIAL_MEDIA,
 } from './format';
 import { cn } from '@/lib/utils';
@@ -209,6 +209,7 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
   const cli = p.expand?.cliente;
 
   async function apagar() {
+    if (!p) return;
     if (!confirm(`Apagar o projeto "${p.nome}" definitivamente? Esta ação não pode ser desfeita.`)) return;
     await removerProjeto(p.id);
     history.push('/projetos');

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Plus, Search, FolderKanban, LayoutGrid, List, Columns3, MoreHorizontal,
-  LayoutList, SlidersHorizontal, GripVertical, Repeat2,
+  LayoutList, SlidersHorizontal, GripVertical, Repeat2, Check, ChevronDown,
 } from 'lucide-react';
 import { listProjetos, atualizarProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
@@ -12,13 +12,12 @@ import type { Opcao } from '@/opcoes/types';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial, dataBR } from '@/clientes/format';
 import {
-  STATUS_PROJETO, statusProjetoVariant, statusVariantParaTipo,
-  statusesParaTipo, pillStatusParaTipoClass,
+  statusVariantParaTipo, statusesParaTipo, pillStatusParaTipoClass,
   TIPO_SOCIAL_MEDIA,
 } from './format';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -37,6 +36,57 @@ function carregarView(): ViewMode {
 }
 function salvarView(v: ViewMode) {
   try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ }
+}
+
+/** Pill clicável que abre um dropdown (Radix) — o botão inteiro abre,
+ *  não só a seta (diferente do <select> nativo). Usado pra status/etapa
+ *  editáveis inline na Lista. */
+function SeletorPill({
+  valor, placeholder, opcoes, onSelect, classeBotao, rotulo,
+}: {
+  valor: string;
+  placeholder: string;
+  opcoes: { value: string; label: string }[];
+  onSelect: (v: string) => void;
+  classeBotao: string;
+  rotulo?: string;
+}) {
+  const atual = opcoes.find((o) => o.value === valor);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            'inline-flex cursor-pointer items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+            classeBotao,
+          )}
+        >
+          {atual?.label ?? placeholder}
+          <ChevronDown className="size-3 shrink-0 opacity-70" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="max-h-72 overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {rotulo && (
+          <>
+            <DropdownMenuLabel>{rotulo}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {opcoes.map((o) => (
+          <DropdownMenuItem key={o.value} onSelect={() => onSelect(o.value)}>
+            <Check className={cn('size-3.5', o.value === valor ? 'opacity-100' : 'opacity-0')} />
+            <span>{o.label}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 /** Iniciais (até 2 letras) pra um botão compacto. */
@@ -506,7 +556,6 @@ export function ProjetosListPage() {
           onAbrir={abrirProjeto}
           mostrarColTipo={tipoFiltro === 'Todos'}
           mostrarColEtapa={tipoFiltro !== TIPO_SOCIAL_MEDIA}
-          tipoFiltro={tipoFiltro}
           onStatusChange={atualizarStatus}
           onEtapaChange={tipoFiltro !== TIPO_SOCIAL_MEDIA ? moverProjeto : undefined}
           totalBruto={projetos.length}
@@ -810,7 +859,7 @@ function posicaoStatusProj(s?: string): number {
 
 function ListaProjetos({
   projetos, etapasPorTipo, onAbrir, mostrarColTipo = true,
-  mostrarColEtapa = true, tipoFiltro, onStatusChange,
+  mostrarColEtapa = true, onStatusChange,
   onEtapaChange, totalBruto,
 }: {
   projetos: Projeto[];
@@ -818,7 +867,6 @@ function ListaProjetos({
   onAbrir: (id: string) => void;
   mostrarColTipo?: boolean;
   mostrarColEtapa?: boolean;
-  tipoFiltro?: string;
   onStatusChange?: (id: string, status: string) => void;
   onEtapaChange?: (id: string, etapa: string) => void;
   totalBruto?: number;
@@ -911,27 +959,23 @@ function ListaProjetos({
         ) : <span className="text-muted-foreground">—</span>;
       }
       return (
-        <select
-          value={p.etapa ?? ''}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => { e.stopPropagation(); onEtapaChange(p.id, e.target.value); }}
-          className="cursor-pointer rounded-full border border-border bg-secondary px-3 py-1.5 pr-7 text-xs font-medium text-muted-foreground transition-colors [color-scheme:dark] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        >
-          <option value="">—</option>
-          {etapas.map((et, i) => (
-            <option key={et.id} value={et.nome}>
-              {et.nome} ({i + 1}/{etapas.length})
-            </option>
-          ))}
-        </select>
+        <SeletorPill
+          valor={p.etapa ?? ''}
+          placeholder="—"
+          rotulo="Mover para etapa"
+          opcoes={etapas.map((et, i) => ({
+            value: et.nome,
+            label: `${et.nome} (${i + 1}/${etapas.length})`,
+          }))}
+          onSelect={(v) => onEtapaChange(p.id, v)}
+          classeBotao="border-border bg-secondary text-muted-foreground hover:text-foreground"
+        />
       );
     }
     if (key === 'prazo') {
       return <span className="text-muted-foreground">{dataBR(p.data_entrega) || '—'}</span>;
     }
     if (key === 'status') {
-      const isSM = p.tipo === TIPO_SOCIAL_MEDIA;
       if (!onStatusChange) {
         return p.status ? (
           <Badge variant={statusVariantParaTipo(p.tipo, p.status)} className="text-[10px]">
@@ -940,29 +984,18 @@ function ListaProjetos({
         ) : <span className="text-muted-foreground">—</span>;
       }
       const statusOpts = statusesParaTipo(p.tipo);
+      const classeBotao = p.status
+        ? pillStatusParaTipoClass(p.tipo, p.status)
+        : 'border-border bg-secondary text-muted-foreground';
       return (
-        <select
-          value={p.status ?? ''}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => { e.stopPropagation(); onStatusChange(p.id, e.target.value); }}
-          className={cn(
-            'cursor-pointer rounded-full border px-3 py-1.5 pr-7 text-xs font-medium transition-colors [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-            !isSM && p.status === 'Desenvolvimento' && 'border-amber-500/50 bg-amber-500/15 text-amber-400',
-            !isSM && p.status === 'Manutenção'      && 'border-primary/50 bg-primary/15 text-primary',
-            (p.status === 'Ativo')                  && 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400',
-            (p.status === 'Inativo')                && 'border-destructive/50 bg-destructive/15 text-destructive',
-            isSM  && p.status === 'Onboarding'      && 'border-primary/50 bg-primary/15 text-primary',
-            isSM  && p.status === 'Pendente'        && 'border-amber-500/50 bg-amber-500/15 text-amber-400',
-            isSM  && p.status === 'Offboarding'     && 'border-border bg-secondary text-muted-foreground',
-            !p.status && 'border-border bg-secondary text-muted-foreground',
-          )}
-        >
-          <option value="">—</option>
-          {statusOpts.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+        <SeletorPill
+          valor={p.status ?? ''}
+          placeholder="—"
+          rotulo="Status do projeto"
+          opcoes={statusOpts.map((s) => ({ value: s, label: s }))}
+          onSelect={(v) => onStatusChange(p.id, v)}
+          classeBotao={classeBotao}
+        />
       );
     }
     if (key === 'responsaveis') {

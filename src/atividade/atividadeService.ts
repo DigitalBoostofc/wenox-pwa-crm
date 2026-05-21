@@ -26,6 +26,26 @@ function nomeAutor(rec: { expand?: { autor?: { nome?: string; email?: string } }
   return rec.expand?.autor?.nome ?? rec.expand?.autor?.email ?? 'Sistema';
 }
 
+/** Coleção PocketBase de cada entidade que tem campo `cliente`. */
+const COLECAO_ENTIDADE: Partial<Record<Entidade, string>> = {
+  projeto: 'projetos', tarefa: 'tarefas', documento: 'documentos',
+  acesso: 'acessos', contato: 'contatos',
+};
+
+/** Resolve o cliente dono da entidade — usado para escopar comentários/
+ *  histórico (contas Cliente só veem o que é da empresa delas). */
+async function resolverCliente(entidade: Entidade, refId: string): Promise<string> {
+  if (entidade === 'cliente') return refId;
+  const col = COLECAO_ENTIDADE[entidade];
+  if (!col) return '';
+  try {
+    const rec = await pb.collection(col).getOne(refId, { fields: 'cliente' });
+    return (rec as { cliente?: string }).cliente ?? '';
+  } catch {
+    return '';
+  }
+}
+
 export async function listComentarios(
   entidade: Entidade,
   refId: string,
@@ -54,6 +74,7 @@ export async function addComentario(
     ref_id: refId,
     texto: t,
     autor: pb.authStore?.record?.id,
+    cliente: await resolverCliente(entidade, refId),
   });
 }
 
@@ -85,6 +106,7 @@ export async function registrarHistorico(
       ref_id: refId,
       acao,
       autor: pb.authStore?.record?.id,
+      cliente: await resolverCliente(entidade, refId),
     });
   } catch {
     /* histórico é best-effort; falha aqui não impede a operação principal */

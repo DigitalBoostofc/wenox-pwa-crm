@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 import { ArrowLeft, Pencil, FolderKanban, Plus, Trash2, CalendarDays } from 'lucide-react';
-import { getProjeto } from './projetosService';
+import { getProjeto, removerProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
 import type { Projeto, EtapaProjeto } from './types';
 import {
@@ -207,6 +207,12 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
 
   const isSocialMedia = p.tipo === TIPO_SOCIAL_MEDIA;
   const cli = p.expand?.cliente;
+
+  async function apagar() {
+    if (!confirm(`Apagar o projeto "${p.nome}" definitivamente? Esta ação não pode ser desfeita.`)) return;
+    await removerProjeto(p.id);
+    history.push('/projetos');
+  }
   const cliNome = cli?.nome?.trim() || cli?.nome_fantasia || '—';
   const responsaveis = p.expand?.responsaveis ?? [];
   const etapaIdx = p.etapa ? etapas.findIndex((e) => e.nome === p.etapa) : -1;
@@ -242,6 +248,9 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
             Abrir cliente
           </Button>
         )}
+        <Button size="sm" variant="ghost" onClick={apagar} className="text-destructive hover:bg-destructive/10">
+          <Trash2 /> Apagar
+        </Button>
         <Button size="sm" onClick={() => history.push(`/projetos/${p.id}/editar`)}>
           <Pencil /> Editar
         </Button>

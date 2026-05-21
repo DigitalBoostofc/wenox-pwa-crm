@@ -101,13 +101,107 @@ export function SidebarNav({
   );
 }
 
-/** Sidebar fixa (desktop ≥ lg) com recolher. */
-export function Sidebar() {
-  const { colapsada, alternar } = useSidebar();
+/** Seção inferior reutilizável: busca, tema, sino e perfil. */
+export function SidebarBottom({
+  compacta = false,
+  onNavigate,
+}: {
+  compacta?: boolean;
+  onNavigate?: () => void;
+}) {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const history = useHistory();
   const initial = (user?.email ?? '?').charAt(0).toUpperCase();
+
+  return (
+    <div className={cn('flex flex-col gap-1', compacta && 'items-center')}>
+      {!compacta && (
+        <div className="relative mb-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            placeholder="Buscar…"
+            aria-label="Buscar"
+            className="h-9 w-full rounded-md border border-input bg-background/40 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          />
+        </div>
+      )}
+
+      <div className={cn('flex gap-1', compacta ? 'flex-col' : 'flex-row')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggle}
+          aria-label={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+          className={cn(!compacta && 'flex-1')}
+        >
+          {theme === 'dark' ? <Sun /> : <Moon />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Notificações"
+          className={cn(!compacta && 'flex-1')}
+        >
+          <Bell />
+        </Button>
+      </div>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className={cn(
+              'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-secondary',
+              compacta && 'justify-center px-0',
+            )}
+            aria-label="Menu do perfil"
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/20 text-xs font-semibold text-primary ring-1 ring-primary/40">
+              {initial}
+            </span>
+            {!compacta && (
+              <span className="truncate text-sm text-muted-foreground">
+                {user?.email}
+              </span>
+            )}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="right" align="end">
+          <DropdownMenuLabel>
+            <span className="block truncate text-sm font-medium text-foreground">
+              {user?.email}
+            </span>
+            <span className="text-xs capitalize text-muted-foreground">
+              {user?.role}
+            </span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {canGerirUsuarios(user?.role) && (
+            <DropdownMenuItem asChild>
+              <Link to="/usuarios" onClick={onNavigate}>
+                <ShieldCheck /> Gerenciar usuários
+              </Link>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            onSelect={() => {
+              logout();
+              history.push('/login');
+              onNavigate?.();
+            }}
+          >
+            <LogOut /> Sair
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+/** Sidebar fixa (desktop ≥ lg) com recolher. */
+export function Sidebar() {
+  const { colapsada, alternar } = useSidebar();
 
   return (
     <aside
@@ -120,87 +214,7 @@ export function Sidebar() {
       <SidebarNav compacta={colapsada} />
 
       <div className={cn('mt-auto flex flex-col gap-1', colapsada && 'items-center')}>
-        {/* Busca — apenas no modo expandido */}
-        {!colapsada && (
-          <div className="relative mb-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder="Buscar…"
-              aria-label="Buscar"
-              className="h-9 w-full rounded-md border border-input bg-background/40 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-            />
-          </div>
-        )}
-
-        {/* Tema + Notificações */}
-        <div className={cn('flex gap-1', colapsada ? 'flex-col' : 'flex-row')}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggle}
-            aria-label={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
-            className={cn(!colapsada && 'flex-1')}
-          >
-            {theme === 'dark' ? <Sun /> : <Moon />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Notificações"
-            className={cn(!colapsada && 'flex-1')}
-          >
-            <Bell />
-          </Button>
-        </div>
-
-        {/* Perfil */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={cn(
-                'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-secondary',
-                colapsada && 'justify-center px-0',
-              )}
-              aria-label="Menu do perfil"
-            >
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/20 text-xs font-semibold text-primary ring-1 ring-primary/40">
-                {initial}
-              </span>
-              {!colapsada && (
-                <span className="truncate text-sm text-muted-foreground">
-                  {user?.email}
-                </span>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="end">
-            <DropdownMenuLabel>
-              <span className="block truncate text-sm font-medium text-foreground">
-                {user?.email}
-              </span>
-              <span className="text-xs capitalize text-muted-foreground">
-                {user?.role}
-              </span>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {canGerirUsuarios(user?.role) && (
-              <DropdownMenuItem asChild>
-                <Link to="/usuarios">
-                  <ShieldCheck /> Gerenciar usuários
-                </Link>
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              onSelect={() => {
-                logout();
-                history.push('/login');
-              }}
-            >
-              <LogOut /> Sair
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <SidebarBottom compacta={colapsada} />
 
         {/* Recolher */}
         <button

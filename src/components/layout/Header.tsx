@@ -9,7 +9,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { titleForPath } from './nav';
-import { SidebarBrand, SidebarNav } from './Sidebar';
+import { SidebarBrand, SidebarNav, SidebarBottom } from './Sidebar';
 import { HeaderSlotTarget } from './HeaderSlot';
 
 export function Header() {
@@ -26,10 +26,13 @@ export function Header() {
             <Menu />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left">
+        <SheetContent side="left" className="flex flex-col gap-4 overflow-y-auto p-4">
           <SheetTitle className="sr-only">Navegação</SheetTitle>
           <SidebarBrand />
           <SidebarNav onNavigate={() => setMobileOpen(false)} />
+          <div className="mt-auto border-t border-border pt-4">
+            <SidebarBottom onNavigate={() => setMobileOpen(false)} />
+          </div>
         </SheetContent>
       </Sheet>
 

@@ -1,8 +1,23 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Lock, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Link, useHistory, useLocation } from 'react-router-dom';
+import {
+  Bell, Lock, LogOut, Moon, PanelLeft, PanelLeftClose,
+  Search, ShieldCheck, Sun,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav';
 import { useSidebar } from './SidebarContext';
+import { useAuth } from '@/auth/useAuth';
+import { canGerirUsuarios } from '@/auth/perms';
+import { useTheme } from './ThemeProvider';
 
 function isActive(pathname: string, itemPath: string) {
   if (itemPath === '/clientes')
@@ -89,6 +104,11 @@ export function SidebarNav({
 /** Sidebar fixa (desktop ≥ lg) com recolher. */
 export function Sidebar() {
   const { colapsada, alternar } = useSidebar();
+  const { user, logout } = useAuth();
+  const { theme, toggle } = useTheme();
+  const history = useHistory();
+  const initial = (user?.email ?? '?').charAt(0).toUpperCase();
+
   return (
     <aside
       className={cn(
@@ -98,23 +118,109 @@ export function Sidebar() {
     >
       <SidebarBrand compacta={colapsada} />
       <SidebarNav compacta={colapsada} />
-      <button
-        onClick={alternar}
-        aria-label={colapsada ? 'Expandir menu' : 'Recolher menu'}
-        title={colapsada ? 'Expandir menu' : 'Recolher menu'}
-        className={cn(
-          'mt-auto flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground',
-          colapsada && 'justify-center px-0',
+
+      <div className={cn('mt-auto flex flex-col gap-1', colapsada && 'items-center')}>
+        {/* Busca — apenas no modo expandido */}
+        {!colapsada && (
+          <div className="relative mb-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              placeholder="Buscar…"
+              aria-label="Buscar"
+              className="h-9 w-full rounded-md border border-input bg-background/40 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            />
+          </div>
         )}
-      >
-        {colapsada ? (
-          <PanelLeft className="size-[18px]" />
-        ) : (
-          <>
-            <PanelLeftClose className="size-[18px]" /> Recolher
-          </>
-        )}
-      </button>
+
+        {/* Tema + Notificações */}
+        <div className={cn('flex gap-1', colapsada ? 'flex-col' : 'flex-row')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggle}
+            aria-label={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+            className={cn(!colapsada && 'flex-1')}
+          >
+            {theme === 'dark' ? <Sun /> : <Moon />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Notificações"
+            className={cn(!colapsada && 'flex-1')}
+          >
+            <Bell />
+          </Button>
+        </div>
+
+        {/* Perfil */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-secondary',
+                colapsada && 'justify-center px-0',
+              )}
+              aria-label="Menu do perfil"
+            >
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/20 text-xs font-semibold text-primary ring-1 ring-primary/40">
+                {initial}
+              </span>
+              {!colapsada && (
+                <span className="truncate text-sm text-muted-foreground">
+                  {user?.email}
+                </span>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="end">
+            <DropdownMenuLabel>
+              <span className="block truncate text-sm font-medium text-foreground">
+                {user?.email}
+              </span>
+              <span className="text-xs capitalize text-muted-foreground">
+                {user?.role}
+              </span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {canGerirUsuarios(user?.role) && (
+              <DropdownMenuItem asChild>
+                <Link to="/usuarios">
+                  <ShieldCheck /> Gerenciar usuários
+                </Link>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              onSelect={() => {
+                logout();
+                history.push('/login');
+              }}
+            >
+              <LogOut /> Sair
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Recolher */}
+        <button
+          onClick={alternar}
+          aria-label={colapsada ? 'Expandir menu' : 'Recolher menu'}
+          title={colapsada ? 'Expandir menu' : 'Recolher menu'}
+          className={cn(
+            'flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground',
+            colapsada && 'justify-center px-0',
+          )}
+        >
+          {colapsada ? (
+            <PanelLeft className="size-[18px]" />
+          ) : (
+            <>
+              <PanelLeftClose className="size-[18px]" /> Recolher
+            </>
+          )}
+        </button>
+      </div>
     </aside>
   );
 }

@@ -3,6 +3,7 @@ import { useHistory } from 'react-router-dom';
 import { Search, UserPlus } from 'lucide-react';
 import { listMembros } from './equipeService';
 import type { Usuario } from '@/usuarios/types';
+import { fotoUrl } from '@/usuarios/usuariosService';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import { useAuth } from '@/auth/useAuth';
 import { canGerirUsuarios } from '@/auth/perms';
@@ -36,10 +37,20 @@ function CardMembro({ m, onClick }: { m: Usuario; onClick: () => void }) {
       {/* Avatar */}
       <div className="relative">
         <div className={cn(
-          'grid size-14 place-items-center rounded-full text-lg font-bold text-white',
-          corAvatar(m.nome ?? m.email),
+          'grid size-14 place-items-center overflow-hidden rounded-full text-lg font-bold text-white',
+          !m.foto && corAvatar(m.nome ?? m.email),
         )}>
-          {inicial(m.nome ?? m.email)}
+          {m.foto ? (
+            <img
+              src={fotoUrl(m, '120x120')}
+              alt={m.nome}
+              loading="lazy"
+              decoding="async"
+              className="size-full object-cover"
+            />
+          ) : (
+            inicial(m.nome ?? m.email)
+          )}
         </div>
         <span className={cn(
           'absolute bottom-0 right-0 size-3.5 rounded-full border-2 border-card',

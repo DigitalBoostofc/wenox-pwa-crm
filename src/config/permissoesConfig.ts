@@ -3,7 +3,7 @@ export type Modulo =
   | 'tarefas' | 'financeiro' | 'contratos' | 'agenda' | 'ia' | 'config';
 
 export const MODULOS_INFO: { id: Modulo; label: string; disponivel: boolean }[] = [
-  { id: 'dashboard',   label: 'Dashboard',             disponivel: false },
+  { id: 'dashboard',   label: 'Dashboard',             disponivel: true  },
   { id: 'minha-area',  label: 'Minha Área',             disponivel: false },
   { id: 'equipe',      label: 'Equipe',                 disponivel: true  },
   { id: 'clientes',    label: 'Clientes',               disponivel: true  },
@@ -23,9 +23,9 @@ export type MatrizPermissoes = Record<string, Partial<Record<Modulo, boolean>>>;
 
 export const PERMISSOES_PADRAO: MatrizPermissoes = {
   Admin:       { dashboard: true, 'minha-area': true, equipe: true, clientes: true, projetos: true, tarefas: true, financeiro: true, contratos: true, agenda: true, ia: true, config: true },
-  Gestor:      { 'minha-area': true, equipe: true, clientes: true, projetos: true, tarefas: true, agenda: true },
-  Membro:      { 'minha-area': true, clientes: true, projetos: true, tarefas: true },
-  Visualizador:{ 'minha-area': true, clientes: true, projetos: true },
+  Gestor:      { dashboard: true, 'minha-area': true, equipe: true, clientes: true, projetos: true, tarefas: true, agenda: true },
+  Membro:      { dashboard: true, 'minha-area': true, clientes: true, projetos: true, tarefas: true },
+  Visualizador:{ dashboard: true, 'minha-area': true, clientes: true, projetos: true },
 };
 
 const KEY = 'wenox-permissoes-v1';

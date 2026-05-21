@@ -6,7 +6,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, wenox-vps]
     steps:
       - uses: actions/checkout@v4
 
@@ -21,23 +21,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Copiar dist para VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: dist/
-          target: /tmp/wenox_update
-          strip_components: 1
-
-      - name: Rebuild e atualizar serviço Docker
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            sudo cp -r /tmp/wenox_update/. /etc/easypanel/projects/wenox/pwa/code/dist/
-            sudo docker build -t wenox_pwa /etc/easypanel/projects/wenox/pwa/code/ -q
-            sudo docker service update --force wenox_pwa
+      - name: Copiar dist e atualizar serviço Docker
+        run: |
+          sudo cp -r dist/. /etc/easypanel/projects/wenox/pwa/code/dist/
+          sudo docker build -t wenox_pwa /etc/easypanel/projects/wenox/pwa/code/ -q
+          sudo docker service update --force wenox_pwa

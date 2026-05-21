@@ -497,6 +497,7 @@ export function ProjetosListPage() {
           onAbrir={abrirProjeto}
           mostrarColTipo={tipoFiltro === 'Todos'}
           onStatusChange={atualizarStatus}
+          onEtapaChange={moverProjeto}
           totalBruto={projetos.length}
         />
       ) : projetosFiltrados.length === 0 ? (
@@ -758,13 +759,14 @@ function salvarColunasProj(cols: ColProjDef[]) {
 
 function ListaProjetos({
   projetos, etapasPorTipo, onAbrir, mostrarColTipo = true, onStatusChange,
-  totalBruto,
+  onEtapaChange, totalBruto,
 }: {
   projetos: Projeto[];
   etapasPorTipo: Record<string, EtapaProjeto[]>;
   onAbrir: (id: string) => void;
   mostrarColTipo?: boolean;
   onStatusChange?: (id: string, status: string) => void;
+  onEtapaChange?: (id: string, etapa: string) => void;
   totalBruto?: number;
 }) {
   const [colDefs, setColDefs] = useState<ColProjDef[]>(carregarColunasProj);
@@ -817,11 +819,27 @@ function ListaProjetos({
     if (key === 'etapa') {
       const etapas = etapasPorTipo[p.tipo ?? ''] ?? [];
       const idx = p.etapa ? etapas.findIndex((e) => e.nome === p.etapa) : -1;
-      return p.etapa ? (
-        <Badge variant="muted" className="text-[10px]">
-          {p.etapa}{etapas.length > 0 && idx >= 0 && ` (${idx + 1}/${etapas.length})`}
-        </Badge>
-      ) : <span className="text-muted-foreground">—</span>;
+      const sufixo = etapas.length > 0 && idx >= 0 ? ` (${idx + 1}/${etapas.length})` : '';
+      if (!onEtapaChange || etapas.length === 0) {
+        return p.etapa ? (
+          <Badge variant="muted" className="text-[10px]">{p.etapa}{sufixo}</Badge>
+        ) : <span className="text-muted-foreground">—</span>;
+      }
+      return (
+        <select
+          value={p.etapa ?? ''}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => { e.stopPropagation(); onEtapaChange(p.id, e.target.value); }}
+          className="cursor-pointer rounded-full border border-border bg-secondary px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          <option value="">—</option>
+          {etapas.map((et, i) => (
+            <option key={et.id} value={et.nome}>
+              {et.nome} ({i + 1}/{etapas.length})
+            </option>
+          ))}
+        </select>
+      );
     }
     if (key === 'prazo') {
       return <span className="text-muted-foreground">{dataBR(p.data_entrega) || '—'}</span>;

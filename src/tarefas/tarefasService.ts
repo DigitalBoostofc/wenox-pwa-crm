@@ -2,6 +2,7 @@ import { pb } from '@/lib/pocketbase';
 import {
   registrarHistorico, diffCampos, addComentario,
 } from '@/atividade/atividadeService';
+import { notificar, idsGestao } from '@/notificacoes/notificacoesService';
 import type { Tarefa, TarefaInput } from './types';
 
 const col = () => pb.collection('tarefas');
@@ -62,6 +63,11 @@ export async function criarTarefa(input: TarefaInput): Promise<Tarefa> {
   const dados = { ...input, ...(uid ? { created_by: uid, updated_by: uid } : {}) };
   const rec = (await col().create(dados)) as unknown as Tarefa;
   await registrarHistorico('tarefa', rec.id, 'Tarefa criada');
+  await notificar(input.responsaveis ?? [], {
+    tipo: 'atribuicao',
+    titulo: `Você foi atribuído à tarefa: ${rec.nome}`,
+    link: `/tarefas/${rec.id}`,
+  });
   return rec;
 }
 
@@ -81,6 +87,16 @@ export async function atualizarTarefa(
   const mudancas = diffCampos(antes, input as Record<string, unknown>);
   if (mudancas.length) {
     await registrarHistorico('tarefa', id, `Alterou ${mudancas.join(' · ')}`);
+  }
+  // Notifica quem foi recém-adicionado como responsável.
+  if (input.responsaveis) {
+    const antesResp = (antes?.responsaveis as string[] | undefined) ?? [];
+    const novos = input.responsaveis.filter((r) => !antesResp.includes(r));
+    await notificar(novos, {
+      tipo: 'atribuicao',
+      titulo: `Você foi atribuído à tarefa: ${rec.nome}`,
+      link: `/tarefas/${id}`,
+    });
   }
   return rec;
 }
@@ -102,11 +118,21 @@ export async function moverTarefaStatus(
   return rec;
 }
 
+/** Equipe a notificar sobre o veredito de uma tarefa: responsáveis + gestão. */
+async function alvosAprovacao(rec: Tarefa): Promise<string[]> {
+  return [...(rec.responsaveis ?? []), ...(await idsGestao())];
+}
+
 /** Cliente aprova a tarefa — registra veredito + comentário no feed. */
 export async function aprovarTarefa(id: string): Promise<Tarefa> {
   const rec = (await col().update(id, { aprovacao: 'aprovada' })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, 'Cliente aprovou a tarefa');
-  try { await addComentario('tarefa', id, '✅ Cliente aprovou a tarefa.'); } catch { /* */ }
+  try { await addComentario('tarefa', id, '✅ Cliente aprovou a tarefa.', false); } catch { /* */ }
+  await notificar(await alvosAprovacao(rec), {
+    tipo: 'aprovacao',
+    titulo: `Cliente aprovou: ${rec.nome}`,
+    link: `/tarefas/${id}`,
+  });
   return rec;
 }
 
@@ -122,6 +148,12 @@ export async function pedirAlteracaoTarefa(
     status: 'Em alteração',
   })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, 'Cliente pediu alteração');
-  try { await addComentario('tarefa', id, `🔁 Alteração solicitada: ${t}`); } catch { /* */ }
+  try { await addComentario('tarefa', id, `🔁 Alteração solicitada: ${t}`, false); } catch { /* */ }
+  await notificar(await alvosAprovacao(rec), {
+    tipo: 'alteracao',
+    titulo: `Cliente pediu alteração: ${rec.nome}`,
+    mensagem: t,
+    link: `/tarefas/${id}`,
+  });
   return rec;
 }

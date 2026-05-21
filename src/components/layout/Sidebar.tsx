@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import {
-  Bell, Lock, LogOut, Moon, PanelLeft, PanelLeftClose,
+  Lock, LogOut, Moon, PanelLeft, PanelLeftClose,
   Search, ShieldCheck, Sun,
 } from 'lucide-react';
+import { NotificacoesBell } from '@/notificacoes/NotificacoesBell';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -146,14 +147,7 @@ export function SidebarBottom({
         >
           {theme === 'dark' ? <Sun /> : <Moon />}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Notificações"
-          className={cn(!compacta && 'flex-1')}
-        >
-          <Bell />
-        </Button>
+        <NotificacoesBell compacta={compacta} />
       </div>
 
       <DropdownMenu>

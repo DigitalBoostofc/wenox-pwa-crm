@@ -28,6 +28,10 @@ const ProjetoDetailPage = lazy(() =>
   import('@/projetos/ProjetoDetailPage').then((m) => ({ default: m.ProjetoDetailPage })));
 const EtapasProjetoPage = lazy(() =>
   import('@/projetos/EtapasProjetoPage').then((m) => ({ default: m.EtapasProjetoPage })));
+const EquipePage = lazy(() =>
+  import('@/equipe/EquipePage').then((m) => ({ default: m.EquipePage })));
+const MembroDetailPage = lazy(() =>
+  import('@/equipe/MembroDetailPage').then((m) => ({ default: m.MembroDetailPage })));
 
 function CarregandoTela() {
   return (
@@ -86,6 +90,14 @@ function AuthedApp() {
             path="/projetos/:id"
             render={(props) => (
               <ProjetoDetailPage id={(props.match.params as { id: string }).id} />
+            )}
+          />
+          <Route exact path="/equipe" component={EquipePage} />
+          <Route
+            exact
+            path="/equipe/:id"
+            render={(props) => (
+              <MembroDetailPage id={(props.match.params as { id: string }).id} />
             )}
           />
           <Route exact path="/usuarios" component={UsuariosPage} />

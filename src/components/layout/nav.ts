@@ -25,7 +25,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, enabled: false },
   { label: 'Minha Área', path: '/minha-area', icon: UserCircle, enabled: false },
-  { label: 'Equipe', path: '/equipe', icon: Users, enabled: false },
+  { label: 'Equipe', path: '/equipe', icon: Users, enabled: true },
   { label: 'Clientes', path: '/clientes', icon: Building2, enabled: true },
   { label: 'Projetos', path: '/projetos', icon: FolderKanban, enabled: true },
   { label: 'Tarefas', path: '/tarefas', icon: ListChecks, enabled: false },

@@ -1,23 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useHistory, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, X } from 'lucide-react';
+import { ArrowLeft, Plus, X, Building2, Users, ClipboardList } from 'lucide-react';
 import {
   criarTarefa, getTarefa, atualizarTarefa, removerTarefa,
 } from './tarefasService';
-import type { TarefaInput, LadoTarefa } from './types';
+import type { TarefaInput } from './types';
 import { listProjetos } from '@/projetos/projetosService';
 import type { Projeto } from '@/projetos/types';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import { listUsuarios } from '@/usuarios/usuariosService';
+import { listClientes } from '@/clientes/clientesService';
 import { listContatos } from '@/contatos/contatosService';
+import { nomeExibicao } from '@/clientes/types';
 import type { Opcao } from '@/opcoes/types';
+import type { Cliente } from '@/clientes/types';
 import type { Contato } from '@/contatos/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 const selectClass =
-  'h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+  'h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-50';
+
+/** Modo de vínculo da tarefa — controla o cascateamento do formulário. */
+type Modo = 'interna' | 'equipe' | 'cliente';
 
 function Campo({
   id, label, children, className = '',
@@ -48,16 +55,20 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
   const id = idProp ?? params.id;
 
   const [form, setForm] = useState<TarefaInput>(vazia);
+  const [modo, setModo] = useState<Modo>('interna');
   const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [statuses, setStatuses] = useState<Opcao[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [novaTag, setNovaTag] = useState('');
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [carregado, setCarregado] = useState(false);
 
   useEffect(() => {
     listProjetos().then(setProjetos);
+    listClientes('').then(setClientes);
     listOpcoes('status_tarefa').then(setStatuses);
     listUsuarios().then(setUsuarios as never);
   }, []);
@@ -69,8 +80,10 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
     const proj = qs.get('projeto');
     const cli = qs.get('cliente');
     if (proj || cli) {
-      setForm((f) => ({ ...f, projeto: proj ?? '', cliente: cli ?? '' }));
+      setModo('cliente');
+      setForm((f) => ({ ...f, projeto: proj ?? '', cliente: cli ?? '', lado: 'cliente' }));
     }
+    setCarregado(true);
   }, [id, search]);
 
   useEffect(() => {
@@ -89,6 +102,11 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
           etiquetas: t.etiquetas ?? [],
           ordem: t.ordem ?? 0,
         });
+        // Deriva o modo a partir dos campos salvos.
+        if (t.lado === 'cliente') setModo('cliente');
+        else if (t.cliente || t.projeto) setModo('equipe');
+        else setModo('interna');
+        setCarregado(true);
       });
     }
   }, [id]);
@@ -106,32 +124,80 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
     else setContatos([]);
   }, [form.cliente]);
 
-  const projetoSel = useMemo(
-    () => projetos.find((p) => p.id === form.projeto),
-    [projetos, form.projeto],
-  );
-
   function set<K extends keyof TarefaInput>(k: K, v: TarefaInput[K]) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
-  /** Trocar de projeto deriva o cliente; sem projeto → tarefa interna (lado Wenox). */
-  function trocarProjeto(projetoId: string) {
-    const p = projetos.find((x) => x.id === projetoId);
+  /** Clientes em que os membros selecionados trabalham (via projetos). */
+  const clientesDoMembro = useMemo(() => {
+    const membros = new Set(form.responsaveis ?? []);
+    if (membros.size === 0) return [] as Cliente[];
+    const ids = new Set<string>();
+    for (const p of projetos) {
+      if ((p.responsaveis ?? []).some((r) => membros.has(r)) && p.cliente) {
+        ids.add(p.cliente);
+      }
+    }
+    return clientes.filter((c) => ids.has(c.id));
+  }, [form.responsaveis, projetos, clientes]);
+
+  /** Projetos do cliente selecionado. */
+  const projetosDoCliente = useMemo(
+    () => projetos.filter((p) => p.cliente === form.cliente),
+    [projetos, form.cliente],
+  );
+
+  // Auto-seleciona o projeto quando o cliente tem só um.
+  useEffect(() => {
+    if (modo === 'interna' || !form.cliente) return;
+    if (projetosDoCliente.length === 1 && form.projeto !== projetosDoCliente[0].id) {
+      set('projeto', projetosDoCliente[0].id);
+    }
+  }, [modo, form.cliente, projetosDoCliente]);
+
+  /** Troca de modo — limpa os campos do cascateamento. */
+  function trocarModo(m: Modo) {
+    setModo(m);
     setForm((f) => ({
       ...f,
-      projeto: projetoId,
-      cliente: p?.cliente ?? '',
-      ...(projetoId ? {} : { lado: 'wenox' as LadoTarefa, contato: '' }),
+      lado: m === 'cliente' ? 'cliente' : 'wenox',
+      projeto: '',
+      cliente: '',
+      contato: '',
+      responsaveis: [],
     }));
   }
 
-  function trocarLado(lado: LadoTarefa) {
-    setForm((f) => ({
-      ...f,
-      lado,
-      ...(lado === 'wenox' ? { contato: '' } : { responsaveis: [] }),
-    }));
+  /** Em modo equipe: liga/desliga um membro e revalida o cliente escolhido. */
+  function toggleMembro(uid: string) {
+    setForm((f) => {
+      const atuais = f.responsaveis ?? [];
+      const proximos = atuais.includes(uid)
+        ? atuais.filter((x) => x !== uid)
+        : [...atuais, uid];
+      // Se o cliente atual não pertence mais a nenhum membro, zera a cascata.
+      const membros = new Set(proximos);
+      const clienteAindaVale = projetos.some(
+        (p) => p.cliente === f.cliente
+          && (p.responsaveis ?? []).some((r) => membros.has(r)),
+      );
+      return {
+        ...f,
+        responsaveis: proximos,
+        ...(clienteAindaVale ? {} : { cliente: '', projeto: '', contato: '' }),
+      };
+    });
+  }
+
+  function escolherCliente(clienteId: string) {
+    setForm((f) => ({ ...f, cliente: clienteId, projeto: '', contato: '' }));
+  }
+
+  function toggleResp(uid: string) {
+    const atuais = form.responsaveis ?? [];
+    set('responsaveis', atuais.includes(uid)
+      ? atuais.filter((x) => x !== uid)
+      : [...atuais, uid]);
   }
 
   function addTag() {
@@ -145,23 +211,22 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
     set('etiquetas', (form.etiquetas ?? []).filter((x) => x !== v));
   }
 
-  function toggleResp(uid: string) {
-    const atuais = form.responsaveis ?? [];
-    set('responsaveis', atuais.includes(uid)
-      ? atuais.filter((x) => x !== uid)
-      : [...atuais, uid]);
-  }
-
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
     setErro('');
     if (!form.nome.trim()) { setErro('Nome da tarefa é obrigatório'); return; }
+    if (modo !== 'interna' && !form.cliente) {
+      setErro('Selecione o cliente da tarefa'); return;
+    }
     setSalvando(true);
     try {
       const payload: TarefaInput = {
         ...form,
-        // Tarefa sem projeto não tem cliente (sempre interna).
-        cliente: form.projeto ? form.cliente : '',
+        lado: modo === 'cliente' ? 'cliente' : 'wenox',
+        // Tarefa interna não tem cliente nem projeto.
+        cliente: modo === 'interna' ? '' : form.cliente,
+        projeto: modo === 'interna' ? '' : form.projeto,
+        contato: modo === 'cliente' ? form.contato : '',
       };
       if (id) await atualizarTarefa(id, payload);
       else await criarTarefa(payload);
@@ -186,8 +251,11 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
     }
   }
 
-  const temProjeto = !!form.projeto;
-  const isCliente = form.lado === 'cliente';
+  const MODOS: { v: Modo; label: string; desc: string; icon: typeof Users }[] = [
+    { v: 'interna', label: 'Interna', desc: 'Tarefa da agência, sem cliente', icon: ClipboardList },
+    { v: 'equipe', label: 'Equipe', desc: 'Por membro da equipe', icon: Users },
+    { v: 'cliente', label: 'Cliente', desc: 'Direto pelo cliente', icon: Building2 },
+  ];
 
   return (
     <div className="flex max-w-3xl flex-col gap-4">
@@ -208,15 +276,6 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
                 placeholder="Ex: Aprovar layout do post de Maio" />
             </Campo>
             <div className="grid gap-4 md:grid-cols-2">
-              <Campo id="proj" label="Projeto (opcional)">
-                <select id="proj" value={form.projeto ?? ''} className={selectClass}
-                  onChange={(e) => trocarProjeto(e.target.value)}>
-                  <option value="">Sem projeto (tarefa interna)</option>
-                  {projetos.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nome}</option>
-                  ))}
-                </select>
-              </Campo>
               <Campo id="status" label="Status">
                 <select id="status" value={form.status ?? ''} className={selectClass}
                   onChange={(e) => set('status', e.target.value)}>
@@ -231,61 +290,44 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
                   onChange={(e) => set('prazo', e.target.value)} />
               </Campo>
             </div>
-            {temProjeto && projetoSel && (
-              <p className="text-xs text-muted-foreground">
-                Cliente do projeto: <strong>{projetoSel.expand?.cliente?.nome
-                  ?? projetoSel.expand?.cliente?.nome_fantasia ?? '—'}</strong>
-              </p>
-            )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Responsabilidade</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Vínculo da tarefa</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {temProjeto ? (
-              <Campo id="lado" label="Quem é responsável">
-                <div className="flex gap-2">
-                  {(['wenox', 'cliente'] as LadoTarefa[]).map((l) => (
-                    <button key={l} type="button" onClick={() => trocarLado(l)}
-                      className={
-                        'rounded-full border px-4 py-1.5 text-sm transition-colors ' +
-                        (form.lado === l
-                          ? 'border-primary/50 bg-primary/15 text-primary'
-                          : 'border-border text-muted-foreground hover:bg-secondary')
-                      }>
-                      {l === 'wenox' ? 'Equipe Wenox' : 'Cliente'}
-                    </button>
-                  ))}
-                </div>
-              </Campo>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Tarefa interna da agência — responsável é a equipe Wenox.
-              </p>
-            )}
+            {/* Seletor de modo */}
+            <div className="grid gap-2 sm:grid-cols-3">
+              {MODOS.map((m) => {
+                const Icon = m.icon;
+                const ativo = modo === m.v;
+                return (
+                  <button
+                    key={m.v}
+                    type="button"
+                    onClick={() => trocarModo(m.v)}
+                    className={cn(
+                      'flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors',
+                      ativo
+                        ? 'border-primary/50 bg-primary/10'
+                        : 'border-border hover:bg-secondary',
+                    )}
+                  >
+                    <span className={cn(
+                      'flex items-center gap-1.5 text-sm font-medium',
+                      ativo ? 'text-primary' : 'text-foreground',
+                    )}>
+                      <Icon className="size-4" /> {m.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{m.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-            {isCliente ? (
-              <Campo id="contato" label="Contato responsável (do cliente)">
-                {contatos.length === 0 ? (
-                  <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-                    Nenhum contato cadastrado para este cliente. Cadastre na aba
-                    Equipe do cliente.
-                  </p>
-                ) : (
-                  <select id="contato" value={form.contato ?? ''} className={selectClass}
-                    onChange={(e) => set('contato', e.target.value)}>
-                    <option value="">—</option>
-                    {contatos.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nome}{c.cargo ? ` · ${c.cargo}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </Campo>
-            ) : (
-              <Campo id="resp" label="Responsáveis (equipe Wenox)">
+            {/* ----- Modo INTERNA ----- */}
+            {modo === 'interna' && (
+              <Campo id="resp-int" label="Responsáveis (equipe Wenox)">
                 {usuarios.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Carregando usuários…</p>
                 ) : (
@@ -305,6 +347,108 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
                       );
                     })}
                   </div>
+                )}
+              </Campo>
+            )}
+
+            {/* ----- Modo EQUIPE: membro → cliente → projeto ----- */}
+            {modo === 'equipe' && (
+              <>
+                <Campo id="membros" label="1. Membro(s) da equipe">
+                  {usuarios.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Carregando usuários…</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {usuarios.map((u) => {
+                        const ativo = (form.responsaveis ?? []).includes(u.id);
+                        return (
+                          <button key={u.id} type="button" onClick={() => toggleMembro(u.id)}
+                            className={
+                              'rounded-full border px-3 py-1 text-sm transition-colors ' +
+                              (ativo
+                                ? 'border-primary/50 bg-primary/15 text-primary'
+                                : 'border-border text-muted-foreground hover:bg-secondary')
+                            }>
+                            {u.nome || u.email}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Campo>
+                <Campo id="cli-eq" label="2. Cliente">
+                  {(form.responsaveis ?? []).length === 0 ? (
+                    <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                      Selecione um membro acima para ver os clientes dele.
+                    </p>
+                  ) : clientesDoMembro.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                      Esse(s) membro(s) não estão em nenhum projeto com cliente.
+                    </p>
+                  ) : (
+                    <select id="cli-eq" value={form.cliente ?? ''} className={selectClass}
+                      onChange={(e) => escolherCliente(e.target.value)}>
+                      <option value="">—</option>
+                      {clientesDoMembro.map((c) => (
+                        <option key={c.id} value={c.id}>{nomeExibicao(c)}</option>
+                      ))}
+                    </select>
+                  )}
+                </Campo>
+              </>
+            )}
+
+            {/* ----- Modo CLIENTE: cliente → projeto + contato ----- */}
+            {modo === 'cliente' && (
+              <Campo id="cli" label="1. Cliente">
+                <select id="cli" value={form.cliente ?? ''} className={selectClass}
+                  onChange={(e) => escolherCliente(e.target.value)}>
+                  <option value="">—</option>
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>{nomeExibicao(c)}</option>
+                  ))}
+                </select>
+              </Campo>
+            )}
+
+            {/* Projeto — comum a equipe e cliente, após escolher o cliente */}
+            {modo !== 'interna' && form.cliente && (
+              <Campo id="proj" label={`${modo === 'equipe' ? '3' : '2'}. Projeto`}>
+                {projetosDoCliente.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                    Este cliente ainda não tem projetos. A tarefa fica ligada só
+                    ao cliente.
+                  </p>
+                ) : (
+                  <select id="proj" value={form.projeto ?? ''} className={selectClass}
+                    onChange={(e) => set('projeto', e.target.value)}>
+                    <option value="">Sem projeto específico</option>
+                    {projetosDoCliente.map((p) => (
+                      <option key={p.id} value={p.id}>{p.nome}</option>
+                    ))}
+                  </select>
+                )}
+              </Campo>
+            )}
+
+            {/* Contato responsável — só no modo cliente */}
+            {modo === 'cliente' && form.cliente && (
+              <Campo id="contato" label="3. Contato responsável (do cliente)">
+                {contatos.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                    Nenhum contato cadastrado para este cliente. Cadastre na aba
+                    Equipe do cliente.
+                  </p>
+                ) : (
+                  <select id="contato" value={form.contato ?? ''} className={selectClass}
+                    onChange={(e) => set('contato', e.target.value)}>
+                    <option value="">—</option>
+                    {contatos.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nome}{c.cargo ? ` · ${c.cargo}` : ''}
+                      </option>
+                    ))}
+                  </select>
                 )}
               </Campo>
             )}
@@ -350,7 +494,7 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
 
         {erro && <p className="text-sm font-medium text-destructive">{erro}</p>}
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" size="lg" disabled={salvando}>
+          <Button type="submit" size="lg" disabled={salvando || !carregado}>
             {salvando ? 'Salvando…' : 'Salvar'}
           </Button>
           {id && (

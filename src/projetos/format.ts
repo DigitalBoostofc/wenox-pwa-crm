@@ -4,12 +4,12 @@ type BadgeVariant = BadgeProps['variant'];
 
 export const TIPO_SOCIAL_MEDIA = 'Social Media';
 
-/** Status fixos do projeto. Mantemos a ordem que o Leonardo definiu:
- *  Desenvolvimento (foco) → Manutenção → Ativo → Inativo. */
+/** Status fixos do projeto, na ordem que o Leonardo definiu para os
+ *  filtros: Ativo → Desenvolvimento → Manutenção → Inativo. */
 export const STATUS_PROJETO = [
+  'Ativo',
   'Desenvolvimento',
   'Manutenção',
-  'Ativo',
   'Inativo',
 ] as const;
 export type StatusProjeto = (typeof STATUS_PROJETO)[number];

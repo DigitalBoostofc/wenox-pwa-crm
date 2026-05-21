@@ -89,6 +89,27 @@ function SeletorPill({
   );
 }
 
+/** Alça de redimensionamento na borda direita do <th>. */
+function ResizeHandle({
+  onMouseDown,
+}: { onMouseDown: (e: React.MouseEvent<HTMLSpanElement>) => void }) {
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Arraste para redimensionar coluna"
+      onMouseDown={onMouseDown}
+      onClick={(e) => e.stopPropagation()}
+      className="group absolute -right-1 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center"
+    >
+      <span
+        aria-hidden
+        className="h-2/3 w-px bg-border transition-colors group-hover:w-0.5 group-hover:bg-primary"
+      />
+    </span>
+  );
+}
+
 /** Iniciais (até 2 letras) pra um botão compacto. */
 function iniciaisTipo(nome: string): string {
   const partes = nome.trim().split(/\s+/).filter(Boolean);
@@ -351,7 +372,29 @@ export function ProjetosListPage() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [recarregaTrigger, setRecarregaTrigger] = useState(0);
+  // Estado da tabela Lista (vive aqui pra os controles ficarem no topo da página).
+  const [colDefsProj, setColDefsProj] = useState<ColProjDef[]>(carregarColunasProj);
+  const [ordemProj, setOrdemProj] = useState<OrdemProj>(carregarOrdemProj);
+  const [largurasProj, setLargurasProj] = useState<LargurasProj>(carregarLargurasProj);
   const seqRef = useRef(0);
+
+  function toggleColProj(k: ColProjKey) {
+    setColDefsProj((cs) => {
+      const next = cs.map((c) => (c.key === k ? { ...c, visivel: !c.visivel } : c));
+      salvarColunasProj(next);
+      return next;
+    });
+  }
+  function moverColProj(de: number, para: number) {
+    setColDefsProj((cs) => {
+      if (de === para || para < 0 || para >= cs.length) return cs;
+      const next = [...cs];
+      const [item] = next.splice(de, 1);
+      next.splice(para, 0, item);
+      salvarColunasProj(next);
+      return next;
+    });
+  }
 
   useEffect(() => {
     listOpcoes('tipo_projeto').then(setTipos);
@@ -457,8 +500,8 @@ export function ProjetosListPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-56 flex-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-48 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             placeholder="Buscar projeto ou cliente"
@@ -468,6 +511,25 @@ export function ProjetosListPage() {
             className="h-10 w-full rounded-md border border-input bg-background/40 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           />
         </div>
+        {view === 'lista' && (
+          <>
+            <select
+              aria-label="Ordenar"
+              value={ordemProj}
+              onChange={(e) => { const v = e.target.value as OrdemProj; setOrdemProj(v); salvarOrdemProj(v); }}
+              className="h-10 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              {ORDENS_PROJ.map((o) => (
+                <option key={o.v} value={o.v}>{o.label}</option>
+              ))}
+            </select>
+            <MenuColunasProj
+              colDefs={colDefsProj}
+              onToggle={toggleColProj}
+              onMover={moverColProj}
+            />
+          </>
+        )}
         <div className="flex items-center gap-1 rounded-md border border-border bg-background/40 p-1">
           <ViewToggleBtn ativo={view === 'cards'} onClick={() => trocarView('cards')} icon={LayoutGrid} label="Cards" />
           <ViewToggleBtn ativo={view === 'kanban'} onClick={() => trocarView('kanban')} icon={Columns3} label="Kanban" />
@@ -495,9 +557,9 @@ export function ProjetosListPage() {
         ))}
       </div>
 
-      {/* Pills de status + dropdown Filtro. */}
+      {/* Pills de status + dropdown Filtro. Ordem: status do tipo, Todos no fim. */}
       <div className="flex flex-wrap items-center gap-2">
-        {['Todos', ...statusesParaTipo(tipoFiltro === 'Todos' ? undefined : tipoFiltro)].map((s) => {
+        {[...statusesParaTipo(tipoFiltro === 'Todos' ? undefined : tipoFiltro), 'Todos'].map((s) => {
           const ativo = statusFiltro === s;
           return (
             <button
@@ -559,6 +621,16 @@ export function ProjetosListPage() {
           onStatusChange={atualizarStatus}
           onEtapaChange={tipoFiltro !== TIPO_SOCIAL_MEDIA ? moverProjeto : undefined}
           totalBruto={projetos.length}
+          colDefs={colDefsProj}
+          ordem={ordemProj}
+          larguras={largurasProj}
+          onResize={(key, largura) => {
+            setLargurasProj((prev) => {
+              const next = { ...prev, [key]: largura };
+              salvarLargurasProj(next);
+              return next;
+            });
+          }}
         />
       ) : projetosFiltrados.length === 0 ? (
         <Card>
@@ -857,10 +929,73 @@ function posicaoStatusProj(s?: string): number {
   return idx >= 0 ? idx : 99;
 }
 
+/** Larguras (px) por coluna da tabela de projetos — persistidas. */
+type LargurasProj = Partial<Record<ColProjKey, number>>;
+const LARGURA_PROJ_KEY = 'wenox-larguras-projetos-v1';
+function carregarLargurasProj(): LargurasProj {
+  try {
+    const s = localStorage.getItem(LARGURA_PROJ_KEY);
+    return s ? (JSON.parse(s) as LargurasProj) : {};
+  } catch {
+    return {};
+  }
+}
+function salvarLargurasProj(l: LargurasProj) {
+  try { localStorage.setItem(LARGURA_PROJ_KEY, JSON.stringify(l)); } catch { /* */ }
+}
+
+/** Dropdown "Colunas" da Lista — toggle de visibilidade + reordenar arrastando. */
+function MenuColunasProj({
+  colDefs, onToggle, onMover,
+}: {
+  colDefs: ColProjDef[];
+  onToggle: (k: ColProjKey) => void;
+  onMover: (de: number, para: number) => void;
+}) {
+  const dragIdx = useRef<number | null>(null);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline">
+          <SlidersHorizontal /> Colunas
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel>Colunas — arraste para reordenar</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {colDefs.map((c, idx) => (
+          <div
+            key={c.key}
+            draggable
+            onDragStart={() => { dragIdx.current = idx; }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (dragIdx.current !== null) onMover(dragIdx.current, idx);
+              dragIdx.current = null;
+            }}
+            className="flex cursor-grab items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-secondary active:cursor-grabbing"
+            onClick={() => onToggle(c.key)}
+          >
+            <GripVertical className="size-4 shrink-0 text-muted-foreground" />
+            <span className={cn(
+              'grid size-4 shrink-0 place-items-center rounded border text-[10px]',
+              c.visivel ? 'border-primary bg-primary text-primary-foreground' : 'border-border',
+            )}>
+              {c.visivel ? '✓' : ''}
+            </span>
+            <span className="flex-1">{c.label}</span>
+          </div>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function ListaProjetos({
   projetos, etapasPorTipo, onAbrir, mostrarColTipo = true,
-  mostrarColEtapa = true, onStatusChange,
-  onEtapaChange, totalBruto,
+  mostrarColEtapa = true, onStatusChange, onEtapaChange, totalBruto,
+  colDefs, ordem, larguras, onResize,
 }: {
   projetos: Projeto[];
   etapasPorTipo: Record<string, EtapaProjeto[]>;
@@ -870,10 +1005,11 @@ function ListaProjetos({
   onStatusChange?: (id: string, status: string) => void;
   onEtapaChange?: (id: string, etapa: string) => void;
   totalBruto?: number;
+  colDefs: ColProjDef[];
+  ordem: OrdemProj;
+  larguras: LargurasProj;
+  onResize: (key: ColProjKey, largura: number) => void;
 }) {
-  const [colDefs, setColDefs] = useState<ColProjDef[]>(carregarColunasProj);
-  const [ordem, setOrdem] = useState<OrdemProj>(carregarOrdemProj);
-  const dragIdx = useRef<number | null>(null);
 
   const projetosOrdenados = useMemo(() => {
     const arr = [...projetos];
@@ -903,22 +1039,25 @@ function ListaProjetos({
     return arr;
   }, [projetos, ordem, etapasPorTipo]);
 
-  function toggleCol(k: ColProjKey) {
-    setColDefs((cs) => {
-      const next = cs.map((c) => (c.key === k ? { ...c, visivel: !c.visivel } : c));
-      salvarColunasProj(next);
-      return next;
-    });
-  }
-  function moverCol(de: number, para: number) {
-    setColDefs((cs) => {
-      if (de === para || para < 0 || para >= cs.length) return cs;
-      const next = [...cs];
-      const [item] = next.splice(de, 1);
-      next.splice(para, 0, item);
-      salvarColunasProj(next);
-      return next;
-    });
+  function iniciarResize(key: ColProjKey, thEl: HTMLElement, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const base = thEl.getBoundingClientRect().width;
+    const startX = e.clientX;
+    const MIN = 80;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    function onMove(ev: MouseEvent) {
+      onResize(key, Math.max(MIN, Math.round(base + (ev.clientX - startX))));
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   }
 
   const colsVisiveis = useMemo(
@@ -1035,90 +1174,49 @@ function ListaProjetos({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <select
-          aria-label="Ordenar"
-          value={ordem}
-          onChange={(e) => { const v = e.target.value as OrdemProj; setOrdem(v); salvarOrdemProj(v); }}
-          className="h-9 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        >
-          {ORDENS_PROJ.map((o) => (
-            <option key={o.v} value={o.v}>{o.label}</option>
-          ))}
-        </select>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <SlidersHorizontal /> Colunas
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel>Colunas — arraste para reordenar</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {colDefs.map((c, idx) => (
-              <div
-                key={c.key}
-                draggable
-                onDragStart={() => { dragIdx.current = idx; }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (dragIdx.current !== null) moverCol(dragIdx.current, idx);
-                  dragIdx.current = null;
-                }}
-                className="flex cursor-grab items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-secondary active:cursor-grabbing"
-                onClick={() => toggleCol(c.key)}
+    <Card className="overflow-hidden">
+      <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+        <thead>
+          <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+            {colsVisiveis.map((col) => (
+              <th
+                key={col.key}
+                className="relative px-4 py-3 font-medium"
+                style={larguras[col.key] ? { width: larguras[col.key] } : undefined}
               >
-                <GripVertical className="size-4 shrink-0 text-muted-foreground" />
-                <span className={cn(
-                  'grid size-4 shrink-0 place-items-center rounded border text-[10px]',
-                  c.visivel ? 'border-primary bg-primary text-primary-foreground' : 'border-border',
-                )}>
-                  {c.visivel ? '✓' : ''}
-                </span>
-                <span className="flex-1">{c.label}</span>
-              </div>
+                {col.label}
+                <ResizeHandle
+                  onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)}
+                />
+              </th>
             ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <Card className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+          </tr>
+        </thead>
+        <tbody>
+          {projetos.length === 0 ? (
+            <tr>
+              <td colSpan={colsVisiveis.length || 1}
+                className="px-5 py-12 text-center text-sm text-muted-foreground">
+                {totalBruto === 0
+                  ? 'Nenhum projeto ainda. Use o botão "Novo projeto" pra cadastrar.'
+                  : 'Nenhum projeto neste filtro.'}
+              </td>
+            </tr>
+          ) : projetosOrdenados.map((p) => (
+            <tr
+              key={p.id}
+              onClick={() => onAbrir(p.id)}
+              className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50"
+            >
               {colsVisiveis.map((col) => (
-                <th key={col.key} className="px-4 py-3 font-medium">{col.label}</th>
+                <td key={col.key} className="overflow-hidden px-4 py-3 text-muted-foreground">
+                  {celula(p, col.key)}
+                </td>
               ))}
             </tr>
-          </thead>
-          <tbody>
-            {projetos.length === 0 ? (
-              <tr>
-                <td colSpan={colsVisiveis.length || 1}
-                  className="px-5 py-12 text-center text-sm text-muted-foreground">
-                  {totalBruto === 0
-                    ? 'Nenhum projeto ainda. Use o botão "Novo projeto" pra cadastrar.'
-                    : 'Nenhum projeto neste filtro.'}
-                </td>
-              </tr>
-            ) : projetosOrdenados.map((p) => (
-              <tr
-                key={p.id}
-                onClick={() => onAbrir(p.id)}
-                className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50"
-              >
-                {colsVisiveis.map((col) => (
-                  <td key={col.key} className="px-4 py-3 text-muted-foreground">
-                    {celula(p, col.key)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-    </div>
+          ))}
+        </tbody>
+      </table>
+    </Card>
   );
 }

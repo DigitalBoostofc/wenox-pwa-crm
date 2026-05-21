@@ -52,7 +52,7 @@ export function SidebarNav({
 }) {
   const { pathname } = useLocation();
   return (
-    <nav className="flex flex-col gap-1">
+    <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
       {NAV_ITEMS.map((item) => {
         const active = isActive(pathname, item.path);
         const Icon = item.icon;
@@ -206,7 +206,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'hidden shrink-0 flex-col gap-4 border-r border-sidebar-border bg-sidebar p-4 transition-[width] duration-200 lg:flex',
+        'sticky top-0 hidden h-svh shrink-0 flex-col gap-4 border-r border-sidebar-border bg-sidebar p-4 transition-[width] duration-200 lg:flex',
         colapsada ? 'w-[72px]' : 'w-64',
       )}
     >

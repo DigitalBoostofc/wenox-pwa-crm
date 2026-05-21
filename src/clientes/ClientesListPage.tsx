@@ -264,7 +264,7 @@ export function ClientesListPage() {
   }
 
   return (
-    <div className="flex max-w-7xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Clientes</h1>
         <p className="text-sm text-muted-foreground">

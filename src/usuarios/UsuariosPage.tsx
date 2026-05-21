@@ -13,6 +13,33 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 const selectClass =
   'h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
+const ROTULO_CAMPO: Record<string, string> = {
+  nome: 'Nome', email: 'E-mail', password: 'Senha', role: 'Papel', area: 'Função',
+};
+
+/** Extrai a mensagem real do erro do PocketBase (campo a campo, em PT). */
+function mensagemErroUsuario(err: unknown): string {
+  const e = err as {
+    response?: { data?: Record<string, { message?: string }> };
+    data?: Record<string, { message?: string }>;
+    message?: string;
+  };
+  const campos = e?.response?.data ?? e?.data;
+  if (campos && typeof campos === 'object' && Object.keys(campos).length) {
+    const partes = Object.entries(campos).map(([campo, info]) => {
+      const rotulo = ROTULO_CAMPO[campo] ?? campo;
+      let msg = info?.message ?? 'inválido';
+      if (/at least 8/i.test(msg)) msg = 'precisa de no mínimo 8 caracteres';
+      else if (/already exists|not unique/i.test(msg)) msg = 'já está em uso';
+      else if (/required|cannot be blank/i.test(msg)) msg = 'é obrigatório';
+      else if (/valid email/i.test(msg)) msg = 'e-mail inválido';
+      return `${rotulo}: ${msg}`;
+    });
+    return `Não foi possível criar — ${partes.join(' · ')}`;
+  }
+  return 'Erro ao criar usuário. Verifique os dados e tente de novo.';
+}
+
 export function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [novo, setNovo] = useState({ nome: '', email: '', role: 'Membro', area: '' });
@@ -27,14 +54,25 @@ export function UsuariosPage() {
     listOpcoes('tipo_projeto').then(setFuncoes);
   }, []);
 
+  const [salvando, setSalvando] = useState(false);
+
   async function add(e: React.FormEvent) {
     e.preventDefault();
     setErro('');
+    // Validação no front — evita ida ao servidor com dado inválido.
+    if (!novo.nome.trim()) { setErro('Informe o nome do usuário.'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(novo.email.trim())) {
+      setErro('Informe um e-mail válido.'); return;
+    }
+    if (senha.length < 8) {
+      setErro('A senha inicial precisa ter no mínimo 8 caracteres.'); return;
+    }
+    setSalvando(true);
     try {
       await criarUsuario(
         {
-          nome: novo.nome,
-          email: novo.email,
+          nome: novo.nome.trim(),
+          email: novo.email.trim(),
           role: novo.role as Usuario['role'],
           area: novo.area || undefined,
           status: 'Ativo',
@@ -47,12 +85,18 @@ export function UsuariosPage() {
       setFoto(null);
       await carregar();
     } catch (err) {
-      setErro(
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Erro ao criar usuário',
-      );
+      setErro(mensagemErroUsuario(err));
+    } finally {
+      setSalvando(false);
     }
+  }
+
+  /** Gera uma senha inicial aleatória de 10 caracteres. */
+  function gerarSenha() {
+    const cs = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let s = '';
+    for (let i = 0; i < 10; i++) s += cs[Math.floor(Math.random() * cs.length)];
+    setSenha(s);
   }
 
   return (
@@ -161,17 +205,28 @@ export function UsuariosPage() {
               <label htmlFor="up" className="text-sm font-medium text-muted-foreground">
                 Senha inicial
               </label>
-              <Input
-                id="up"
-                type="text"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="up"
+                  type="text"
+                  value={senha}
+                  placeholder="Mínimo 8 caracteres"
+                  onChange={(e) => setSenha(e.target.value)}
+                />
+                <Button type="button" variant="outline" onClick={gerarSenha}>
+                  Gerar
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                O usuário entra com esse e-mail e senha; depois pode trocá-la.
+              </p>
             </div>
             {erro && (
               <p className="text-sm font-medium text-destructive">{erro}</p>
             )}
-            <Button type="submit">Adicionar usuário</Button>
+            <Button type="submit" disabled={salvando}>
+              {salvando ? 'Criando…' : 'Adicionar usuário'}
+            </Button>
           </form>
         </CardContent>
       </Card>

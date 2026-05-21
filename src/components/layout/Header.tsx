@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/sheet';
 import { titleForPath } from './nav';
 import { SidebarBrand, SidebarNav } from './Sidebar';
+import { HeaderSlotTarget } from './HeaderSlot';
 
 export function Header() {
   const { pathname } = useLocation();
@@ -17,7 +18,7 @@ export function Header() {
   const title = titleForPath(pathname);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md lg:px-6">
+    <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-background/80 px-4 py-2 backdrop-blur-md lg:px-6">
       {/* Drawer mobile */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger asChild>
@@ -32,7 +33,10 @@ export function Header() {
         </SheetContent>
       </Sheet>
 
-      <h1 className="text-base font-semibold tracking-tight sm:text-lg">{title}</h1>
+      <h1 className="shrink-0 text-base font-semibold tracking-tight sm:text-lg">{title}</h1>
+
+      {/* Slot: páginas podem projetar controles aqui, ao lado do título. */}
+      <HeaderSlotTarget className="flex min-w-0 flex-1 items-center justify-end" />
     </header>
   );
 }

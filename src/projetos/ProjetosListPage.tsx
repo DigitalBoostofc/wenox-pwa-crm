@@ -24,6 +24,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { HeaderSlot } from '@/components/layout/HeaderSlot';
 
 type ViewMode = 'cards' | 'kanban' | 'lista';
 const VIEW_KEY = 'wenox-projetos-view-v1';
@@ -502,45 +503,47 @@ export function ProjetosListPage() {
       />
       <div className="flex min-w-0 flex-1 flex-col gap-5">
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-48 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            placeholder="Buscar projeto ou cliente"
-            aria-label="Buscar"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background/40 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-          />
-        </div>
-        {viewEfetiva === 'lista' && (
-          <>
-            <select
-              aria-label="Ordenar"
-              value={ordemProj}
-              onChange={(e) => { const v = e.target.value as OrdemProj; setOrdemProj(v); salvarOrdemProj(v); }}
-              className="h-10 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-            >
-              {ORDENS_PROJ.map((o) => (
-                <option key={o.v} value={o.v}>{o.label}</option>
-              ))}
-            </select>
-            <MenuColunasProj
-              colDefs={colDefsProj}
-              onToggle={toggleColProj}
-              onMover={moverColProj}
+      <HeaderSlot>
+        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+          <div className="relative min-w-40 max-w-md flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              placeholder="Buscar projeto ou cliente"
+              aria-label="Buscar"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background/40 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             />
-          </>
-        )}
-        <div className="hidden items-center gap-1 rounded-md border border-border bg-background/40 p-1 lg:flex">
-          <ViewToggleBtn ativo={view === 'lista'} onClick={() => trocarView('lista')} icon={List} label="Lista" />
-          <ViewToggleBtn ativo={view === 'kanban'} onClick={() => trocarView('kanban')} icon={Columns3} label="Kanban" />
-          <ViewToggleBtn ativo={view === 'cards'} onClick={() => trocarView('cards')} icon={LayoutGrid} label="Cards" />
+          </div>
+          {viewEfetiva === 'lista' && (
+            <>
+              <select
+                aria-label="Ordenar"
+                value={ordemProj}
+                onChange={(e) => { const v = e.target.value as OrdemProj; setOrdemProj(v); salvarOrdemProj(v); }}
+                className="h-9 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              >
+                {ORDENS_PROJ.map((o) => (
+                  <option key={o.v} value={o.v}>{o.label}</option>
+                ))}
+              </select>
+              <MenuColunasProj
+                colDefs={colDefsProj}
+                onToggle={toggleColProj}
+                onMover={moverColProj}
+              />
+            </>
+          )}
+          <div className="hidden items-center gap-1 rounded-md border border-border bg-background/40 p-1 lg:flex">
+            <ViewToggleBtn ativo={view === 'lista'} onClick={() => trocarView('lista')} icon={List} label="Lista" />
+            <ViewToggleBtn ativo={view === 'kanban'} onClick={() => trocarView('kanban')} icon={Columns3} label="Kanban" />
+            <ViewToggleBtn ativo={view === 'cards'} onClick={() => trocarView('cards')} icon={LayoutGrid} label="Cards" />
+          </div>
+          <Button size="sm" onClick={() => history.push('/projetos/novo')}>
+            <Plus /> Novo projeto
+          </Button>
         </div>
-        <Button onClick={() => history.push('/projetos/novo')}>
-          <Plus /> Novo projeto
-        </Button>
-      </div>
+      </HeaderSlot>
 
       <div className="flex flex-wrap items-center gap-2 lg:hidden">
         {filtros.map((f) => (

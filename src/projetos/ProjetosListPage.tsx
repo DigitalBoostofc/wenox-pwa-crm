@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Plus, Search, FolderKanban, LayoutGrid, List, Columns3, MoreHorizontal,
-  LayoutList, SlidersHorizontal, GripVertical,
+  LayoutList, SlidersHorizontal, GripVertical, Repeat2, Check, ChevronDown,
 } from 'lucide-react';
 import { listProjetos, atualizarProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
@@ -11,10 +11,13 @@ import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial, dataBR } from '@/clientes/format';
-import { STATUS_PROJETO, statusProjetoVariant, pillStatusProjetoClass } from './format';
+import {
+  statusVariantParaTipo, statusesParaTipo, pillStatusParaTipoClass,
+  TIPO_SOCIAL_MEDIA,
+} from './format';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -33,6 +36,57 @@ function carregarView(): ViewMode {
 }
 function salvarView(v: ViewMode) {
   try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ }
+}
+
+/** Pill clicável que abre um dropdown (Radix) — o botão inteiro abre,
+ *  não só a seta (diferente do <select> nativo). Usado pra status/etapa
+ *  editáveis inline na Lista. */
+function SeletorPill({
+  valor, placeholder, opcoes, onSelect, classeBotao, rotulo,
+}: {
+  valor: string;
+  placeholder: string;
+  opcoes: { value: string; label: string }[];
+  onSelect: (v: string) => void;
+  classeBotao: string;
+  rotulo?: string;
+}) {
+  const atual = opcoes.find((o) => o.value === valor);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            'inline-flex cursor-pointer items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+            classeBotao,
+          )}
+        >
+          {atual?.label ?? placeholder}
+          <ChevronDown className="size-3 shrink-0 opacity-70" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="max-h-72 overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {rotulo && (
+          <>
+            <DropdownMenuLabel>{rotulo}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {opcoes.map((o) => (
+          <DropdownMenuItem key={o.value} onSelect={() => onSelect(o.value)}>
+            <Check className={cn('size-3.5', o.value === valor ? 'opacity-100' : 'opacity-0')} />
+            <span>{o.label}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 /** Iniciais (até 2 letras) pra um botão compacto. */
@@ -159,7 +213,7 @@ function CardProjeto({
         </div>
         <div className="flex items-center gap-1">
           {p.status && (
-            <Badge variant={statusProjetoVariant(p.status)} className="text-[10px]">
+            <Badge variant={statusVariantParaTipo(p.tipo, p.status)} className="text-[10px]">
               {p.status}
             </Badge>
           )}
@@ -354,6 +408,9 @@ export function ProjetosListPage() {
     });
   }, [projetos, statusFiltro, filtroExtra]);
 
+  // Reseta statusFiltro ao trocar tipo para evitar filtros inconsistentes
+  useEffect(() => { setStatusFiltro('Todos'); }, [tipoFiltro]);
+
   const filtros = useMemo(() => ['Todos', ...tipos.map((t) => t.valor)], [tipos]);
   const trocarView = (v: ViewMode) => { setView(v); salvarView(v); };
   const recarregar = () => setRecarregaTrigger((n) => n + 1);
@@ -438,9 +495,9 @@ export function ProjetosListPage() {
         ))}
       </div>
 
-      {/* Pills de status + dropdown Filtro (igual a /clientes). */}
+      {/* Pills de status + dropdown Filtro. */}
       <div className="flex flex-wrap items-center gap-2">
-        {['Todos', ...STATUS_PROJETO].map((s) => {
+        {['Todos', ...statusesParaTipo(tipoFiltro === 'Todos' ? undefined : tipoFiltro)].map((s) => {
           const ativo = statusFiltro === s;
           return (
             <button
@@ -451,7 +508,7 @@ export function ProjetosListPage() {
                 ativo
                   ? s === 'Todos'
                     ? 'border-primary/50 bg-primary/15 text-primary'
-                    : pillStatusProjetoClass(s)
+                    : pillStatusParaTipoClass(tipoFiltro === 'Todos' ? undefined : tipoFiltro, s)
                   : 'border-border text-muted-foreground hover:bg-secondary',
               )}
             >
@@ -459,17 +516,19 @@ export function ProjetosListPage() {
             </button>
           );
         })}
-        <select
-          aria-label="Filtro extra"
-          value={filtroExtra}
-          onChange={(e) => setFiltroExtra(e.target.value as typeof filtroExtra)}
-          className="h-10 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        >
-          <option value="nenhum">Filtro: nenhum</option>
-          <option value="execucao">Em execução</option>
-          <option value="todos">Todos (exceto Inativos)</option>
-          <option value="concluidos">Concluídos</option>
-        </select>
+        {tipoFiltro !== TIPO_SOCIAL_MEDIA && (
+          <select
+            aria-label="Filtro extra"
+            value={filtroExtra}
+            onChange={(e) => setFiltroExtra(e.target.value as typeof filtroExtra)}
+            className="h-10 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <option value="nenhum">Filtro: nenhum</option>
+            <option value="execucao">Em execução</option>
+            <option value="todos">Todos (exceto Inativos)</option>
+            <option value="concluidos">Concluídos</option>
+          </select>
+        )}
       </div>
 
       {erro && (
@@ -496,8 +555,9 @@ export function ProjetosListPage() {
           etapasPorTipo={etapasPorTipo}
           onAbrir={abrirProjeto}
           mostrarColTipo={tipoFiltro === 'Todos'}
+          mostrarColEtapa={tipoFiltro !== TIPO_SOCIAL_MEDIA}
           onStatusChange={atualizarStatus}
-          onEtapaChange={moverProjeto}
+          onEtapaChange={tipoFiltro !== TIPO_SOCIAL_MEDIA ? moverProjeto : undefined}
           totalBruto={projetos.length}
         />
       ) : projetosFiltrados.length === 0 ? (
@@ -584,6 +644,22 @@ function KanbanProjetos({
               ))}
             </div>
           )}
+        </div>
+      </Card>
+    );
+  }
+  if (tipoFiltro === TIPO_SOCIAL_MEDIA) {
+    return (
+      <Card>
+        <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
+          <Repeat2 className="size-10 text-muted-foreground" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Projeto recorrente</p>
+            <p className="text-sm text-muted-foreground">
+              Social Media não usa pipeline de etapas. Acompanhe as atividades
+              mensais dentro de cada projeto.
+            </p>
+          </div>
         </div>
       </Card>
     );
@@ -782,13 +858,15 @@ function posicaoStatusProj(s?: string): number {
 }
 
 function ListaProjetos({
-  projetos, etapasPorTipo, onAbrir, mostrarColTipo = true, onStatusChange,
+  projetos, etapasPorTipo, onAbrir, mostrarColTipo = true,
+  mostrarColEtapa = true, onStatusChange,
   onEtapaChange, totalBruto,
 }: {
   projetos: Projeto[];
   etapasPorTipo: Record<string, EtapaProjeto[]>;
   onAbrir: (id: string) => void;
   mostrarColTipo?: boolean;
+  mostrarColEtapa?: boolean;
   onStatusChange?: (id: string, status: string) => void;
   onEtapaChange?: (id: string, etapa: string) => void;
   totalBruto?: number;
@@ -843,11 +921,13 @@ function ListaProjetos({
     });
   }
 
-  // Quando o filtro de tipo esconde a coluna Tipo, sempre escondemos por força
-  // (o filtro lateral garante que todos da lista são do mesmo tipo).
   const colsVisiveis = useMemo(
-    () => colDefs.filter((c) => c.visivel && (c.key !== 'tipo' || mostrarColTipo)),
-    [colDefs, mostrarColTipo],
+    () => colDefs.filter((c) =>
+      c.visivel &&
+      (c.key !== 'tipo' || mostrarColTipo) &&
+      (c.key !== 'etapa' || mostrarColEtapa),
+    ),
+    [colDefs, mostrarColTipo, mostrarColEtapa],
   );
 
   function celula(p: Projeto, key: ColProjKey) {
@@ -879,20 +959,17 @@ function ListaProjetos({
         ) : <span className="text-muted-foreground">—</span>;
       }
       return (
-        <select
-          value={p.etapa ?? ''}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => { e.stopPropagation(); onEtapaChange(p.id, e.target.value); }}
-          className="cursor-pointer rounded-full border border-border bg-secondary px-3 py-1.5 pr-7 text-xs font-medium text-muted-foreground transition-colors [color-scheme:dark] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        >
-          <option value="">—</option>
-          {etapas.map((et, i) => (
-            <option key={et.id} value={et.nome}>
-              {et.nome} ({i + 1}/{etapas.length})
-            </option>
-          ))}
-        </select>
+        <SeletorPill
+          valor={p.etapa ?? ''}
+          placeholder="—"
+          rotulo="Mover para etapa"
+          opcoes={etapas.map((et, i) => ({
+            value: et.nome,
+            label: `${et.nome} (${i + 1}/${etapas.length})`,
+          }))}
+          onSelect={(v) => onEtapaChange(p.id, v)}
+          classeBotao="border-border bg-secondary text-muted-foreground hover:text-foreground"
+        />
       );
     }
     if (key === 'prazo') {
@@ -901,34 +978,24 @@ function ListaProjetos({
     if (key === 'status') {
       if (!onStatusChange) {
         return p.status ? (
-          <Badge variant={statusProjetoVariant(p.status)} className="text-[10px]">
+          <Badge variant={statusVariantParaTipo(p.tipo, p.status)} className="text-[10px]">
             {p.status}
           </Badge>
         ) : <span className="text-muted-foreground">—</span>;
       }
+      const statusOpts = statusesParaTipo(p.tipo);
+      const classeBotao = p.status
+        ? pillStatusParaTipoClass(p.tipo, p.status)
+        : 'border-border bg-secondary text-muted-foreground';
       return (
-        <select
-          value={p.status ?? ''}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => { e.stopPropagation(); onStatusChange(p.id, e.target.value); }}
-          /* color-scheme:dark força o Chrome a abrir o popup com fundo escuro
-             (sem isso, fundos translúcidos como bg-emerald/15 fazem o popup
-             vir branco — fora da identidade visual). */
-          className={cn(
-            'cursor-pointer rounded-full border px-3 py-1.5 pr-7 text-xs font-medium transition-colors [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-            p.status === 'Desenvolvimento' && 'border-amber-500/50 bg-amber-500/15 text-amber-400',
-            p.status === 'Manutenção'      && 'border-primary/50 bg-primary/15 text-primary',
-            p.status === 'Ativo'           && 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400',
-            p.status === 'Inativo'         && 'border-destructive/50 bg-destructive/15 text-destructive',
-            !p.status && 'border-border bg-secondary text-muted-foreground',
-          )}
-        >
-          <option value="">—</option>
-          {STATUS_PROJETO.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+        <SeletorPill
+          valor={p.status ?? ''}
+          placeholder="—"
+          rotulo="Status do projeto"
+          opcoes={statusOpts.map((s) => ({ value: s, label: s }))}
+          onSelect={(v) => onStatusChange(p.id, v)}
+          classeBotao={classeBotao}
+        />
       );
     }
     if (key === 'responsaveis') {

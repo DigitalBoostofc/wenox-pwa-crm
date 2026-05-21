@@ -6,7 +6,7 @@ import {
 } from './projetosService';
 import { listEtapas } from './etapasService';
 import type { ProjetoInput, EtapaProjeto } from './types';
-import { STATUS_PROJETO } from './format';
+import { TIPO_SOCIAL_MEDIA, statusesParaTipo } from './format';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import { listClientes } from '@/clientes/clientesService';
 import { listUsuarios } from '@/usuarios/usuariosService';
@@ -79,6 +79,8 @@ export function ProjetoFormPage({ id: idProp }: { id?: string } = {}) {
       });
     }
   }, [id]);
+
+  const isSocialMedia = form.tipo === TIPO_SOCIAL_MEDIA;
 
   const etapasDoTipo = todasEtapas
     .filter((e) => e.tipo === (form.tipo ?? ''))
@@ -171,7 +173,16 @@ export function ProjetoFormPage({ id: idProp }: { id?: string } = {}) {
               </Campo>
               <Campo id="tipo" label="Tipo">
                 <select id="tipo" value={form.tipo ?? ''} className={selectClass}
-                  onChange={(e) => { set('tipo', e.target.value); set('etapa', ''); }}>
+                  onChange={(e) => {
+                    const novoTipo = e.target.value;
+                    set('tipo', novoTipo);
+                    set('etapa', '');
+                    const statusAtual = form.status ?? '';
+                    const novosStatuses = statusesParaTipo(novoTipo);
+                    if (!novosStatuses.includes(statusAtual as never)) {
+                      set('status', novoTipo === TIPO_SOCIAL_MEDIA ? 'Ativo' : 'Desenvolvimento');
+                    }
+                  }}>
                   <option value="">—</option>
                   {tipos.map((t) => (
                     <option key={t.id} value={t.valor}>{t.valor}</option>
@@ -182,28 +193,30 @@ export function ProjetoFormPage({ id: idProp }: { id?: string } = {}) {
                 <select id="status" value={form.status ?? ''} className={selectClass}
                   onChange={(e) => set('status', e.target.value)}>
                   <option value="">—</option>
-                  {STATUS_PROJETO.map((s) => (
+                  {statusesParaTipo(form.tipo).map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
               </Campo>
-              <Campo id="etapa" label="Etapa">
-                {etapasDoTipo.length === 0 ? (
-                  <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-                    {form.tipo
-                      ? `Nenhuma etapa cadastrada para "${form.tipo}". Cadastre em Configurações → Etapas de projeto.`
-                      : 'Selecione um tipo para escolher a etapa.'}
-                  </p>
-                ) : (
-                  <select id="etapa" value={form.etapa ?? ''} className={selectClass}
-                    onChange={(e) => set('etapa', e.target.value)}>
-                    <option value="">—</option>
-                    {etapasDoTipo.map((et) => (
-                      <option key={et.id} value={et.nome}>{et.nome}</option>
-                    ))}
-                  </select>
-                )}
-              </Campo>
+              {!isSocialMedia && (
+                <Campo id="etapa" label="Etapa">
+                  {etapasDoTipo.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                      {form.tipo
+                        ? `Nenhuma etapa cadastrada para "${form.tipo}". Cadastre em Configurações → Etapas de projeto.`
+                        : 'Selecione um tipo para escolher a etapa.'}
+                    </p>
+                  ) : (
+                    <select id="etapa" value={form.etapa ?? ''} className={selectClass}
+                      onChange={(e) => set('etapa', e.target.value)}>
+                      <option value="">—</option>
+                      {etapasDoTipo.map((et) => (
+                        <option key={et.id} value={et.nome}>{et.nome}</option>
+                      ))}
+                    </select>
+                  )}
+                </Campo>
+              )}
               <Campo id="di" label="Início">
                 <Input id="di" type="date" value={form.data_inicio ?? ''}
                   onChange={(e) => set('data_inicio', e.target.value)} />

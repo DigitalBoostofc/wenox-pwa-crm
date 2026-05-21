@@ -1,15 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
-import { ArrowLeft, Pencil, FolderKanban } from 'lucide-react';
-import { getProjeto } from './projetosService';
+import { ArrowLeft, Pencil, FolderKanban, Plus, Trash2, CalendarDays } from 'lucide-react';
+import { getProjeto, removerProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
 import type { Projeto, EtapaProjeto } from './types';
+import {
+  listAtividadesSocial, criarAtividadeSocial,
+  atualizarAtividadeSocial, removerAtividadeSocial,
+} from './atividadesSocialService';
+import type { AtividadeSocial } from './atividadesSocialService';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dataBR } from '@/clientes/format';
-import { statusProjetoVariant } from './format';
+import {
+  statusVariantParaTipo,
+  STATUS_ATIVIDADE_SOCIAL,
+  TIPO_SOCIAL_MEDIA,
+} from './format';
+import { cn } from '@/lib/utils';
 
 function Linha({ rotulo, valor }: { rotulo: string; valor?: React.ReactNode }) {
   if (!valor) return null;
@@ -18,6 +28,160 @@ function Linha({ rotulo, valor }: { rotulo: string; valor?: React.ReactNode }) {
       <span className="shrink-0 pt-0.5 text-sm text-muted-foreground">{rotulo}</span>
       <div className="text-right text-sm font-medium">{valor}</div>
     </div>
+  );
+}
+
+const selectCls =
+  'h-9 rounded-md border border-input bg-background/40 px-2 text-xs text-foreground [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+
+function AtividadesSection({ projetoId }: { projetoId: string }) {
+  const [atividades, setAtividades] = useState<AtividadeSocial[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [adicionando, setAdicionando] = useState(false);
+  const [novoNome, setNovoNome] = useState('');
+  const [novoMes, setNovoMes] = useState('');
+  const [novoStatus, setNovoStatus] = useState<string>(STATUS_ATIVIDADE_SOCIAL[0]);
+  const [salvando, setSalvando] = useState(false);
+
+  async function carregar() {
+    setCarregando(true);
+    try { setAtividades(await listAtividadesSocial(projetoId)); }
+    finally { setCarregando(false); }
+  }
+
+  useEffect(() => { carregar(); }, [projetoId]);
+
+  async function salvarNova() {
+    if (!novoNome.trim()) return;
+    setSalvando(true);
+    try {
+      await criarAtividadeSocial({
+        nome: novoNome.trim(),
+        projeto: projetoId,
+        status: novoStatus,
+        mes_referencia: novoMes.trim() || undefined,
+        ordem: atividades.length + 1,
+      });
+      setNovoNome(''); setNovoMes(''); setNovoStatus(STATUS_ATIVIDADE_SOCIAL[0]);
+      setAdicionando(false);
+      await carregar();
+    } finally { setSalvando(false); }
+  }
+
+  async function trocarStatus(id: string, status: string) {
+    setAtividades((lst) => lst.map((a) => (a.id === id ? { ...a, status } : a)));
+    await atualizarAtividadeSocial(id, { status });
+  }
+
+  async function apagar(id: string) {
+    if (!confirm('Apagar esta atividade?')) return;
+    await removerAtividadeSocial(id);
+    setAtividades((lst) => lst.filter((a) => a.id !== id));
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <CalendarDays className="size-4 text-muted-foreground" />
+            Atividades
+          </CardTitle>
+          {!adicionando && (
+            <Button size="sm" variant="outline" onClick={() => setAdicionando(true)}>
+              <Plus className="size-3.5" /> Nova atividade
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {carregando ? (
+          <p className="px-5 py-6 text-center text-sm text-muted-foreground">Carregando…</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {/* Linha de nova atividade */}
+            {adicionando && (
+              <div className="flex flex-wrap items-center gap-2 px-4 py-3 bg-secondary/40">
+                <input
+                  autoFocus
+                  placeholder="Nome da atividade (ex: Calendário de Posts - Maio 2026)"
+                  value={novoNome}
+                  onChange={(e) => setNovoNome(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') salvarNova(); if (e.key === 'Escape') setAdicionando(false); }}
+                  className="h-9 min-w-48 flex-1 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                />
+                <input
+                  placeholder="Mês (ex: Maio 2026)"
+                  value={novoMes}
+                  onChange={(e) => setNovoMes(e.target.value)}
+                  className="h-9 w-36 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                />
+                <select
+                  value={novoStatus}
+                  onChange={(e) => setNovoStatus(e.target.value)}
+                  className={selectCls}
+                >
+                  {STATUS_ATIVIDADE_SOCIAL.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <Button size="sm" onClick={salvarNova} disabled={salvando || !novoNome.trim()}>
+                  {salvando ? 'Salvando…' : 'Salvar'}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setAdicionando(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            )}
+
+            {atividades.length === 0 && !adicionando ? (
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                Nenhuma atividade cadastrada. Clique em <strong>Nova atividade</strong> para começar.
+              </p>
+            ) : (
+              atividades.map((a) => (
+                <div key={a.id} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-secondary/30 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-medium">{a.nome}</p>
+                    {a.mes_referencia && (
+                      <p className="text-xs text-muted-foreground">{a.mes_referencia}</p>
+                    )}
+                  </div>
+                  <select
+                    value={a.status ?? ''}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => { e.stopPropagation(); trocarStatus(a.id, e.target.value); }}
+                    className={cn(
+                      selectCls, 'rounded-full border px-3 font-medium',
+                      a.status === 'Copy'        && 'border-amber-500/50 bg-amber-500/15 text-amber-400',
+                      a.status === 'Layout'      && 'border-primary/50 bg-primary/15 text-primary',
+                      a.status === 'Aprovação'   && 'border-border bg-secondary text-muted-foreground',
+                      a.status === 'Alteração'   && 'border-destructive/50 bg-destructive/15 text-destructive',
+                      a.status === 'Agendamento' && 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400',
+                      a.status === 'Publicação'  && 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400',
+                      !a.status && 'border-border bg-secondary text-muted-foreground',
+                    )}
+                  >
+                    <option value="">—</option>
+                    {STATUS_ATIVIDADE_SOCIAL.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => apagar(a.id)}
+                    aria-label="Apagar atividade"
+                    className="rounded-md p-1 text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -32,7 +196,7 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
     if (id) getProjeto(id).then(setP);
   }, [id]);
   useEffect(() => {
-    if (p?.tipo) listEtapas(p.tipo).then(setEtapas);
+    if (p?.tipo && p.tipo !== TIPO_SOCIAL_MEDIA) listEtapas(p.tipo).then(setEtapas);
   }, [p?.tipo]);
 
   if (!p) {
@@ -41,7 +205,15 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
     );
   }
 
+  const isSocialMedia = p.tipo === TIPO_SOCIAL_MEDIA;
   const cli = p.expand?.cliente;
+
+  async function apagar() {
+    if (!p) return;
+    if (!confirm(`Apagar o projeto "${p.nome}" definitivamente? Esta ação não pode ser desfeita.`)) return;
+    await removerProjeto(p.id);
+    history.push('/projetos');
+  }
   const cliNome = cli?.nome?.trim() || cli?.nome_fantasia || '—';
   const responsaveis = p.expand?.responsaveis ?? [];
   const etapaIdx = p.etapa ? etapas.findIndex((e) => e.nome === p.etapa) : -1;
@@ -60,11 +232,11 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span>{cliNome} · {p.tipo || 'Sem tipo'}</span>
             {p.status && (
-              <Badge variant={statusProjetoVariant(p.status)} className="text-[10px]">
+              <Badge variant={statusVariantParaTipo(p.tipo, p.status)} className="text-[10px]">
                 {p.status}
               </Badge>
             )}
-            {p.etapa && (
+            {!isSocialMedia && p.etapa && (
               <Badge variant="muted" className="text-[10px]">
                 {p.etapa}
                 {etapas.length > 0 && etapaIdx >= 0 && ` (${etapaIdx + 1}/${etapas.length})`}
@@ -77,6 +249,9 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
             Abrir cliente
           </Button>
         )}
+        <Button size="sm" variant="ghost" onClick={apagar} className="text-destructive hover:bg-destructive/10">
+          <Trash2 /> Apagar
+        </Button>
         <Button size="sm" onClick={() => history.push(`/projetos/${p.id}/editar`)}>
           <Pencil /> Editar
         </Button>
@@ -89,11 +264,11 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
             <Linha rotulo="Cliente" valor={cliNome} />
             <Linha rotulo="Tipo" valor={p.tipo} />
             <Linha rotulo="Status" valor={p.status ? (
-              <Badge variant={statusProjetoVariant(p.status)} className="text-[10px]">
+              <Badge variant={statusVariantParaTipo(p.tipo, p.status)} className="text-[10px]">
                 {p.status}
               </Badge>
             ) : undefined} />
-            <Linha rotulo="Etapa" valor={p.etapa} />
+            {!isSocialMedia && <Linha rotulo="Etapa" valor={p.etapa} />}
             <Linha rotulo="Início" valor={dataBR(p.data_inicio)} />
             <Linha rotulo="Entrega" valor={dataBR(p.data_entrega)} />
           </CardContent>
@@ -144,6 +319,8 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
           </CardContent>
         </Card>
       )}
+
+      {isSocialMedia && <AtividadesSection projetoId={p.id} />}
 
       <AtividadeFeed entidade="projeto" refId={p.id} />
     </div>

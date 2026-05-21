@@ -4,7 +4,7 @@ import {
   ArrowLeft, Image as ImageIcon, Camera, Plus, Trash2, X,
 } from 'lucide-react';
 import {
-  createCliente, getCliente, updateCliente, logoUrl, REMOVER_LOGO,
+  createCliente, getCliente, updateCliente, deleteCliente, logoUrl, REMOVER_LOGO,
 } from '@/clientes/clientesService';
 import { CATEGORIAS } from '@/clientes/types';
 import type { ClienteInput, Contato } from '@/clientes/types';
@@ -196,6 +196,13 @@ export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
   function removerFotoAtual() {
     setLogoFile(null);
     setRemoverLogo(true);
+  }
+
+  async function apagar() {
+    if (!id) return;
+    if (!confirm('Apagar este cliente definitivamente? Esta ação não pode ser desfeita.')) return;
+    await deleteCliente(id);
+    history.push('/clientes');
   }
 
   async function salvar(e: React.FormEvent) {
@@ -433,9 +440,16 @@ export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
         </Card>
 
         {erro && <p className="text-sm font-medium text-destructive">{erro}</p>}
-        <Button type="submit" size="lg" disabled={salvando}>
-          {salvando ? 'Salvando…' : 'Salvar'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="submit" size="lg" disabled={salvando}>
+            {salvando ? 'Salvando…' : 'Salvar'}
+          </Button>
+          {id && (
+            <Button type="button" variant="ghost" onClick={apagar} className="text-destructive hover:bg-destructive/10">
+              Apagar cliente
+            </Button>
+          )}
+        </div>
       </form>
     </div>
   );

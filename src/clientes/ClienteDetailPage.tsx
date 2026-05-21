@@ -3,9 +3,9 @@ import { useParams, useHistory } from 'react-router-dom';
 import {
   ArrowLeft, MessageCircle, Phone, Pencil, Activity,
   Users, KeyRound, FileText, LayoutDashboard, FolderKanban,
-  CheckSquare, Wallet,
+  CheckSquare, Wallet, Trash2,
 } from 'lucide-react';
-import { getCliente, updateCliente, logoUrl } from '@/clientes/clientesService';
+import { getCliente, updateCliente, deleteCliente, logoUrl } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
 import { nomeExibicao, telefonePrincipal } from '@/clientes/types';
 import { ContatosTab } from '@/contatos/ContatosTab';
@@ -56,6 +56,13 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   useEffect(() => {
     if (id) getCliente(id).then(setC);
   }, [id]);
+
+  async function apagar() {
+    if (!c) return;
+    if (!confirm(`Apagar o cliente "${nomeExibicao(c)}" definitivamente? Esta ação não pode ser desfeita.`)) return;
+    await deleteCliente(c.id);
+    history.push('/clientes');
+  }
 
   async function trocarFoto(file: File | null) {
     if (!file || !c) return;
@@ -150,6 +157,14 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
             </a>
           </Button>
         )}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={apagar}
+          className="text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 /> Apagar
+        </Button>
         <Button
           size="sm"
           onClick={() => history.push(`/clientes/${c.id}/editar`)}

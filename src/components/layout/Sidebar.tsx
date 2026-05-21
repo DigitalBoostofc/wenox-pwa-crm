@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import {
   Bell, Lock, LogOut, Moon, PanelLeft, PanelLeftClose,
@@ -18,6 +19,7 @@ import { useSidebar } from './SidebarContext';
 import { useAuth } from '@/auth/useAuth';
 import { canGerirUsuarios } from '@/auth/perms';
 import { useTheme } from './ThemeProvider';
+import { carregarPermissoes, temPermissao } from '@/config/permissoesConfig';
 
 function isActive(pathname: string, itemPath: string) {
   if (itemPath === '/clientes')
@@ -50,10 +52,15 @@ export function SidebarNav({
   onNavigate?: () => void;
   compacta?: boolean;
 }) {
+  const { user } = useAuth();
   const { pathname } = useLocation();
+  const permissoes = useMemo(() => carregarPermissoes(), []);
+  const itemsVisiveis = NAV_ITEMS.filter((item) =>
+    temPermissao(permissoes, user?.role, item.modulo),
+  );
   return (
     <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
-      {NAV_ITEMS.map((item) => {
+      {itemsVisiveis.map((item) => {
         const active = isActive(pathname, item.path);
         const Icon = item.icon;
         const className = cn(

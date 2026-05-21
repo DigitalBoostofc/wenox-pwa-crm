@@ -28,6 +28,8 @@ const ProjetoDetailPage = lazy(() =>
   import('@/projetos/ProjetoDetailPage').then((m) => ({ default: m.ProjetoDetailPage })));
 const EtapasProjetoPage = lazy(() =>
   import('@/projetos/EtapasProjetoPage').then((m) => ({ default: m.EtapasProjetoPage })));
+const PrivacidadePage = lazy(() =>
+  import('@/config/PrivacidadePage').then((m) => ({ default: m.PrivacidadePage })));
 const EquipePage = lazy(() =>
   import('@/equipe/EquipePage').then((m) => ({ default: m.EquipePage })));
 const MembroDetailPage = lazy(() =>
@@ -103,6 +105,7 @@ function AuthedApp() {
           <Route exact path="/usuarios" component={UsuariosPage} />
           <Route exact path="/config/parametros" component={ParametrosPage} />
           <Route exact path="/config/etapas-projeto" component={EtapasProjetoPage} />
+          <Route exact path="/config/privacidade" component={PrivacidadePage} />
           <Route exact path="/config" component={ConfigPage} />
           <Route exact path="/login">
             <Redirect to="/clientes" />

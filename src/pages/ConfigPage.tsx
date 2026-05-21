@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Palette, SlidersHorizontal } from 'lucide-react';
+import { ShieldCheck, Palette, SlidersHorizontal, Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/useAuth';
@@ -52,6 +52,11 @@ export function ConfigPage() {
             </Button>
             <Button asChild variant="outline">
               <Link to="/config/etapas-projeto">Etapas de projeto</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/config/privacidade">
+                <Lock /> Privacidade &amp; Acessos
+              </Link>
             </Button>
           </CardContent>
         </Card>

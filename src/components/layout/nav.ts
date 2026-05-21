@@ -12,6 +12,7 @@ import {
   Settings,
   type LucideIcon,
 } from 'lucide-react';
+import type { Modulo } from '@/config/permissoesConfig';
 
 export interface NavItem {
   label: string;
@@ -19,21 +20,22 @@ export interface NavItem {
   icon: LucideIcon;
   /** false = aparece na sidebar mas ainda não navega (módulo futuro) */
   enabled: boolean;
+  modulo: Modulo;
 }
 
 /** Os 11 módulos do Wenox OS (doc handoff). Só Clientes e Configurações navegam no P3.5. */
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, enabled: false },
-  { label: 'Minha Área', path: '/minha-area', icon: UserCircle, enabled: false },
-  { label: 'Equipe', path: '/equipe', icon: Users, enabled: true },
-  { label: 'Clientes', path: '/clientes', icon: Building2, enabled: true },
-  { label: 'Projetos', path: '/projetos', icon: FolderKanban, enabled: true },
-  { label: 'Tarefas', path: '/tarefas', icon: ListChecks, enabled: false },
-  { label: 'Financeiro', path: '/financeiro', icon: Wallet, enabled: false },
-  { label: 'Contratos & Propostas', path: '/contratos', icon: FileSignature, enabled: false },
-  { label: 'Agenda', path: '/agenda', icon: CalendarDays, enabled: false },
-  { label: 'IA Wenox', path: '/ia', icon: Sparkles, enabled: false },
-  { label: 'Configurações', path: '/config', icon: Settings, enabled: true },
+  { label: 'Dashboard',           path: '/dashboard',  icon: LayoutDashboard, enabled: false, modulo: 'dashboard'   },
+  { label: 'Minha Área',          path: '/minha-area', icon: UserCircle,      enabled: false, modulo: 'minha-area'  },
+  { label: 'Equipe',              path: '/equipe',     icon: Users,           enabled: true,  modulo: 'equipe'      },
+  { label: 'Clientes',            path: '/clientes',   icon: Building2,       enabled: true,  modulo: 'clientes'    },
+  { label: 'Projetos',            path: '/projetos',   icon: FolderKanban,    enabled: true,  modulo: 'projetos'    },
+  { label: 'Tarefas',             path: '/tarefas',    icon: ListChecks,      enabled: false, modulo: 'tarefas'     },
+  { label: 'Financeiro',          path: '/financeiro', icon: Wallet,          enabled: false, modulo: 'financeiro'  },
+  { label: 'Contratos & Propostas', path: '/contratos', icon: FileSignature,  enabled: false, modulo: 'contratos'   },
+  { label: 'Agenda',              path: '/agenda',     icon: CalendarDays,    enabled: false, modulo: 'agenda'      },
+  { label: 'IA Wenox',            path: '/ia',         icon: Sparkles,        enabled: false, modulo: 'ia'          },
+  { label: 'Configurações',       path: '/config',     icon: Settings,        enabled: true,  modulo: 'config'      },
 ];
 
 /** Resolve o título da área atual a partir do pathname. */

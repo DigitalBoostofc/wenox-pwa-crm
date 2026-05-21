@@ -362,6 +362,7 @@ export function ProjetosListPage() {
     'nenhum' | 'execucao' | 'todos' | 'concluidos'
   >('nenhum');
   const [view, setView] = useState<ViewMode>(carregarView);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [tipos, setTipos] = useState<Opcao[]>([]);
   const [todasEtapas, setTodasEtapas] = useState<EtapaProjeto[]>([]);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
@@ -451,6 +452,16 @@ export function ProjetosListPage() {
   // "Ativo" existe em todos os tipos (inclusive Social Media).
   useEffect(() => { setStatusFiltro('Ativo'); }, [tipoFiltro]);
 
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 1023px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  /** Em mobile sempre cards; no desktop respeita a escolha salva. */
+  const viewEfetiva: ViewMode = isMobile ? 'cards' : view;
+
   const filtros = useMemo(() => ['Todos', ...tipos.map((t) => t.valor)], [tipos]);
   const trocarView = (v: ViewMode) => { setView(v); salvarView(v); };
   const recarregar = () => setRecarregaTrigger((n) => n + 1);
@@ -502,7 +513,7 @@ export function ProjetosListPage() {
             className="h-10 w-full rounded-md border border-input bg-background/40 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           />
         </div>
-        {view === 'lista' && (
+        {viewEfetiva === 'lista' && (
           <>
             <select
               aria-label="Ordenar"
@@ -521,7 +532,7 @@ export function ProjetosListPage() {
             />
           </>
         )}
-        <div className="flex items-center gap-1 rounded-md border border-border bg-background/40 p-1">
+        <div className="hidden items-center gap-1 rounded-md border border-border bg-background/40 p-1 lg:flex">
           <ViewToggleBtn ativo={view === 'lista'} onClick={() => trocarView('lista')} icon={List} label="Lista" />
           <ViewToggleBtn ativo={view === 'kanban'} onClick={() => trocarView('kanban')} icon={Columns3} label="Kanban" />
           <ViewToggleBtn ativo={view === 'cards'} onClick={() => trocarView('cards')} icon={LayoutGrid} label="Cards" />
@@ -600,7 +611,7 @@ export function ProjetosListPage() {
             </Card>
           ))}
         </div>
-      ) : view === 'lista' ? (
+      ) : viewEfetiva === 'lista' ? (
         // Em "lista" sempre renderiza o componente (mantém o botão Colunas
         // visível mesmo quando o filtro resulta em zero projetos).
         <ListaProjetos
@@ -634,7 +645,7 @@ export function ProjetosListPage() {
             </p>
           </div>
         </Card>
-      ) : view === 'cards' ? (
+      ) : viewEfetiva === 'cards' ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {projetosFiltrados.map((p) => (
             <CardProjeto

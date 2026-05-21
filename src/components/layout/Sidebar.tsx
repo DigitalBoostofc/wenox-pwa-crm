@@ -20,6 +20,8 @@ import { useAuth } from '@/auth/useAuth';
 import { canGerirUsuarios } from '@/auth/perms';
 import { useTheme } from './ThemeProvider';
 import { carregarPermissoes, temPermissao } from '@/config/permissoesConfig';
+import logoWenox from '@/assets/wenox-logo.png';
+import iconeWenox from '@/assets/wenox-icon.png';
 
 function isActive(pathname: string, itemPath: string) {
   if (itemPath === '/clientes')
@@ -31,15 +33,11 @@ function isActive(pathname: string, itemPath: string) {
 
 export function SidebarBrand({ compacta = false }: { compacta?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5 px-2 py-1">
-      <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[0_8px_20px_-6px_rgba(139,92,246,0.7)]">
-        <span className="text-lg font-black">W</span>
-      </div>
-      {!compacta && (
-        <div className="leading-tight">
-          <p className="text-sm font-bold tracking-tight">Wenox OS</p>
-          <p className="text-[11px] text-muted-foreground">Central de comando</p>
-        </div>
+    <div className="flex items-center px-2 py-1">
+      {compacta ? (
+        <img src={iconeWenox} alt="Wenox" className="size-9 shrink-0" />
+      ) : (
+        <img src={logoWenox} alt="Wenox" className="h-7 w-auto" />
       )}
     </div>
   );

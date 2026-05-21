@@ -10,6 +10,18 @@ vi.mock('@/auth/useAuth', () => ({
 }));
 
 import { ClientesListPage } from '@/clientes/ClientesListPage';
+import { HeaderSlotProvider, HeaderSlotTarget } from '@/components/layout/HeaderSlot';
+
+/** A página projeta a barra de busca no Header via HeaderSlot — o teste
+ *  precisa do provider + target pra o portal renderizar. */
+function renderComHeader(ui: React.ReactElement) {
+  return render(
+    <HeaderSlotProvider>
+      <HeaderSlotTarget />
+      {ui}
+    </HeaderSlotProvider>,
+  );
+}
 
 describe('ClientesListPage', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -18,14 +30,14 @@ describe('ClientesListPage', () => {
     listClientes.mockResolvedValue([
       { id: '1', nome_fantasia: 'ACME', status: 'Ativo', telefone: '11', categoria: 'Cliente' },
     ]);
-    render(<ClientesListPage />);
+    renderComHeader(<ClientesListPage />);
     expect(await screen.findByText('ACME')).toBeInTheDocument();
     expect(listClientes).toHaveBeenCalledWith('');
   });
 
   it('refaz a busca ao digitar', async () => {
     listClientes.mockResolvedValue([]);
-    render(<ClientesListPage />);
+    renderComHeader(<ClientesListPage />);
     await waitFor(() => expect(listClientes).toHaveBeenCalled());
     await userEvent.type(screen.getByPlaceholderText(/buscar/i), 'acme');
     await waitFor(() =>

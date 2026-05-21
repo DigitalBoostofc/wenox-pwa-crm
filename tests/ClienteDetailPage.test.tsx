@@ -15,6 +15,9 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ id: 'c1' }),
   useHistory: () => ({ push: vi.fn() }),
 }));
+vi.mock('@/auth/useAuth', () => ({
+  useAuth: () => ({ user: { id: 'u1', email: 'o@w.com', role: 'Owner' } }),
+}));
 
 import { ClienteDetailPage } from '@/clientes/ClienteDetailPage';
 

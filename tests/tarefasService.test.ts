@@ -21,6 +21,7 @@ vi.mock('@/atividade/atividadeService', async (orig) => {
 
 import {
   criarTarefa, moverTarefaStatus, listTarefas,
+  aprovarTarefa, pedirAlteracaoTarefa,
 } from '@/tarefas/tarefasService';
 
 describe('tarefasService', () => {
@@ -55,5 +56,21 @@ describe('tarefasService', () => {
     await listTarefas({ responsavelId: 'u9' });
     const opts = api.getList.mock.calls[0][2];
     expect(opts.filter).toContain('responsaveis.id ?= "u9"');
+  });
+
+  it('aprovar registra veredito "aprovada"', async () => {
+    api.update.mockResolvedValue({ id: 't1', aprovacao: 'aprovada' });
+    await aprovarTarefa('t1');
+    expect(api.update).toHaveBeenCalledWith('t1', { aprovacao: 'aprovada' });
+    expect(hist[0].acao).toMatch(/aprovou/i);
+  });
+
+  it('pedir alteração exige texto e muda status', async () => {
+    api.update.mockResolvedValue({ id: 't1', aprovacao: 'alteracao' });
+    await expect(pedirAlteracaoTarefa('t1', '  ')).rejects.toThrow();
+    await pedirAlteracaoTarefa('t1', 'trocar a cor do banner');
+    expect(api.update).toHaveBeenCalledWith('t1', {
+      aprovacao: 'alteracao', status: 'Em alteração',
+    });
   });
 });

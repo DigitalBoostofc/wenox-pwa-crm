@@ -142,9 +142,57 @@ function AuthedApp() {
   );
 }
 
+/** Árvore de rotas restrita para contas Cliente (cliente externo). */
+function ClienteApp({ clienteId }: { clienteId: string }) {
+  return (
+    <BrowserRouter>
+      <AppShell>
+        <Suspense fallback={<CarregandoTela />}>
+          <Switch>
+            <Route exact path="/projetos" component={ProjetosListPage} />
+            <Route
+              exact
+              path="/projetos/:id"
+              render={(props) => (
+                <ProjetoDetailPage id={(props.match.params as { id: string }).id} />
+              )}
+            />
+            <Route exact path="/tarefas" component={TarefasListPage} />
+            <Route exact path="/tarefas/nova" component={TarefaFormPage} />
+            <Route
+              exact
+              path="/tarefas/:id/editar"
+              render={(props) => (
+                <TarefaFormPage id={(props.match.params as { id: string }).id} />
+              )}
+            />
+            <Route
+              exact
+              path="/tarefas/:id"
+              render={(props) => (
+                <TarefaDetailPage id={(props.match.params as { id: string }).id} />
+              )}
+            />
+            <Route exact path="/minha-empresa">
+              {clienteId
+                ? <ClienteDetailPage id={clienteId} />
+                : <CarregandoTela />}
+            </Route>
+            <Route>
+              <Redirect to="/projetos" />
+            </Route>
+          </Switch>
+        </Suspense>
+      </AppShell>
+    </BrowserRouter>
+  );
+}
+
 function Root() {
   const { user } = useAuth();
-  return user ? <AuthedApp /> : <UnauthedApp />;
+  if (!user) return <UnauthedApp />;
+  if (user.role === 'Cliente') return <ClienteApp clienteId={user.cliente ?? ''} />;
+  return <AuthedApp />;
 }
 
 export default function App() {

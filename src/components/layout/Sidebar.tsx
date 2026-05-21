@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { NAV_ITEMS } from './nav';
+import { NAV_ITEMS, NAV_ITEMS_CLIENTE } from './nav';
 import { useSidebar } from './SidebarContext';
 import { useAuth } from '@/auth/useAuth';
 import { canGerirUsuarios } from '@/auth/perms';
@@ -53,9 +53,12 @@ export function SidebarNav({
   const { user } = useAuth();
   const { pathname } = useLocation();
   const permissoes = useMemo(() => carregarPermissoes(), []);
-  const itemsVisiveis = NAV_ITEMS.filter((item) =>
-    temPermissao(permissoes, user?.role, item.modulo),
-  );
+  // Conta Cliente tem nav própria, fora da matriz de permissões.
+  const itemsVisiveis = user?.role === 'Cliente'
+    ? NAV_ITEMS_CLIENTE
+    : NAV_ITEMS.filter((item) =>
+        temPermissao(permissoes, user?.role, item.modulo),
+      );
   return (
     <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
       {itemsVisiveis.map((item) => {

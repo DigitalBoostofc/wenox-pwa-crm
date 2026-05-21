@@ -28,10 +28,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 type ViewMode = 'cards' | 'kanban' | 'lista';
 const VIEW_KEY = 'wenox-projetos-view-v1';
 function carregarView(): ViewMode {
-  try {
-    const s = localStorage.getItem(VIEW_KEY);
-    if (s === 'cards' || s === 'kanban' || s === 'lista') return s;
-  } catch { /* */ }
   return 'lista';
 }
 function salvarView(v: ViewMode) {
@@ -526,9 +522,9 @@ export function ProjetosListPage() {
           </>
         )}
         <div className="flex items-center gap-1 rounded-md border border-border bg-background/40 p-1">
-          <ViewToggleBtn ativo={view === 'cards'} onClick={() => trocarView('cards')} icon={LayoutGrid} label="Cards" />
-          <ViewToggleBtn ativo={view === 'kanban'} onClick={() => trocarView('kanban')} icon={Columns3} label="Kanban" />
           <ViewToggleBtn ativo={view === 'lista'} onClick={() => trocarView('lista')} icon={List} label="Lista" />
+          <ViewToggleBtn ativo={view === 'kanban'} onClick={() => trocarView('kanban')} icon={Columns3} label="Kanban" />
+          <ViewToggleBtn ativo={view === 'cards'} onClick={() => trocarView('cards')} icon={LayoutGrid} label="Cards" />
         </div>
         <Button onClick={() => history.push('/projetos/novo')}>
           <Plus /> Novo projeto

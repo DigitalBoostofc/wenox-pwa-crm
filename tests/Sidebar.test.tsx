@@ -1,6 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+
+// SidebarNav usa useAuth — mockado para rodar sem <AuthProvider>.
+vi.mock('@/auth/useAuth', () => ({
+  useAuth: () => ({ user: { id: 'u1', email: 'owner@wenox.com.br', role: 'Owner' } }),
+}));
+
 import { SidebarNav } from '@/components/layout/Sidebar';
 import { NAV_ITEMS } from '@/components/layout/nav';
 

@@ -30,7 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Equipe',              path: '/equipe',     icon: Users,           enabled: true,  modulo: 'equipe'      },
   { label: 'Clientes',            path: '/clientes',   icon: Building2,       enabled: true,  modulo: 'clientes'    },
   { label: 'Projetos',            path: '/projetos',   icon: FolderKanban,    enabled: true,  modulo: 'projetos'    },
-  { label: 'Tarefas',             path: '/tarefas',    icon: ListChecks,      enabled: false, modulo: 'tarefas'     },
+  { label: 'Tarefas',             path: '/tarefas',    icon: ListChecks,      enabled: true,  modulo: 'tarefas'     },
   { label: 'Financeiro',          path: '/financeiro', icon: Wallet,          enabled: false, modulo: 'financeiro'  },
   { label: 'Contratos & Propostas', path: '/contratos', icon: FileSignature,  enabled: false, modulo: 'contratos'   },
   { label: 'Agenda',              path: '/agenda',     icon: CalendarDays,    enabled: false, modulo: 'agenda'      },

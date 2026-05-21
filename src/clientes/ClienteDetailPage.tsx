@@ -12,6 +12,7 @@ import { ContatosTab } from '@/contatos/ContatosTab';
 import { AcessosTab } from '@/acessos/AcessosTab';
 import { DocumentosTab } from '@/documentos/DocumentosTab';
 import { ProjetosTabCliente } from '@/projetos/ProjetosTabCliente';
+import { TarefasTabCliente } from '@/tarefas/TarefasTabCliente';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { cn } from '@/lib/utils';
 import { statusVariant, haDias, dataBR, corAvatar, inicial } from '@/clientes/format';
@@ -39,7 +40,7 @@ const ABAS: { id: Aba; label: string; icon: typeof Users; emBreve?: boolean }[] 
   { id: 'visao', label: 'Visão Geral', icon: LayoutDashboard },
   { id: 'acessos', label: 'Acessos', icon: KeyRound },
   { id: 'projetos', label: 'Projetos', icon: FolderKanban },
-  { id: 'tarefas', label: 'Tarefas', icon: CheckSquare, emBreve: true },
+  { id: 'tarefas', label: 'Tarefas', icon: CheckSquare },
   { id: 'financeiro', label: 'Financeiro', icon: Wallet, emBreve: true },
   { id: 'documentos', label: 'Documentos', icon: FileText },
   { id: 'equipe', label: 'Equipe', icon: Users },
@@ -340,19 +341,14 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
       {aba === 'documentos' && <DocumentosTab clienteId={c.id} />}
       {aba === 'equipe' && <ContatosTab clienteId={c.id} />}
       {aba === 'projetos' && <ProjetosTabCliente clienteId={c.id} />}
-      {(aba === 'tarefas' || aba === 'financeiro') && (
-        <EmBreveAba aba={aba} />
-      )}
+      {aba === 'tarefas' && <TarefasTabCliente clienteId={c.id} />}
+      {aba === 'financeiro' && <EmBreveAba aba={aba} />}
     </div>
   );
 }
 
-function EmBreveAba({ aba }: { aba: 'tarefas' | 'financeiro' }) {
+function EmBreveAba({ aba }: { aba: 'financeiro' }) {
   const textos = {
-    tarefas: {
-      titulo: 'Tarefas deste cliente',
-      desc: 'Lista de tarefas em andamento, com prazo, responsável e etapa. Disponível quando o módulo de Tarefas for entregue.',
-    },
     financeiro: {
       titulo: 'Financeiro deste cliente',
       desc: 'Contratos, faturas e histórico de pagamentos. Disponível quando o módulo Financeiro for entregue.',

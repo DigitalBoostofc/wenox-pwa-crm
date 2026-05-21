@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
-import { ArrowLeft, Pencil, FolderKanban, Plus, Trash2, CalendarDays } from 'lucide-react';
+import {
+  ArrowLeft, Pencil, FolderKanban, Plus, Trash2, CalendarDays, ListChecks,
+} from 'lucide-react';
+import { TarefasTabProjeto } from '@/tarefas/TarefasTabProjeto';
 import { getProjeto, removerProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
 import type { Projeto, EtapaProjeto } from './types';
@@ -321,6 +324,18 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
       )}
 
       {isSocialMedia && <AtividadesSection projetoId={p.id} />}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ListChecks className="size-4 text-muted-foreground" />
+            Tarefas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TarefasTabProjeto projetoId={p.id} />
+        </CardContent>
+      </Card>
 
       <AtividadeFeed entidade="projeto" refId={p.id} />
     </div>

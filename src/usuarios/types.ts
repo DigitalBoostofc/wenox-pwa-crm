@@ -3,6 +3,8 @@ export const AREAS = ['Social Media', 'Trafego', 'Atendimento', 'Criacao', 'Dev'
 
 export interface Usuario {
   id: string;
+  collectionId?: string;
+  collectionName?: string;
   email: string;
   nome: string;
   cargo?: string;
@@ -10,4 +12,5 @@ export interface Usuario {
   telefone?: string;
   role: (typeof ROLES)[number];
   status: 'Ativo' | 'Inativo';
+  foto?: string;
 }

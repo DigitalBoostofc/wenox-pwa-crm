@@ -133,7 +133,7 @@ export function ClientesListPage() {
   const { user } = useAuth();
   const isDesktop = useIsDesktop();
   const [busca, setBusca] = useState('');
-  const [filtro, setFiltro] = useState('Todos');
+  const [filtro, setFiltro] = useState('Ativo');
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -220,10 +220,14 @@ export function ClientesListPage() {
       new Set(clientes.flatMap((c) => c.servicos ?? [])),
     ),
   }), [clientes]);
-  const filtros = useMemo(
-    () => ['Todos', ...statusPresentes],
-    [statusPresentes],
-  );
+  const filtros = useMemo(() => {
+    // Ordem preferida do Leonardo (os que existirem entre os clientes).
+    const preferida = ['Ativo', 'Não iniciada', 'Inativo'];
+    const presentes = new Set(statusPresentes);
+    const ordenados = preferida.filter((s) => presentes.has(s));
+    const resto = statusPresentes.filter((s) => !preferida.includes(s));
+    return [...ordenados, ...resto, 'Todos'];
+  }, [statusPresentes]);
 
   const visiveis = useMemo(() => clientes
     .filter((c) => filtro === 'Todos' || c.status === filtro)

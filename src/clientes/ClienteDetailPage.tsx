@@ -13,6 +13,9 @@ import { AcessosTab } from '@/acessos/AcessosTab';
 import { DocumentosTab } from '@/documentos/DocumentosTab';
 import { ProjetosTabCliente } from '@/projetos/ProjetosTabCliente';
 import { TarefasTabCliente } from '@/tarefas/TarefasTabCliente';
+import { CriarAcessoCliente } from '@/clientes/CriarAcessoCliente';
+import { useAuth } from '@/auth/useAuth';
+import { ehCliente, canCriarAcessoCliente } from '@/auth/perms';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { cn } from '@/lib/utils';
 import { statusVariant, haDias, dataBR, corAvatar, inicial } from '@/clientes/format';
@@ -50,6 +53,8 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const params = useParams<{ id?: string }>();
   const id = idProp ?? params.id ?? '';
   const history = useHistory();
+  const { user } = useAuth();
+  const souCliente = ehCliente(user?.role);
   const [c, setC] = useState<Cliente | null>(null);
   const [aba, setAba] = useState<Aba>('visao');
   const [trocandoFoto, setTrocandoFoto] = useState(false);
@@ -95,14 +100,16 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
     <div className="flex flex-col gap-5">
       {/* Cabeçalho */}
       <div className="flex flex-wrap items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => history.push('/clientes')}
-          aria-label="Voltar"
-        >
-          <ArrowLeft />
-        </Button>
+        {!souCliente && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => history.push('/clientes')}
+            aria-label="Voltar"
+          >
+            <ArrowLeft />
+          </Button>
+        )}
         <div className="relative size-14 shrink-0">
           <div
             className={cn(
@@ -118,19 +125,21 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
               inicial(nome)
             )}
           </div>
-          <label
-            title="Trocar foto"
-            className="absolute -bottom-1 -right-1 grid size-6 cursor-pointer place-items-center rounded-full border border-border bg-card text-muted-foreground shadow hover:text-foreground"
-          >
-            <Pencil className="size-3" />
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              disabled={trocandoFoto}
-              onChange={(e) => trocarFoto(e.target.files?.[0] ?? null)}
-            />
-          </label>
+          {!souCliente && (
+            <label
+              title="Trocar foto"
+              className="absolute -bottom-1 -right-1 grid size-6 cursor-pointer place-items-center rounded-full border border-border bg-card text-muted-foreground shadow hover:text-foreground"
+            >
+              <Pencil className="size-3" />
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                disabled={trocandoFoto}
+                onChange={(e) => trocarFoto(e.target.files?.[0] ?? null)}
+              />
+            </label>
+          )}
         </div>
         <div className="flex-1">
           <h2 className="text-xl font-semibold">{nome}</h2>
@@ -158,25 +167,36 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
             </a>
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={apagar}
-          className="text-destructive hover:bg-destructive/10"
-        >
-          <Trash2 /> Apagar
-        </Button>
-        <Button
-          size="sm"
-          onClick={() => history.push(`/clientes/${c.id}/editar`)}
-        >
-          <Pencil /> Editar
-        </Button>
+        {!souCliente && canCriarAcessoCliente(user?.role) && (
+          <CriarAcessoCliente
+            clienteId={c.id}
+            clienteNome={nome}
+            emailSugerido={emails[0]?.valor}
+          />
+        )}
+        {!souCliente && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={apagar}
+            className="text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 /> Apagar
+          </Button>
+        )}
+        {!souCliente && (
+          <Button
+            size="sm"
+            onClick={() => history.push(`/clientes/${c.id}/editar`)}
+          >
+            <Pencil /> Editar
+          </Button>
+        )}
       </div>
 
       {/* Guias */}
       <div className="flex flex-wrap gap-1 border-b border-border">
-        {ABAS.map((t) => {
+        {ABAS.filter((t) => !souCliente || (t.id !== 'acessos' && t.id !== 'equipe')).map((t) => {
           const Icon = t.icon;
           return (
             <button

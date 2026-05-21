@@ -1,4 +1,5 @@
-export type Role = 'Owner' | 'Admin' | 'Gestor' | 'Membro' | 'Visualizador';
+export type Role =
+  | 'Owner' | 'Admin' | 'Gestor' | 'Membro' | 'Visualizador' | 'Cliente';
 
 const inSet = (roles: Role[]) => (r?: string) => !!r && roles.includes(r as Role);
 
@@ -7,3 +8,8 @@ export const canEditarCliente = inSet(['Owner', 'Admin', 'Gestor', 'Membro']);
 export const canExcluirCliente = inSet(['Owner', 'Admin']);
 export const canGerirEquipe = inSet(['Owner', 'Admin', 'Gestor']);
 export const canGerirUsuarios = inSet(['Owner', 'Admin']);
+/** Quem pode gerar o login de acesso de um cliente. */
+export const canCriarAcessoCliente = inSet(['Owner', 'Admin', 'Gestor']);
+
+/** true para contas do tipo Cliente (cliente externo logado na plataforma). */
+export const ehCliente = (r?: string): boolean => r === 'Cliente';

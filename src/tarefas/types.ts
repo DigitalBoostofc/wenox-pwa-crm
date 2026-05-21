@@ -12,6 +12,8 @@ export interface Tarefa {
   responsaveis?: string[]; // ids de usuarios (lado = wenox)
   contato?: string; // id do contato do cliente (lado = cliente)
   status?: string;
+  /** Veredito do cliente: '' (pendente) | 'aprovada' | 'alteracao'. */
+  aprovacao?: '' | 'aprovada' | 'alteracao';
   prazo?: string;
   etiquetas?: string[];
   ordem?: number;

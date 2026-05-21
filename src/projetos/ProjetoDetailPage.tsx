@@ -4,6 +4,8 @@ import {
   ArrowLeft, Pencil, FolderKanban, Plus, Trash2, CalendarDays, ListChecks,
 } from 'lucide-react';
 import { TarefasTabProjeto } from '@/tarefas/TarefasTabProjeto';
+import { useAuth } from '@/auth/useAuth';
+import { ehCliente } from '@/auth/perms';
 import { getProjeto, removerProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
 import type { Projeto, EtapaProjeto } from './types';
@@ -192,6 +194,8 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
   const params = useParams<{ id?: string }>();
   const id = idProp ?? params.id ?? '';
   const history = useHistory();
+  const { user } = useAuth();
+  const souCliente = ehCliente(user?.role);
   const [p, setP] = useState<Projeto | null>(null);
   const [etapas, setEtapas] = useState<EtapaProjeto[]>([]);
 
@@ -252,12 +256,16 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
             Abrir cliente
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={apagar} className="text-destructive hover:bg-destructive/10">
-          <Trash2 /> Apagar
-        </Button>
-        <Button size="sm" onClick={() => history.push(`/projetos/${p.id}/editar`)}>
-          <Pencil /> Editar
-        </Button>
+        {!souCliente && (
+          <Button size="sm" variant="ghost" onClick={apagar} className="text-destructive hover:bg-destructive/10">
+            <Trash2 /> Apagar
+          </Button>
+        )}
+        {!souCliente && (
+          <Button size="sm" onClick={() => history.push(`/projetos/${p.id}/editar`)}>
+            <Pencil /> Editar
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

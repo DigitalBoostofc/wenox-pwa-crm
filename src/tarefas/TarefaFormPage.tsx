@@ -18,6 +18,8 @@ import type { Contato } from '@/contatos/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/auth/useAuth';
+import { ehCliente } from '@/auth/perms';
 import { cn } from '@/lib/utils';
 
 const selectClass =
@@ -52,6 +54,8 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
   const history = useHistory();
   const params = useParams<{ id?: string }>();
   const { search } = useLocation();
+  const { user } = useAuth();
+  const souCliente = ehCliente(user?.role);
   const id = idProp ?? params.id;
 
   const [form, setForm] = useState<TarefaInput>(vazia);
@@ -76,6 +80,13 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
   // Pré-seleção via querystring (?projeto= / ?cliente=) ao criar.
   useEffect(() => {
     if (id) return;
+    // Conta Cliente: tarefa já nasce travada na empresa dele.
+    if (souCliente) {
+      setModo('cliente');
+      setForm((f) => ({ ...f, cliente: user?.cliente ?? '', lado: 'cliente' }));
+      setCarregado(true);
+      return;
+    }
     const qs = new URLSearchParams(search);
     const proj = qs.get('projeto');
     const cli = qs.get('cliente');
@@ -84,7 +95,7 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
       setForm((f) => ({ ...f, projeto: proj ?? '', cliente: cli ?? '', lado: 'cliente' }));
     }
     setCarregado(true);
-  }, [id, search]);
+  }, [id, search, souCliente, user?.cliente]);
 
   useEffect(() => {
     if (id) {
@@ -296,7 +307,14 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
         <Card>
           <CardHeader><CardTitle>Vínculo da tarefa</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-4">
+            {souCliente && (
+              <p className="text-xs text-muted-foreground">
+                A tarefa fica vinculada à sua empresa. Escolha o projeto, se
+                quiser.
+              </p>
+            )}
             {/* Seletor de modo */}
+            {!souCliente && (
             <div className="grid gap-2 sm:grid-cols-3">
               {MODOS.map((m) => {
                 const Icon = m.icon;
@@ -324,9 +342,10 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
                 );
               })}
             </div>
+            )}
 
             {/* ----- Modo INTERNA ----- */}
-            {modo === 'interna' && (
+            {!souCliente && modo === 'interna' && (
               <Campo id="resp-int" label="Responsáveis (equipe Wenox)">
                 {usuarios.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Carregando usuários…</p>
@@ -352,7 +371,7 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
             )}
 
             {/* ----- Modo EQUIPE: membro → cliente → projeto ----- */}
-            {modo === 'equipe' && (
+            {!souCliente && modo === 'equipe' && (
               <>
                 <Campo id="membros" label="1. Membro(s) da equipe">
                   {usuarios.length === 0 ? (
@@ -399,7 +418,7 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
             )}
 
             {/* ----- Modo CLIENTE: cliente → projeto + contato ----- */}
-            {modo === 'cliente' && (
+            {!souCliente && modo === 'cliente' && (
               <Campo id="cli" label="1. Cliente">
                 <select id="cli" value={form.cliente ?? ''} className={selectClass}
                   onChange={(e) => escolherCliente(e.target.value)}>
@@ -413,7 +432,7 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
 
             {/* Projeto — comum a equipe e cliente, após escolher o cliente */}
             {modo !== 'interna' && form.cliente && (
-              <Campo id="proj" label={`${modo === 'equipe' ? '3' : '2'}. Projeto`}>
+              <Campo id="proj" label={souCliente ? 'Projeto' : `${modo === 'equipe' ? '3' : '2'}. Projeto`}>
                 {projetosDoCliente.length === 0 ? (
                   <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
                     Este cliente ainda não tem projetos. A tarefa fica ligada só
@@ -431,8 +450,8 @@ export function TarefaFormPage({ id: idProp }: { id?: string } = {}) {
               </Campo>
             )}
 
-            {/* Contato responsável — só no modo cliente */}
-            {modo === 'cliente' && form.cliente && (
+            {/* Contato responsável — só no modo cliente (lado interno) */}
+            {!souCliente && modo === 'cliente' && form.cliente && (
               <Campo id="contato" label="3. Contato responsável (do cliente)">
                 {contatos.length === 0 ? (
                   <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">

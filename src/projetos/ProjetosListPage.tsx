@@ -25,6 +25,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HeaderSlot } from '@/components/layout/HeaderSlot';
+import { useAuth } from '@/auth/useAuth';
+import { ehCliente } from '@/auth/perms';
 
 type ViewMode = 'cards' | 'kanban' | 'lista';
 const VIEW_KEY = 'wenox-projetos-view-v1';
@@ -363,6 +365,8 @@ function ViewToggleBtn({
 
 export function ProjetosListPage() {
   const history = useHistory();
+  const { user } = useAuth();
+  const souCliente = ehCliente(user?.role);
   const [busca, setBusca] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
   /** Pill de status — default "Desenvolvimento" (pedido do Leonardo). */
@@ -548,9 +552,11 @@ export function ProjetosListPage() {
             <ViewToggleBtn ativo={view === 'kanban'} onClick={() => trocarView('kanban')} icon={Columns3} label="Kanban" />
             <ViewToggleBtn ativo={view === 'cards'} onClick={() => trocarView('cards')} icon={LayoutGrid} label="Cards" />
           </div>
-          <Button size="sm" onClick={() => history.push('/projetos/novo')}>
-            <Plus /> Novo projeto
-          </Button>
+          {!souCliente && (
+            <Button size="sm" onClick={() => history.push('/projetos/novo')}>
+              <Plus /> Novo projeto
+            </Button>
+          )}
         </div>
       </HeaderSlot>
 

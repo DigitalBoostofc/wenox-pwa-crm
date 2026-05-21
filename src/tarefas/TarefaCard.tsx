@@ -114,11 +114,23 @@ export function TarefaCard({
         </div>
       </div>
 
-      {t.status && (
-        <Badge className={cn('w-fit border text-[10px]', statusTarefaClass(t.status))}>
-          {t.status}
-        </Badge>
-      )}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {t.status && (
+          <Badge className={cn('w-fit border text-[10px]', statusTarefaClass(t.status))}>
+            {t.status}
+          </Badge>
+        )}
+        {t.aprovacao === 'aprovada' && (
+          <Badge className="w-fit border border-emerald-500/50 bg-emerald-500/15 text-[10px] text-emerald-400">
+            ✓ Aprovada
+          </Badge>
+        )}
+        {t.aprovacao === 'alteracao' && (
+          <Badge className="w-fit border border-destructive/50 bg-destructive/15 text-[10px] text-destructive">
+            ↻ Alteração
+          </Badge>
+        )}
+      </div>
     </div>
   );
 }

@@ -7,6 +7,8 @@ export interface AuthUser {
   email: string;
   role: string;
   nome?: string;
+  /** Preenchido só em contas do tipo Cliente — id do cliente vinculado. */
+  cliente?: string;
 }
 
 export interface AuthContextValue {

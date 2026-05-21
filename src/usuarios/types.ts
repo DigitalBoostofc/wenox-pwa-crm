@@ -10,7 +10,10 @@ export interface Usuario {
   cargo?: string;
   area?: string;
   telefone?: string;
-  role: (typeof ROLES)[number];
+  /** Os 5 papéis internos + 'Cliente' (conta de cliente externo). */
+  role: (typeof ROLES)[number] | 'Cliente';
   status: 'Ativo' | 'Inativo';
   foto?: string;
+  /** id do cliente vinculado — só nas contas role='Cliente'. */
+  cliente?: string;
 }

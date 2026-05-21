@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
-import { ArrowLeft, Pencil, ListChecks, Trash2 } from 'lucide-react';
-import { getTarefa, removerTarefa } from './tarefasService';
+import {
+  ArrowLeft, Pencil, ListChecks, Trash2, Check, RotateCcw,
+} from 'lucide-react';
+import {
+  getTarefa, removerTarefa, aprovarTarefa, pedirAlteracaoTarefa,
+} from './tarefasService';
 import type { Tarefa } from './types';
 import { statusTarefaClass, prazoVencido, LADO_LABEL } from './format';
 import { responsaveisTarefa } from './TarefaCard';
@@ -10,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dataBR } from '@/clientes/format';
+import { useAuth } from '@/auth/useAuth';
+import { ehCliente } from '@/auth/perms';
 import { cn } from '@/lib/utils';
 
 function Linha({ rotulo, valor }: { rotulo: string; valor?: React.ReactNode }) {
@@ -26,6 +32,8 @@ export function TarefaDetailPage({ id: idProp }: { id?: string } = {}) {
   const params = useParams<{ id?: string }>();
   const id = idProp ?? params.id ?? '';
   const history = useHistory();
+  const { user } = useAuth();
+  const souCliente = ehCliente(user?.role);
   const [t, setT] = useState<Tarefa | null>(null);
 
   useEffect(() => {
@@ -62,7 +70,9 @@ export function TarefaDetailPage({ id: idProp }: { id?: string } = {}) {
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {t.expand?.projeto?.nome
               ? <span>{t.expand.projeto.nome}{cliNome && ` · ${cliNome}`}</span>
-              : <span>Tarefa interna</span>}
+              : cliNome
+                ? <span>{cliNome}</span>
+                : <span>Tarefa interna</span>}
             {t.status && (
               <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>
                 {t.status}
@@ -75,19 +85,26 @@ export function TarefaDetailPage({ id: idProp }: { id?: string } = {}) {
             Abrir projeto
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={apagar} className="text-destructive hover:bg-destructive/10">
-          <Trash2 /> Apagar
-        </Button>
+        {!souCliente && (
+          <Button size="sm" variant="ghost" onClick={apagar} className="text-destructive hover:bg-destructive/10">
+            <Trash2 /> Apagar
+          </Button>
+        )}
         <Button size="sm" onClick={() => history.push(`/tarefas/${t.id}/editar`)}>
           <Pencil /> Editar
         </Button>
       </div>
 
+      <AprovacaoTarefa t={t} souCliente={souCliente} onMudou={(nova) => setT(nova)} />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Informações</CardTitle></CardHeader>
           <CardContent className="divide-y divide-border p-0">
-            <Linha rotulo="Projeto" valor={t.expand?.projeto?.nome ?? 'Tarefa interna'} />
+            <Linha
+              rotulo="Projeto"
+              valor={t.expand?.projeto?.nome ?? (cliNome ? '— (sem projeto específico)' : 'Tarefa interna')}
+            />
             <Linha rotulo="Cliente" valor={cliNome || undefined} />
             <Linha rotulo="Lado responsável" valor={t.lado ? LADO_LABEL[t.lado] : undefined} />
             <Linha rotulo="Status" valor={t.status ? (
@@ -142,5 +159,100 @@ export function TarefaDetailPage({ id: idProp }: { id?: string } = {}) {
 
       <AtividadeFeed entidade="tarefa" refId={t.id} />
     </div>
+  );
+}
+
+/** Bloco de aprovação — o cliente aprova/pede alteração; a equipe vê o veredito. */
+function AprovacaoTarefa({
+  t, souCliente, onMudou,
+}: {
+  t: Tarefa;
+  souCliente: boolean;
+  onMudou: (nova: Tarefa) => void;
+}) {
+  const [pedindo, setPedindo] = useState(false);
+  const [texto, setTexto] = useState('');
+  const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  const aguardando = (t.status ?? '').toLowerCase().includes('aprova');
+  const podeAgir = souCliente && aguardando;
+  // Nada a mostrar pra equipe se ainda não há veredito nem está aguardando.
+  if (!podeAgir && !t.aprovacao && !aguardando) return null;
+
+  async function aprovar() {
+    setSalvando(true);
+    setErro('');
+    try { onMudou(await aprovarTarefa(t.id)); }
+    catch (e) { setErro(e instanceof Error ? e.message : 'Erro'); }
+    finally { setSalvando(false); }
+  }
+  async function pedir() {
+    setSalvando(true);
+    setErro('');
+    try {
+      onMudou(await pedirAlteracaoTarefa(t.id, texto));
+      setPedindo(false);
+      setTexto('');
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro');
+    } finally { setSalvando(false); }
+  }
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Aprovação do cliente</CardTitle></CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {t.aprovacao === 'aprovada' && (
+          <Badge className="w-fit border border-emerald-500/50 bg-emerald-500/15 text-emerald-400">
+            <Check className="size-3.5" /> Aprovada pelo cliente
+          </Badge>
+        )}
+        {t.aprovacao === 'alteracao' && (
+          <Badge className="w-fit border border-destructive/50 bg-destructive/15 text-destructive">
+            <RotateCcw className="size-3.5" /> Alteração solicitada
+          </Badge>
+        )}
+        {!t.aprovacao && aguardando && (
+          <p className="text-sm text-muted-foreground">
+            {souCliente
+              ? 'Esta tarefa está aguardando sua aprovação.'
+              : 'Aguardando o cliente aprovar.'}
+          </p>
+        )}
+
+        {podeAgir && !pedindo && (
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={aprovar} disabled={salvando}>
+              <Check /> Aprovar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setPedindo(true)} disabled={salvando}>
+              <RotateCcw /> Pedir alteração
+            </Button>
+          </div>
+        )}
+        {podeAgir && pedindo && (
+          <div className="flex flex-col gap-2">
+            <textarea
+              autoFocus
+              rows={3}
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder="O que precisa ser alterado?"
+              className="w-full rounded-md border border-input bg-background/40 p-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={pedir} disabled={salvando || !texto.trim()}>
+                {salvando ? 'Enviando…' : 'Enviar pedido'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setPedindo(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
+        {erro && <p className="text-sm text-destructive">{erro}</p>}
+      </CardContent>
+    </Card>
   );
 }

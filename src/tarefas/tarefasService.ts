@@ -1,5 +1,7 @@
 import { pb } from '@/lib/pocketbase';
-import { registrarHistorico, diffCampos } from '@/atividade/atividadeService';
+import {
+  registrarHistorico, diffCampos, addComentario,
+} from '@/atividade/atividadeService';
 import type { Tarefa, TarefaInput } from './types';
 
 const col = () => pb.collection('tarefas');
@@ -7,7 +9,7 @@ const col = () => pb.collection('tarefas');
 const EXPAND = 'projeto,cliente,responsaveis,contato';
 const CAMPOS_LISTA = [
   'id', 'collectionId', 'collectionName', 'nome', 'descricao', 'projeto',
-  'cliente', 'lado', 'responsaveis', 'contato', 'status', 'prazo',
+  'cliente', 'lado', 'responsaveis', 'contato', 'status', 'aprovacao', 'prazo',
   'etiquetas', 'ordem', 'created',
   'expand.projeto.id', 'expand.projeto.nome', 'expand.projeto.tipo',
   'expand.cliente.id', 'expand.cliente.collectionId', 'expand.cliente.collectionName',
@@ -97,5 +99,29 @@ export async function moverTarefaStatus(
     ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
   })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, `Moveu para "${status}"`);
+  return rec;
+}
+
+/** Cliente aprova a tarefa — registra veredito + comentário no feed. */
+export async function aprovarTarefa(id: string): Promise<Tarefa> {
+  const rec = (await col().update(id, { aprovacao: 'aprovada' })) as unknown as Tarefa;
+  await registrarHistorico('tarefa', id, 'Cliente aprovou a tarefa');
+  try { await addComentario('tarefa', id, '✅ Cliente aprovou a tarefa.'); } catch { /* */ }
+  return rec;
+}
+
+/** Cliente pede alteração — exige um texto explicando o que mudar. */
+export async function pedirAlteracaoTarefa(
+  id: string,
+  texto: string,
+): Promise<Tarefa> {
+  const t = texto.trim();
+  if (!t) throw new Error('Explique o que precisa ser alterado');
+  const rec = (await col().update(id, {
+    aprovacao: 'alteracao',
+    status: 'Em alteração',
+  })) as unknown as Tarefa;
+  await registrarHistorico('tarefa', id, 'Cliente pediu alteração');
+  try { await addComentario('tarefa', id, `🔁 Alteração solicitada: ${t}`); } catch { /* */ }
   return rec;
 }

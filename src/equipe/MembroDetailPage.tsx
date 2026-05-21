@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, FolderKanban, ChevronDown, Check } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, FolderKanban, ChevronDown, Check, Pencil } from 'lucide-react';
 import { getMembro, listProjetosMembro, atualizarMembro } from './equipeService';
+import { fotoUrl } from '@/usuarios/usuariosService';
 import type { Usuario, ROLES } from '@/usuarios/types';
 import type { Projeto } from '@/projetos/types';
 import { useAuth } from '@/auth/useAuth';
@@ -70,6 +71,7 @@ export function MembroDetailPage({ id }: { id: string }) {
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvandoRole, setSalvandoRole] = useState(false);
+  const [trocandoFoto, setTrocandoFoto] = useState(false);
   const [erro, setErro] = useState('');
 
   useEffect(() => {
@@ -90,6 +92,19 @@ export function MembroDetailPage({ id }: { id: string }) {
       setErro('Não foi possível alterar o papel.');
     } finally {
       setSalvandoRole(false);
+    }
+  }
+
+  async function trocarFoto(file: File | null) {
+    if (!file || !membro) return;
+    setTrocandoFoto(true);
+    try {
+      const atualizado = await atualizarMembro(membro.id, {}, file);
+      setMembro(atualizado);
+    } catch {
+      setErro('Não foi possível atualizar a foto.');
+    } finally {
+      setTrocandoFoto(false);
     }
   }
 
@@ -143,15 +158,36 @@ export function MembroDetailPage({ id }: { id: string }) {
           {/* Avatar */}
           <div className="relative shrink-0 self-center sm:self-start">
             <div className={cn(
-              'grid size-20 place-items-center rounded-full text-2xl font-bold text-white',
-              corAvatar(membro.nome ?? membro.email),
+              'grid size-20 place-items-center overflow-hidden rounded-full text-2xl font-bold text-white',
+              !membro.foto && corAvatar(membro.nome ?? membro.email),
             )}>
-              {inicial(membro.nome ?? membro.email)}
+              {membro.foto ? (
+                <img src={fotoUrl(membro, '200x200')} alt={membro.nome}
+                  loading="lazy" decoding="async"
+                  className="size-full object-cover" />
+              ) : (
+                inicial(membro.nome ?? membro.email)
+              )}
             </div>
+            {/* Status no topo */}
             <span className={cn(
-              'absolute bottom-1 right-1 size-4 rounded-full border-2 border-card',
+              'absolute right-0 top-0 size-4 rounded-full border-2 border-card',
               ativo ? 'bg-emerald-500' : 'bg-muted-foreground',
             )} />
+            {/* Lápis: trocar/adicionar foto */}
+            <label
+              title="Trocar foto"
+              className="absolute -bottom-0.5 -right-0.5 grid size-7 cursor-pointer place-items-center rounded-full border border-border bg-card text-muted-foreground shadow transition-colors hover:text-foreground"
+            >
+              <Pencil className="size-3.5" />
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                disabled={trocandoFoto}
+                onChange={(e) => trocarFoto(e.target.files?.[0] ?? null)}
+              />
+            </label>
           </div>
 
           {/* Info */}

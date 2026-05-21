@@ -28,6 +28,12 @@ const ProjetoDetailPage = lazy(() =>
   import('@/projetos/ProjetoDetailPage').then((m) => ({ default: m.ProjetoDetailPage })));
 const EtapasProjetoPage = lazy(() =>
   import('@/projetos/EtapasProjetoPage').then((m) => ({ default: m.EtapasProjetoPage })));
+const TarefasListPage = lazy(() =>
+  import('@/tarefas/TarefasListPage').then((m) => ({ default: m.TarefasListPage })));
+const TarefaFormPage = lazy(() =>
+  import('@/tarefas/TarefaFormPage').then((m) => ({ default: m.TarefaFormPage })));
+const TarefaDetailPage = lazy(() =>
+  import('@/tarefas/TarefaDetailPage').then((m) => ({ default: m.TarefaDetailPage })));
 const PrivacidadePage = lazy(() =>
   import('@/config/PrivacidadePage').then((m) => ({ default: m.PrivacidadePage })));
 const EquipePage = lazy(() =>
@@ -92,6 +98,22 @@ function AuthedApp() {
             path="/projetos/:id"
             render={(props) => (
               <ProjetoDetailPage id={(props.match.params as { id: string }).id} />
+            )}
+          />
+          <Route exact path="/tarefas" component={TarefasListPage} />
+          <Route exact path="/tarefas/nova" component={TarefaFormPage} />
+          <Route
+            exact
+            path="/tarefas/:id/editar"
+            render={(props) => (
+              <TarefaFormPage id={(props.match.params as { id: string }).id} />
+            )}
+          />
+          <Route
+            exact
+            path="/tarefas/:id"
+            render={(props) => (
+              <TarefaDetailPage id={(props.match.params as { id: string }).id} />
             )}
           />
           <Route exact path="/equipe" component={EquipePage} />

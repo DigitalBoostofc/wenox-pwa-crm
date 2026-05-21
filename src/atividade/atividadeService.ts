@@ -1,6 +1,7 @@
 import { pb } from '@/lib/pocketbase';
 
-export type Entidade = 'cliente' | 'contato' | 'acesso' | 'documento' | 'projeto';
+export type Entidade =
+  | 'cliente' | 'contato' | 'acesso' | 'documento' | 'projeto' | 'tarefa';
 
 interface Base {
   id: string;
@@ -137,6 +138,11 @@ const ROTULOS: Record<string, string> = {
   responsaveis: 'responsáveis',
   briefing: 'briefing',
   data_entrega: 'entrega',
+  descricao: 'descrição',
+  projeto: 'projeto',
+  lado: 'lado responsável',
+  contato: 'contato',
+  prazo: 'prazo',
 };
 
 /** Formata um array de {tipo,valor} como "Comercial: 85 9..., Financeiro: ...". */

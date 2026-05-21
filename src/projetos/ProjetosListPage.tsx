@@ -260,6 +260,15 @@ function CardProjeto({
         </div>
       </div>
 
+      {total > 0 && idx >= 0 && (
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${Math.round(((idx + 1) / total) * 100)}%` }}
+          />
+        </div>
+      )}
+
       <div className="mt-1 flex items-center justify-between gap-3">
         <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
           {posTxt}

@@ -1,4 +1,5 @@
 import { pb } from '@/lib/pocketbase';
+import { notificar, idsGestao } from '@/notificacoes/notificacoesService';
 
 export type Entidade =
   | 'cliente' | 'contato' | 'acesso' | 'documento' | 'projeto' | 'tarefa';
@@ -32,17 +33,23 @@ const COLECAO_ENTIDADE: Partial<Record<Entidade, string>> = {
   acesso: 'acessos', contato: 'contatos',
 };
 
-/** Resolve o cliente dono da entidade — usado para escopar comentários/
- *  histórico (contas Cliente só veem o que é da empresa delas). */
-async function resolverCliente(entidade: Entidade, refId: string): Promise<string> {
-  if (entidade === 'cliente') return refId;
+/** Resolve o cliente dono e os responsáveis da entidade — usado para
+ *  escopar comentários/histórico e direcionar notificações. */
+async function resolverEntidade(
+  entidade: Entidade,
+  refId: string,
+): Promise<{ cliente: string; responsaveis: string[] }> {
+  if (entidade === 'cliente') return { cliente: refId, responsaveis: [] };
   const col = COLECAO_ENTIDADE[entidade];
-  if (!col) return '';
+  if (!col) return { cliente: '', responsaveis: [] };
   try {
-    const rec = await pb.collection(col).getOne(refId, { fields: 'cliente' });
-    return (rec as { cliente?: string }).cliente ?? '';
+    const rec = await pb.collection(col).getOne(refId, {
+      fields: 'cliente,responsaveis',
+    });
+    const r = rec as { cliente?: string; responsaveis?: string[] };
+    return { cliente: r.cliente ?? '', responsaveis: r.responsaveis ?? [] };
   } catch {
-    return '';
+    return { cliente: '', responsaveis: [] };
   }
 }
 
@@ -66,16 +73,34 @@ export async function addComentario(
   entidade: Entidade,
   refId: string,
   texto: string,
+  comNotificacao = true,
 ): Promise<void> {
   const t = texto.trim();
   if (!t) throw new Error('Escreva um comentário');
+  const { cliente, responsaveis } = await resolverEntidade(entidade, refId);
   await pb.collection('comentarios').create({
     entidade,
     ref_id: refId,
     texto: t,
     autor: pb.authStore?.record?.id,
-    cliente: await resolverCliente(entidade, refId),
+    cliente,
   });
+  if (!comNotificacao) return;
+  try {
+    const alvos = entidade === 'tarefa' || entidade === 'projeto'
+      ? responsaveis
+      : await idsGestao();
+    const link = entidade === 'tarefa' ? `/tarefas/${refId}`
+      : entidade === 'projeto' ? `/projetos/${refId}`
+      : entidade === 'cliente' ? `/clientes/${refId}`
+      : cliente ? `/clientes/${cliente}` : undefined;
+    await notificar(alvos, {
+      tipo: 'comentario',
+      titulo: 'Novo comentário',
+      mensagem: t.length > 120 ? `${t.slice(0, 120)}…` : t,
+      link,
+    });
+  } catch { /* notificação é best-effort */ }
 }
 
 export async function listHistorico(
@@ -106,7 +131,7 @@ export async function registrarHistorico(
       ref_id: refId,
       acao,
       autor: pb.authStore?.record?.id,
-      cliente: await resolverCliente(entidade, refId),
+      cliente: (await resolverEntidade(entidade, refId)).cliente,
     });
   } catch {
     /* histórico é best-effort; falha aqui não impede a operação principal */

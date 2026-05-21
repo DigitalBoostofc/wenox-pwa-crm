@@ -494,12 +494,6 @@ export function ProjetosListPage() {
         onChange={setTipoFiltro}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-5">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Projetos</h1>
-        <p className="text-sm text-muted-foreground">
-          Visão operacional dos projetos da agência
-        </p>
-      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-48 flex-1">

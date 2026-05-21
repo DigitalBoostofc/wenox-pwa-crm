@@ -386,7 +386,7 @@ export function ProjetosListPage() {
   }
 
   return (
-    <div className="flex max-w-7xl gap-4">
+    <div className="flex gap-4">
       <BarraTipos
         tipos={tipos.map((t) => t.valor)}
         ativo={tipoFiltro}
@@ -611,7 +611,7 @@ function KanbanProjetos({
   }
   return (
     <div className="overflow-x-auto pb-2">
-      <div className="flex min-w-max gap-3">
+      <div className="flex gap-3">
         {etapas.map((et) => (
           <ColunaKanban
             key={et.id}
@@ -675,7 +675,7 @@ function ColunaKanban({
         if (id && etapaAlvo) await onSoltar!(id, etapaAlvo);
       }}
       className={cn(
-        'flex w-72 shrink-0 flex-col gap-2 rounded-lg border border-border bg-background/40 p-3 transition-colors',
+        'flex min-w-52 flex-1 flex-col gap-2 rounded-lg border border-border bg-background/40 p-3 transition-colors',
         destaque && 'border-dashed border-muted-foreground/30',
         recebendo && 'border-primary bg-primary/5',
       )}
@@ -757,6 +757,30 @@ function salvarColunasProj(cols: ColProjDef[]) {
   try { localStorage.setItem(COL_PROJ_KEY, JSON.stringify(cols)); } catch { /* */ }
 }
 
+type OrdemProj = 'prazo' | 'cliente' | 'etapa' | 'status';
+const ORDEM_PROJ_KEY = 'wenox-ordem-projetos-v1';
+const ORDENS_PROJ: { v: OrdemProj; label: string }[] = [
+  { v: 'prazo',   label: 'Prazo (mais próximo)' },
+  { v: 'cliente', label: 'Cliente (A→Z)' },
+  { v: 'etapa',   label: 'Etapa (1ª → última)' },
+  { v: 'status',  label: 'Status (Desenv. → Inativo)' },
+];
+function carregarOrdemProj(): OrdemProj {
+  try {
+    const s = localStorage.getItem(ORDEM_PROJ_KEY);
+    if (s === 'prazo' || s === 'cliente' || s === 'etapa' || s === 'status') return s;
+  } catch { /* */ }
+  return 'prazo';
+}
+function salvarOrdemProj(o: OrdemProj) {
+  try { localStorage.setItem(ORDEM_PROJ_KEY, o); } catch { /* */ }
+}
+const ORDEM_STATUS_PROJETO = ['Desenvolvimento', 'Manutenção', 'Ativo', 'Inativo'];
+function posicaoStatusProj(s?: string): number {
+  const idx = ORDEM_STATUS_PROJETO.indexOf(s ?? '');
+  return idx >= 0 ? idx : 99;
+}
+
 function ListaProjetos({
   projetos, etapasPorTipo, onAbrir, mostrarColTipo = true, onStatusChange,
   onEtapaChange, totalBruto,
@@ -770,7 +794,36 @@ function ListaProjetos({
   totalBruto?: number;
 }) {
   const [colDefs, setColDefs] = useState<ColProjDef[]>(carregarColunasProj);
+  const [ordem, setOrdem] = useState<OrdemProj>(carregarOrdemProj);
   const dragIdx = useRef<number | null>(null);
+
+  const projetosOrdenados = useMemo(() => {
+    const arr = [...projetos];
+    arr.sort((a, b) => {
+      if (ordem === 'cliente') {
+        return nomeCliente(a).localeCompare(nomeCliente(b), 'pt-BR', { sensitivity: 'base' });
+      }
+      if (ordem === 'prazo') {
+        // ASC por data_entrega; sem prazo (null) vai pro fim.
+        const ta = a.data_entrega ? new Date(a.data_entrega).getTime() : Number.POSITIVE_INFINITY;
+        const tb = b.data_entrega ? new Date(b.data_entrega).getTime() : Number.POSITIVE_INFINITY;
+        return ta - tb;
+      }
+      if (ordem === 'etapa') {
+        const etA = etapasPorTipo[a.tipo ?? ''] ?? [];
+        const etB = etapasPorTipo[b.tipo ?? ''] ?? [];
+        const ia = a.etapa ? etA.findIndex((e) => e.nome === a.etapa) : -1;
+        const ib = b.etapa ? etB.findIndex((e) => e.nome === b.etapa) : -1;
+        // Sem etapa ou fora do pipeline vai pro fim.
+        const va = ia >= 0 ? ia : Number.POSITIVE_INFINITY;
+        const vb = ib >= 0 ? ib : Number.POSITIVE_INFINITY;
+        return va - vb;
+      }
+      // status
+      return posicaoStatusProj(a.status) - posicaoStatusProj(b.status);
+    });
+    return arr;
+  }, [projetos, ordem, etapasPorTipo]);
 
   function toggleCol(k: ColProjKey) {
     setColDefs((cs) => {
@@ -911,7 +964,17 @@ function ListaProjetos({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <select
+          aria-label="Ordenar"
+          value={ordem}
+          onChange={(e) => { const v = e.target.value as OrdemProj; setOrdem(v); salvarOrdemProj(v); }}
+          className="h-9 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          {ORDENS_PROJ.map((o) => (
+            <option key={o.v} value={o.v}>{o.label}</option>
+          ))}
+        </select>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
@@ -968,7 +1031,7 @@ function ListaProjetos({
                     : 'Nenhum projeto neste filtro.'}
                 </td>
               </tr>
-            ) : projetos.map((p) => (
+            ) : projetosOrdenados.map((p) => (
               <tr
                 key={p.id}
                 onClick={() => onAbrir(p.id)}

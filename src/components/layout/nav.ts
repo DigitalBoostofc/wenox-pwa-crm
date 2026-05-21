@@ -26,7 +26,7 @@ export interface NavItem {
 
 /** Os 11 módulos do Wenox OS (doc handoff). Só Clientes e Configurações navegam no P3.5. */
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',           path: '/dashboard',  icon: LayoutDashboard, enabled: false, modulo: 'dashboard'   },
+  { label: 'Dashboard',           path: '/dashboard',  icon: LayoutDashboard, enabled: true,  modulo: 'dashboard'   },
   { label: 'Minha Área',          path: '/minha-area', icon: UserCircle,      enabled: false, modulo: 'minha-area'  },
   { label: 'Equipe',              path: '/equipe',     icon: Users,           enabled: true,  modulo: 'equipe'      },
   { label: 'Clientes',            path: '/clientes',   icon: Building2,       enabled: true,  modulo: 'clientes'    },

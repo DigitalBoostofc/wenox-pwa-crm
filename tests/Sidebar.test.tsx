@@ -31,7 +31,7 @@ describe('SidebarNav', () => {
     );
     const clientes = screen.getByText('Clientes').closest('a');
     expect(clientes).toHaveAttribute('href', '/clientes');
-    // Dashboard é módulo futuro: não deve ser <a>
-    expect(screen.getByText('Dashboard').closest('a')).toBeNull();
+    // Financeiro é módulo futuro: não deve ser <a>
+    expect(screen.getByText('Financeiro').closest('a')).toBeNull();
   });
 });

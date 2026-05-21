@@ -28,6 +28,8 @@ const ProjetoDetailPage = lazy(() =>
   import('@/projetos/ProjetoDetailPage').then((m) => ({ default: m.ProjetoDetailPage })));
 const EtapasProjetoPage = lazy(() =>
   import('@/projetos/EtapasProjetoPage').then((m) => ({ default: m.EtapasProjetoPage })));
+const DashboardPage = lazy(() =>
+  import('@/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const TarefasListPage = lazy(() =>
   import('@/tarefas/TarefasListPage').then((m) => ({ default: m.TarefasListPage })));
 const TarefaFormPage = lazy(() =>
@@ -68,6 +70,7 @@ function AuthedApp() {
       <AppShell>
         <Suspense fallback={<CarregandoTela />}>
         <Switch>
+          <Route exact path="/dashboard" component={DashboardPage} />
           <Route exact path="/clientes" component={ClientesListPage} />
           <Route exact path="/novo-cliente" component={ClienteFormPage} />
           <Route
@@ -130,10 +133,10 @@ function AuthedApp() {
           <Route exact path="/config/privacidade" component={PrivacidadePage} />
           <Route exact path="/config" component={ConfigPage} />
           <Route exact path="/login">
-            <Redirect to="/clientes" />
+            <Redirect to="/dashboard" />
           </Route>
           <Route>
-            <Redirect to="/clientes" />
+            <Redirect to="/dashboard" />
           </Route>
         </Switch>
         </Suspense>

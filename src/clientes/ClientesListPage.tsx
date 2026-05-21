@@ -238,8 +238,8 @@ export function ClientesListPage() {
         return +new Date(b.created ?? 0) - +new Date(a.created ?? 0);
       if (ordenacao === 'antigos')
         return +new Date(a.created ?? 0) - +new Date(b.created ?? 0);
-      const cmp = (a.nome_fantasia ?? '').localeCompare(
-        b.nome_fantasia ?? '', 'pt-BR', { sensitivity: 'base' },
+      const cmp = nomeExibicao(a).localeCompare(
+        nomeExibicao(b), 'pt-BR', { sensitivity: 'base' },
       );
       return ordenacao === 'za' ? -cmp : cmp;
     }),

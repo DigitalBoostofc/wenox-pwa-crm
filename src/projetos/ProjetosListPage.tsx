@@ -881,9 +881,10 @@ function ListaProjetos({
       return (
         <select
           value={p.etapa ?? ''}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => { e.stopPropagation(); onEtapaChange(p.id, e.target.value); }}
-          className="cursor-pointer rounded-full border border-border bg-secondary px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="cursor-pointer rounded-full border border-border bg-secondary px-3 py-1.5 pr-7 text-xs font-medium text-muted-foreground transition-colors [color-scheme:dark] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           <option value="">—</option>
           {etapas.map((et, i) => (
@@ -908,13 +909,14 @@ function ListaProjetos({
       return (
         <select
           value={p.status ?? ''}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => { e.stopPropagation(); onStatusChange(p.id, e.target.value); }}
           /* color-scheme:dark força o Chrome a abrir o popup com fundo escuro
              (sem isso, fundos translúcidos como bg-emerald/15 fazem o popup
              vir branco — fora da identidade visual). */
           className={cn(
-            'cursor-pointer rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+            'cursor-pointer rounded-full border px-3 py-1.5 pr-7 text-xs font-medium transition-colors [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
             p.status === 'Desenvolvimento' && 'border-amber-500/50 bg-amber-500/15 text-amber-400',
             p.status === 'Manutenção'      && 'border-primary/50 bg-primary/15 text-primary',
             p.status === 'Ativo'           && 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400',

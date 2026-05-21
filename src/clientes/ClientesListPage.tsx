@@ -20,6 +20,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { HeaderSlot } from '@/components/layout/HeaderSlot';
 
 type ColKey = 'telefone' | 'email' | 'origem' | 'servicos' | 'status' | 'desde';
 /** Chave usada também pelo mapa de larguras (inclui 'cliente', que é a 1ª coluna). */
@@ -265,76 +266,71 @@ export function ClientesListPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Clientes</h1>
-        <p className="text-sm text-muted-foreground">
-          Cadastro e gestão de clientes da agência
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-56 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            placeholder="Buscar"
-            aria-label="Buscar"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background/40 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-          />
+      <HeaderSlot>
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <div className="relative min-w-40 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              placeholder="Buscar cliente"
+              aria-label="Buscar"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background/40 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            />
+          </div>
+          <select
+            aria-label="Ordenar"
+            value={ordenacao}
+            onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
+            className="h-9 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            {ORDENACOES.map((o) => (
+              <option key={o.v} value={o.v}>{o.label}</option>
+            ))}
+          </select>
+          {isDesktop && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <SlidersHorizontal /> Colunas
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>
+                  Colunas — arraste para reordenar
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {colDefs.map((c, idx) => (
+                  <div
+                    key={c.key}
+                    draggable
+                    onDragStart={() => { dragIdx.current = idx; }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragIdx.current !== null) moverCol(dragIdx.current, idx);
+                      dragIdx.current = null;
+                    }}
+                    className="flex cursor-grab items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-secondary active:cursor-grabbing"
+                    onClick={() => toggleCol(c.key)}
+                  >
+                    <GripVertical className="size-4 shrink-0 text-muted-foreground" />
+                    <span className={cn('grid size-4 shrink-0 place-items-center rounded border text-[10px]', c.visivel ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}>
+                      {c.visivel ? '✓' : ''}
+                    </span>
+                    <span className="flex-1">{c.label}</span>
+                  </div>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {canCriarCliente(user?.role) && (
+            <Button size="sm" onClick={() => history.push('/novo-cliente')}>
+              <Plus /> Novo cliente
+            </Button>
+          )}
         </div>
-        <select
-          aria-label="Ordenar"
-          value={ordenacao}
-          onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
-          className={selectCls}
-        >
-          {ORDENACOES.map((o) => (
-            <option key={o.v} value={o.v}>{o.label}</option>
-          ))}
-        </select>
-        {isDesktop && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <SlidersHorizontal /> Colunas
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>
-                Colunas — arraste para reordenar
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {colDefs.map((c, idx) => (
-                <div
-                  key={c.key}
-                  draggable
-                  onDragStart={() => { dragIdx.current = idx; }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (dragIdx.current !== null) moverCol(dragIdx.current, idx);
-                    dragIdx.current = null;
-                  }}
-                  className="flex cursor-grab items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-secondary active:cursor-grabbing"
-                  onClick={() => toggleCol(c.key)}
-                >
-                  <GripVertical className="size-4 shrink-0 text-muted-foreground" />
-                  <span className={cn('grid size-4 shrink-0 place-items-center rounded border text-[10px]', c.visivel ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}>
-                    {c.visivel ? '✓' : ''}
-                  </span>
-                  <span className="flex-1">{c.label}</span>
-                </div>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        {canCriarCliente(user?.role) && (
-          <Button onClick={() => history.push('/novo-cliente')}>
-            <Plus /> Novo cliente
-          </Button>
-        )}
-      </div>
+      </HeaderSlot>
 
       <div className="flex flex-wrap items-center gap-2">
         {filtros.map((f) => (

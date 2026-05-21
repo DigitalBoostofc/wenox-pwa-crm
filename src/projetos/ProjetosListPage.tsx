@@ -360,7 +360,7 @@ export function ProjetosListPage() {
   const [busca, setBusca] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
   /** Pill de status — default "Desenvolvimento" (pedido do Leonardo). */
-  const [statusFiltro, setStatusFiltro] = useState<string>('Desenvolvimento');
+  const [statusFiltro, setStatusFiltro] = useState<string>('Todos');
   /** Filtro extra (dropdown) — independente do pill de status. */
   const [filtroExtra, setFiltroExtra] = useState<
     'nenhum' | 'execucao' | 'todos' | 'concluidos'

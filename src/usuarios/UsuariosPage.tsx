@@ -47,6 +47,9 @@ export function UsuariosPage() {
   const [foto, setFoto] = useState<File | null>(null);
   const [funcoes, setFuncoes] = useState<Opcao[]>([]);
   const [erro, setErro] = useState('');
+  /** Credenciais do último usuário criado — exibidas pra o admin repassar. */
+  const [criado, setCriado] = useState<{ nome: string; email: string; senha: string } | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
   const carregar = async () => setUsuarios(await listUsuarios());
   useEffect(() => {
@@ -69,10 +72,12 @@ export function UsuariosPage() {
     }
     setSalvando(true);
     try {
+      const nome = novo.nome.trim();
+      const email = novo.email.trim();
       await criarUsuario(
         {
-          nome: novo.nome.trim(),
-          email: novo.email.trim(),
+          nome,
+          email,
           role: novo.role as Usuario['role'],
           area: novo.area || undefined,
           status: 'Ativo',
@@ -80,6 +85,8 @@ export function UsuariosPage() {
         senha,
         foto,
       );
+      setCriado({ nome, email, senha });
+      setCopiado(false);
       setNovo({ nome: '', email: '', role: 'Membro', area: '' });
       setSenha('');
       setFoto(null);
@@ -88,6 +95,22 @@ export function UsuariosPage() {
       setErro(mensagemErroUsuario(err));
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function copiarCredenciais() {
+    if (!criado) return;
+    const txt =
+      `Acesso Wenox OS\n` +
+      `Site: https://app.wenox.com.br\n` +
+      `E-mail: ${criado.email}\n` +
+      `Senha: ${criado.senha}`;
+    try {
+      await navigator.clipboard.writeText(txt);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      /* clipboard pode falhar sem https/permissão — ignora */
     }
   }
 
@@ -101,6 +124,41 @@ export function UsuariosPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      {criado && (
+        <Card className="border-emerald-500/40 bg-emerald-500/5">
+          <CardContent className="flex flex-col gap-3 py-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-emerald-400">
+                  Usuário "{criado.nome}" criado!
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Repasse estas credenciais — a senha não fica visível depois.
+                </p>
+              </div>
+              <button
+                onClick={() => setCriado(null)}
+                aria-label="Fechar"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-1 rounded-md border border-border bg-background/40 px-4 py-3 text-sm">
+              <span><span className="text-muted-foreground">E-mail:</span> <span className="font-medium">{criado.email}</span></span>
+              <span><span className="text-muted-foreground">Senha:</span> <span className="font-mono font-medium">{criado.senha}</span></span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              onClick={copiarCredenciais}
+            >
+              {copiado ? 'Copiado!' : 'Copiar credenciais'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Novo usuário</CardTitle>

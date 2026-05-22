@@ -1,14 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Plus, Search, ListChecks, List, Columns3 } from 'lucide-react';
-import { listTarefas, moverTarefaStatus } from './tarefasService';
-import type { Tarefa } from './types';
-import { TarefaCard, responsaveisTarefa } from './TarefaCard';
-import { statusTarefaClass, prazoVencido, LADO_LABEL } from './format';
+import { listTarefas, moverTarefaStatus, criarTarefa } from './tarefasService';
+import type { Tarefa, TarefaInput } from './types';
+import { TarefaCard } from './TarefaCard';
+import { statusTarefaClass } from './format';
+import { TabelaTarefas } from './TabelaTarefas';
+import type { NovaTarefaInline } from './TabelaTarefas';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
 import { useAuth } from '@/auth/useAuth';
-import { dataBR } from '@/clientes/format';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -107,6 +108,14 @@ export function TarefasListPage() {
   };
   const abrir = (id: string) => history.push(`/tarefas/${id}`);
 
+  /** Cadastro inline (estilo Notion) — tarefa interna; refina depois abrindo. */
+  async function criarInline(d: NovaTarefaInline) {
+    await criarTarefa({
+      nome: d.nome, status: d.status, prazo: d.prazo, lado: 'wenox',
+    } as TarefaInput);
+    setRecarrega((n) => n + 1);
+  }
+
   /** Move uma tarefa para outro status (Kanban) — update otimista. */
   async function mover(tarefaId: string, status: string) {
     const alvo = tarefas.find((t) => t.id === tarefaId);
@@ -138,9 +147,11 @@ export function TarefasListPage() {
             <ViewToggleBtn ativo={view === 'lista'} onClick={() => trocarView('lista')} icon={List} label="Lista" />
             <ViewToggleBtn ativo={view === 'kanban'} onClick={() => trocarView('kanban')} icon={Columns3} label="Kanban" />
           </div>
-          <Button size="sm" onClick={() => history.push('/tarefas/nova')}>
-            <Plus /> Nova tarefa
-          </Button>
+          {view === 'kanban' && (
+            <Button size="sm" onClick={() => history.push('/tarefas/nova')}>
+              <Plus /> Nova tarefa
+            </Button>
+          )}
         </div>
       </HeaderSlot>
 
@@ -178,26 +189,32 @@ export function TarefasListPage() {
             </Card>
           ))}
         </div>
-      ) : tarefas.length === 0 ? (
-        <Card>
-          <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
-            <ListChecks className="size-10 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              {escopo === 'minhas'
-                ? <>Nenhuma tarefa atribuída a você. Veja <strong>Todas</strong> ou crie uma nova.</>
-                : <>Nenhuma tarefa ainda. Clica em <strong>Nova tarefa</strong> pra cadastrar.</>}
-            </p>
-          </div>
-        </Card>
       ) : view === 'kanban' ? (
-        <KanbanTarefas
+        tarefas.length === 0 ? (
+          <Card>
+            <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
+              <ListChecks className="size-10 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Nenhuma tarefa neste filtro.
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <KanbanTarefas
+            tarefas={tarefas}
+            statuses={statuses}
+            onAbrir={abrir}
+            onMover={mover}
+          />
+        )
+      ) : (
+        <TabelaTarefas
+          contexto="global"
           tarefas={tarefas}
           statuses={statuses}
           onAbrir={abrir}
-          onMover={mover}
+          onCriar={criarInline}
         />
-      ) : (
-        <ListaTarefas tarefas={tarefas} onAbrir={abrir} />
       )}
 
       {!carregando && tarefas.length > 0 && (
@@ -315,65 +332,5 @@ function ColunaKanban({
         </div>
       )}
     </div>
-  );
-}
-
-/* ---------------------------------- Lista --------------------------------- */
-
-function ListaTarefas({
-  tarefas, onAbrir,
-}: {
-  tarefas: Tarefa[];
-  onAbrir: (id: string) => void;
-}) {
-  return (
-    <Card className="overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <th className="px-4 py-3 font-medium">Tarefa</th>
-            <th className="px-4 py-3 font-medium">Projeto</th>
-            <th className="px-4 py-3 font-medium">Lado</th>
-            <th className="px-4 py-3 font-medium">Responsáveis</th>
-            <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium">Prazo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tarefas.map((t) => {
-            const resps = responsaveisTarefa(t);
-            const vencida = prazoVencido(t.prazo, t.status);
-            return (
-              <tr
-                key={t.id}
-                onClick={() => onAbrir(t.id)}
-                className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50"
-              >
-                <td className="px-4 py-3 font-medium">{t.nome}</td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {t.expand?.projeto?.nome ?? <span className="italic">Interna</span>}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {t.lado ? LADO_LABEL[t.lado] : '—'}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {resps.length ? resps.map((r) => r.nome).join(', ') : '—'}
-                </td>
-                <td className="px-4 py-3">
-                  {t.status ? (
-                    <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>
-                      {t.status}
-                    </Badge>
-                  ) : <span className="text-muted-foreground">—</span>}
-                </td>
-                <td className={cn('px-4 py-3', vencida ? 'font-medium text-destructive' : 'text-muted-foreground')}>
-                  {dataBR(t.prazo) || '—'}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
   );
 }

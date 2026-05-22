@@ -1,4 +1,4 @@
-// E2E: criar uma tarefa interna e validar que aparece em /tarefas.
+// E2E: criar uma tarefa inline (estilo Notion) na lista de Tarefas.
 import { chromium } from 'playwright';
 const BASE = process.env.E2E_BASE ?? 'https://app.wenox.com.br';
 const EMAIL = process.env.E2E_EMAIL ?? 'leonardo@wenox.com.br';
@@ -21,37 +21,25 @@ try {
   await p.goto(BASE, { waitUntil: 'networkidle', timeout: 30000 });
   await p.fill('#email', EMAIL); await p.fill('#senha', SENHA);
   await p.click('button:has-text("Entrar")');
-  await p.waitForURL(/\/clientes/, { timeout: 15000 });
+  await p.waitForURL(/\/(clientes|dashboard)/, { timeout: 15000 });
   await p.goto(BASE + '/tarefas', { waitUntil: 'networkidle' });
   await p.waitForSelector('button:has-text("Nova tarefa")', { timeout: 10000 });
   console.log('LISTA_TAREFAS_OK -> ' + p.url());
 
+  // Cadastro inline: clica na linha "+ Nova tarefa" e digita o nome.
   await p.click('button:has-text("Nova tarefa")');
-  await p.waitForSelector('#nome', { timeout: 10000 });
-  console.log('FORM_OK -> ' + p.url());
+  const inp = p.locator('input[placeholder*="Enter pra salvar"]');
+  await inp.waitFor({ timeout: 8000 });
+  await inp.fill(NOME);
+  await inp.press('Enter');
+  console.log('INLINE_PREENCHIDO');
 
-  await p.fill('#nome', NOME);
-  // Tarefa interna: sem projeto. Status já vem com default da 1ª opção.
-  await p.click('button:has-text("Salvar")');
-
-  const res = await Promise.race([
-    p.waitForURL((u) => /\/tarefas$/.test(u.pathname ?? String(u)), { timeout: 12000 }).then(() => 'NAV_LISTA'),
-    p.waitForSelector('p.text-destructive', { timeout: 12000 }).then(() => 'ERRO_VISIVEL'),
-  ]).catch(() => 'TIMEOUT');
-
-  console.log('RESULTADO: ' + res);
-
-  if (res === 'ERRO_VISIVEL') {
-    const txt = await p.locator('p.text-destructive').first().innerText().catch(() => '?');
-    console.log('MSG_ERRO: ' + txt);
-  }
-
-  if (res === 'NAV_LISTA') {
-    // A lista abre em "Minhas" — troca pra "Todas" pra garantir a visão.
-    await p.click('button:has-text("Todas")').catch(() => {});
-    const ok = await p.waitForSelector(`text=${NOME}`, { timeout: 10000 }).then(() => true).catch(() => false);
-    console.log('TAREFA_NA_LISTA: ' + ok);
-  }
+  // Aparece na lista (vê em "Todas" — tarefa interna não cai em "Minhas").
+  await p.waitForTimeout(1500);
+  await p.click('button:has-text("Todas")').catch(() => {});
+  const ok = await p.waitForSelector(`text=${NOME}`, { timeout: 10000 })
+    .then(() => true).catch(() => false);
+  console.log('TAREFA_NA_LISTA: ' + ok);
 } catch (e) {
   console.log('EXC: ' + e?.message);
 } finally {

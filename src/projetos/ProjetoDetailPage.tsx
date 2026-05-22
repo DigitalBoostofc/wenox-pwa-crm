@@ -341,7 +341,7 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <TarefasTabProjeto projetoId={p.id} />
+          <TarefasTabProjeto projetoId={p.id} clienteId={p.cliente} />
         </CardContent>
       </Card>
 

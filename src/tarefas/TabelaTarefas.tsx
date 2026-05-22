@@ -86,9 +86,9 @@ const COLS: { campo: Campo; label: string; w: string }[] = [
   { campo: 'status',    label: 'Status',       w: 'min-w-32' },
   { campo: 'prazo',     label: 'Prazo',        w: 'min-w-32' },
   { campo: 'vinculo',   label: 'Vínculo',      w: 'min-w-32' },
+  { campo: 'pessoas',   label: 'Responsáveis', w: 'min-w-40' },
   { campo: 'cliente',   label: 'Cliente',      w: 'min-w-40' },
   { campo: 'projeto',   label: 'Projeto',      w: 'min-w-40' },
-  { campo: 'pessoas',   label: 'Responsáveis', w: 'min-w-40' },
   { campo: 'descricao', label: 'Descrição',    w: 'min-w-48' },
   { campo: 'etiquetas', label: 'Etiquetas',    w: 'min-w-40' },
 ];
@@ -142,6 +142,20 @@ export function TabelaTarefas({
     return m;
   }, [projetos]);
 
+  /** Clientes disponíveis para edição da célula, considerando o vínculo da linha.
+   *  Modo Equipe: só clientes onde o(s) responsável(is) selecionados têm projetos. */
+  function clientesParaLinha(l: Linha): Cliente[] {
+    if (l.modo !== 'equipe' || l.responsaveis.length === 0) return clientes;
+    const membros = new Set(l.responsaveis);
+    const ids = new Set<string>();
+    for (const p of projetos) {
+      if ((p.responsaveis ?? []).some((r) => membros.has(r)) && p.cliente) {
+        ids.add(p.cliente);
+      }
+    }
+    return clientes.filter((c) => ids.has(c.id));
+  }
+
   /** Garante os contatos de um cliente carregados (para o vínculo Cliente). */
   function carregarContatos(clienteId: string) {
     if (!clienteId || contatosPorCliente[clienteId]) return;
@@ -174,7 +188,17 @@ export function TabelaTarefas({
     } else if (campo === 'projeto') n.projeto = valor as string;
     else if (campo === 'pessoas') {
       if (n.modo === 'cliente') n.contato = valor as string;
-      else n.responsaveis = valor as string[];
+      else {
+        n.responsaveis = valor as string[];
+        // Equipe: se o cliente selecionado não tem projeto com esses responsáveis, limpa.
+        if (n.modo === 'equipe' && n.cliente) {
+          const membros = new Set(n.responsaveis);
+          const clienteAindaValido = projetos.some(
+            (p) => p.cliente === n.cliente && (p.responsaveis ?? []).some((r) => membros.has(r)),
+          );
+          if (!clienteAindaValido) { n.cliente = ''; n.projeto = ''; n.contato = ''; }
+        }
+      }
     }
     return n;
   }
@@ -239,7 +263,7 @@ export function TabelaTarefas({
               <Row
                 key={l.id} l={l} ehNova={false}
                 edit={edit} setEdit={setEdit}
-                statuses={statuses} clientes={clientes}
+                statuses={statuses} clientesParaLinha={clientesParaLinha}
                 projetosDe={projetosDe} usuarios={usuarios}
                 contatosDe={contatosDe} carregarContatos={carregarContatos}
                 nomeUsuario={nomeUsuario} nomeCliente={nomeCliente} nomeProjeto={nomeProjeto}
@@ -253,7 +277,7 @@ export function TabelaTarefas({
               <Row
                 l={nova} ehNova
                 edit={edit} setEdit={setEdit}
-                statuses={statuses} clientes={clientes}
+                statuses={statuses} clientesParaLinha={clientesParaLinha}
                 projetosDe={projetosDe} usuarios={usuarios}
                 contatosDe={contatosDe} carregarContatos={carregarContatos}
                 nomeUsuario={nomeUsuario} nomeCliente={nomeCliente} nomeProjeto={nomeProjeto}
@@ -290,7 +314,7 @@ interface RowProps {
   edit: { id: string; campo: Campo } | null;
   setEdit: (e: { id: string; campo: Campo } | null) => void;
   statuses: Opcao[];
-  clientes: Cliente[];
+  clientesParaLinha: (l: Linha) => Cliente[];
   projetosDe: (clienteId: string) => Projeto[];
   usuarios: Usuario[];
   contatosDe: (clienteId: string) => Contato[];
@@ -385,13 +409,16 @@ function Row(p: RowProps) {
       );
     }
     if (emEdicao && campo === 'cliente') {
+      const optsCliente = p.clientesParaLinha(l);
       return (
         <select autoFocus value={l.cliente} className={inputCls}
           onChange={(e) => { onCampo('cliente', e.target.value); fechar(); }}
           onBlur={fechar}>
           <option value="">—</option>
-          {p.clientes.map((c) => (
-            <option key={c.id} value={c.id}>{p.nomeCliente[c.id]}</option>
+          {optsCliente.length === 0 && l.modo === 'equipe' ? (
+            <option disabled value="">Selecione um responsável primeiro</option>
+          ) : optsCliente.map((c) => (
+            <option key={c.id} value={c.id}>{p.nomeCliente[c.id] ?? c.id}</option>
           ))}
         </select>
       );

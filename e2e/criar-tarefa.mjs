@@ -27,11 +27,11 @@ try {
   await p.waitForSelector('button:has-text("Nova tarefa")', { timeout: 10000 });
   console.log('LISTA_TAREFAS_OK -> ' + p.url());
 
-  // Abre a linha de cadastro na grade e preenche o nome na célula.
+  // Abre a linha de cadastro na grade — o input do nome já aparece focado.
   await p.click('button:has-text("Nova tarefa")');
-  await p.click('button:has-text("Sem nome")');
-  await p.waitForTimeout(300);
-  await p.keyboard.type(NOME);
+  const inputNome = p.locator('tbody tr input').first();
+  await inputNome.waitFor({ timeout: 5000 });
+  await inputNome.fill(NOME);
   console.log('NOME_DIGITADO');
   await p.click('button[aria-label="Salvar tarefa"]');
 

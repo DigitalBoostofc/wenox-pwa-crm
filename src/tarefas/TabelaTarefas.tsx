@@ -200,6 +200,7 @@ export function TabelaTarefas({
       cliente: presetCliente ?? '', projeto: presetProjeto ?? '',
       responsaveis: [], contato: '', descricao: '', etiquetas: [],
     });
+    setEdit({ id: 'nova', campo: 'nome' });
   }
   async function criarNova() {
     if (!nova || !nova.nome.trim()) return;

@@ -200,10 +200,8 @@ export function TarefasListPage() {
         )
       ) : (
         <TabelaTarefas
-          contexto="global"
           tarefas={tarefas}
-          onAbrir={abrir}
-          onCriado={() => setRecarrega((n) => n + 1)}
+          onMudou={() => setRecarrega((n) => n + 1)}
         />
       )}
 

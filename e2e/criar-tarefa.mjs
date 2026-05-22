@@ -1,4 +1,5 @@
-// E2E: criar uma tarefa inline (estilo Notion) na lista de Tarefas.
+// E2E: criar uma tarefa pelo painel inline (formulário completo que
+// expande na lista de Tarefas).
 import { chromium } from 'playwright';
 const BASE = process.env.E2E_BASE ?? 'https://app.wenox.com.br';
 const EMAIL = process.env.E2E_EMAIL ?? 'leonardo@wenox.com.br';
@@ -26,20 +27,23 @@ try {
   await p.waitForSelector('button:has-text("Nova tarefa")', { timeout: 10000 });
   console.log('LISTA_TAREFAS_OK -> ' + p.url());
 
-  // Cadastro inline: clica na linha "+ Nova tarefa" e digita o nome.
+  // Abre o painel de cadastro inline (formulário completo).
   await p.click('button:has-text("Nova tarefa")');
-  const inp = p.locator('input[placeholder*="Enter pra salvar"]');
-  await inp.waitFor({ timeout: 8000 });
-  await inp.fill(NOME);
-  await inp.press('Enter');
-  console.log('INLINE_PREENCHIDO');
+  await p.waitForSelector('#nome', { timeout: 8000 });
+  console.log('PAINEL_ABERTO');
 
-  // Aparece na lista (vê em "Todas" — tarefa interna não cai em "Minhas").
-  await p.waitForTimeout(1500);
+  await p.fill('#nome', NOME);
+  await p.click('button:has-text("Salvar")');
+
+  // O painel fecha e a tarefa entra na lista (vê em "Todas").
+  await p.waitForTimeout(2000);
   await p.click('button:has-text("Todas")').catch(() => {});
   const ok = await p.waitForSelector(`text=${NOME}`, { timeout: 10000 })
     .then(() => true).catch(() => false);
   console.log('TAREFA_NA_LISTA: ' + ok);
+
+  const erro = await p.locator('p.text-destructive').first().innerText().catch(() => '');
+  if (erro) console.log('MSG_ERRO: ' + erro);
 } catch (e) {
   console.log('EXC: ' + e?.message);
 } finally {

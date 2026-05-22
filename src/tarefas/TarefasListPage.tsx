@@ -1,12 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Plus, Search, ListChecks, List, Columns3 } from 'lucide-react';
-import { listTarefas, moverTarefaStatus, criarTarefa } from './tarefasService';
-import type { Tarefa, TarefaInput } from './types';
+import { listTarefas, moverTarefaStatus } from './tarefasService';
+import type { Tarefa } from './types';
 import { TarefaCard } from './TarefaCard';
 import { statusTarefaClass } from './format';
 import { TabelaTarefas } from './TabelaTarefas';
-import type { NovaTarefaInline } from './TabelaTarefas';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
 import { useAuth } from '@/auth/useAuth';
@@ -108,14 +107,6 @@ export function TarefasListPage() {
   };
   const abrir = (id: string) => history.push(`/tarefas/${id}`);
 
-  /** Cadastro inline (estilo Notion) — tarefa interna; refina depois abrindo. */
-  async function criarInline(d: NovaTarefaInline) {
-    await criarTarefa({
-      nome: d.nome, status: d.status, prazo: d.prazo, lado: 'wenox',
-    } as TarefaInput);
-    setRecarrega((n) => n + 1);
-  }
-
   /** Move uma tarefa para outro status (Kanban) — update otimista. */
   async function mover(tarefaId: string, status: string) {
     const alvo = tarefas.find((t) => t.id === tarefaId);
@@ -211,9 +202,8 @@ export function TarefasListPage() {
         <TabelaTarefas
           contexto="global"
           tarefas={tarefas}
-          statuses={statuses}
           onAbrir={abrir}
-          onCriar={criarInline}
+          onCriado={() => setRecarrega((n) => n + 1)}
         />
       )}
 

@@ -123,7 +123,7 @@ export function EquipePage() {
         </div>
         {canGerirUsuarios(user?.role) && (
           <Button onClick={() => history.push('/usuarios')}>
-            <UserPlus /> Convidar
+            <UserPlus /> Adicionar
           </Button>
         )}
       </HeaderSlot>

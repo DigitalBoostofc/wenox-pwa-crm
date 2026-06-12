@@ -37,6 +37,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsub();
   }, []);
 
+  // Valida o token no servidor na montagem — detecta tokens invalidados por
+  // troca de senha (authStore.isValid só verifica expiração local).
+  useEffect(() => {
+    if (!pb.authStore.isValid) return;
+    pb.collection('usuarios').authRefresh().catch((err: unknown) => {
+      if ((err as { status?: number }).status === 401) {
+        pb.authStore.clear();
+      }
+    });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,

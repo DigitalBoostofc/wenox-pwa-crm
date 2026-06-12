@@ -38,7 +38,6 @@ const inputCls =
 const selectCls =
   'h-9 w-full rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-50';
 
-// ---------- sub-componente de rótulo de campo ----------
 function RotuloCampo({ children }: { children: React.ReactNode }) {
   return (
     <span className="mb-1 block text-xs font-medium text-muted-foreground">{children}</span>
@@ -68,8 +67,9 @@ export function TarefaSheet({
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
-  // Estado da etiqueta nova
+  // Inputs controlados de adição
   const [novaTag, setNovaTag] = useState('');
+  const [novoItemChecklist, setNovoItemChecklist] = useState('');
   const inputTagRef = useRef<HTMLInputElement>(null);
 
   // Carrega listas de suporte uma única vez
@@ -86,7 +86,7 @@ export function TarefaSheet({
     setCarregando(true);
     setErroSalvo('');
     getTarefa(tarefaId).then((rec) => {
-      setT(rec);
+      setT(rec as Tarefa);
       setCarregando(false);
     }).catch(() => setCarregando(false));
   }, [aberto, tarefaId]);
@@ -108,7 +108,7 @@ export function TarefaSheet({
     setErroSalvo('');
     try {
       const atualizado = await atualizarTarefa(t.id, parcial as never);
-      setT(atualizado);
+      setT(atualizado as Tarefa);
       onMudou();
     } catch (e) {
       setErroSalvo(e instanceof Error ? e.message : 'Erro ao salvar');
@@ -133,7 +133,12 @@ export function TarefaSheet({
     return c ? nomeExibicao(c) : id;
   }
 
-  // ---------- handlers de campos ----------
+  // Projetos ordenados por nome do cliente, com label 'Projeto — Cliente'
+  const projetosOrdenados = [...projetos].sort((a, b) =>
+    nomeCliente(a.cliente).localeCompare(nomeCliente(b.cliente), 'pt-BR'),
+  );
+
+  // ---------- handlers ----------
 
   function handleNomeBlur(e: React.FocusEvent<HTMLInputElement>) {
     const v = e.target.value.trim();
@@ -156,6 +161,10 @@ export function TarefaSheet({
     salvarCampo({ prazo: e.target.value });
   }
 
+  function handlePrioridade(p: 'alta' | 'media' | 'baixa') {
+    salvarCampo({ prioridade: p });
+  }
+
   async function handleProjeto(e: React.ChangeEvent<HTMLSelectElement>) {
     const projetoId = e.target.value;
     if (!projetoId) {
@@ -163,7 +172,6 @@ export function TarefaSheet({
     } else {
       const proj = projetos.find((p) => p.id === projetoId);
       const clienteId = proj?.cliente ?? '';
-      // Atualiza projeto e deriva cliente
       setT((prev) => prev ? {
         ...prev,
         projeto: projetoId,
@@ -176,7 +184,7 @@ export function TarefaSheet({
       setErroSalvo('');
       try {
         const atualizado = await atualizarTarefa(t!.id, { projeto: projetoId, cliente: clienteId });
-        setT(atualizado);
+        setT(atualizado as Tarefa);
         onMudou();
       } catch (e2) {
         setErroSalvo(e2 instanceof Error ? e2.message : 'Erro ao salvar');
@@ -186,16 +194,12 @@ export function TarefaSheet({
   }
 
   function handleClienteAvulso(e: React.ChangeEvent<HTMLSelectElement>) {
-    const clienteId = e.target.value;
-    salvarCampo({ cliente: clienteId, projeto: '', contato: '' });
+    salvarCampo({ cliente: e.target.value, projeto: '', contato: '' });
   }
 
   function handleLado(novoLado: 'wenox' | 'cliente') {
-    if (novoLado === 'wenox') {
-      salvarCampo({ lado: 'wenox', contato: '' });
-    } else {
-      salvarCampo({ lado: 'cliente', responsaveis: [] });
-    }
+    if (novoLado === 'wenox') salvarCampo({ lado: 'wenox', contato: '' });
+    else salvarCampo({ lado: 'cliente', responsaveis: [] });
   }
 
   function handleContato(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -210,6 +214,28 @@ export function TarefaSheet({
     salvarCampo({ responsaveis: proximos });
   }
 
+  // Checklist
+  function adicionarItemChecklist() {
+    const texto = novoItemChecklist.trim();
+    if (!texto) return;
+    const atuais = t?.checklist ?? [];
+    salvarCampo({ checklist: [...atuais, { texto, feito: false }] });
+    setNovoItemChecklist('');
+  }
+
+  function toggleItemChecklist(idx: number) {
+    const atuais = t?.checklist ?? [];
+    salvarCampo({
+      checklist: atuais.map((item, i) => i === idx ? { ...item, feito: !item.feito } : item),
+    });
+  }
+
+  function removerItemChecklist(idx: number) {
+    const atuais = t?.checklist ?? [];
+    salvarCampo({ checklist: atuais.filter((_, i) => i !== idx) });
+  }
+
+  // Etiquetas
   function adicionarTag() {
     const v = novaTag.trim();
     if (!v) return;
@@ -236,6 +262,9 @@ export function TarefaSheet({
   }
 
   // ---------- render ----------
+
+  const checklist = t?.checklist ?? [];
+  const checklistFeitos = checklist.filter((i) => i.feito).length;
 
   return (
     <Sheet open={aberto} onOpenChange={(abr) => { if (!abr) onClose(); }}>
@@ -331,10 +360,45 @@ export function TarefaSheet({
                   <input
                     type="date"
                     key={`prazo-${t.id}`}
-                    defaultValue={t.prazo ?? ''}
+                    defaultValue={(t.prazo ?? '').slice(0, 10)}
                     onChange={handlePrazo}
                     className={cn(inputCls, '[color-scheme:dark]')}
                   />
+                </div>
+              </div>
+
+              {/* 2b. Prioridade */}
+              <div>
+                <RotuloCampo>Prioridade</RotuloCampo>
+                <div className="flex gap-2">
+                  {(
+                    [
+                      { valor: 'alta', label: 'Alta' },
+                      { valor: 'media', label: 'Média' },
+                      { valor: 'baixa', label: 'Baixa' },
+                    ] as const
+                  ).map(({ valor, label }) => {
+                    const ativo = (t.prioridade ?? 'media') === valor;
+                    return (
+                      <button
+                        key={valor}
+                        type="button"
+                        onClick={() => handlePrioridade(valor)}
+                        className={cn(
+                          'rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
+                          ativo && valor === 'alta' &&
+                            'border-orange-500/60 bg-orange-500/15 text-orange-400',
+                          ativo && valor === 'media' &&
+                            'border-primary/60 bg-primary/15 text-primary',
+                          ativo && valor === 'baixa' &&
+                            'border-border bg-secondary text-muted-foreground',
+                          !ativo && 'border-border text-muted-foreground hover:bg-secondary',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -347,8 +411,10 @@ export function TarefaSheet({
                   className={selectCls}
                 >
                   <option value="">Sem projeto</option>
-                  {projetos.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nome}</option>
+                  {projetosOrdenados.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} — {nomeCliente(p.cliente)}
+                    </option>
                   ))}
                 </select>
                 {/* Cliente derivado do projeto */}
@@ -457,7 +523,6 @@ export function TarefaSheet({
                       })}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  {/* Chips dos responsáveis */}
                   {(t.responsaveis?.length ?? 0) > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {(t.responsaveis ?? []).map((id) => (
@@ -480,6 +545,61 @@ export function TarefaSheet({
                   )}
                 </div>
               )}
+
+              {/* 5b. Checklist */}
+              <div>
+                <RotuloCampo>
+                  Checklist{checklist.length > 0 && (
+                    <span className="ml-1.5 font-normal text-muted-foreground/70">
+                      {checklistFeitos}/{checklist.length}
+                    </span>
+                  )}
+                </RotuloCampo>
+                {checklist.length > 0 && (
+                  <ul className="mb-2 flex flex-col gap-1.5">
+                    {checklist.map((item, idx) => (
+                      <li key={idx} className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleItemChecklist(idx)}
+                          aria-label={item.feito ? 'Desmarcar' : 'Marcar como feito'}
+                          className={cn(
+                            'flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
+                            item.feito
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-background hover:border-primary/60',
+                          )}
+                        >
+                          {item.feito && <Check className="size-2.5" />}
+                        </button>
+                        <span className={cn('flex-1 text-sm', item.feito && 'line-through text-muted-foreground')}>
+                          {item.texto}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removerItemChecklist(idx)}
+                          aria-label={`Remover "${item.texto}"`}
+                          className="text-muted-foreground/50 hover:text-destructive"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    value={novoItemChecklist}
+                    onChange={(e) => setNovoItemChecklist(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); adicionarItemChecklist(); } }}
+                    placeholder="Adicionar item…"
+                    className={cn(inputCls, 'flex-1')}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={adicionarItemChecklist}>
+                    <Plus className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
 
               {/* 6. Etiquetas */}
               <div>
@@ -536,7 +656,7 @@ export function TarefaSheet({
               <AprovacaoTarefa
                 t={t}
                 souCliente={souCliente}
-                onMudou={(nova) => { setT(nova); onMudou(); }}
+                onMudou={(nova) => { setT(nova as Tarefa); onMudou(); }}
               />
 
               {/* Feed de atividade */}

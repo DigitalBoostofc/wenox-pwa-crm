@@ -1,5 +1,10 @@
 export type LadoTarefa = 'wenox' | 'cliente';
 
+export interface ItemChecklist {
+  texto: string;
+  feito: boolean;
+}
+
 export interface Tarefa {
   id: string;
   collectionId?: string;
@@ -15,6 +20,8 @@ export interface Tarefa {
   /** Veredito do cliente: '' (pendente) | 'aprovada' | 'alteracao'. */
   aprovacao?: '' | 'aprovada' | 'alteracao';
   prazo?: string;
+  prioridade?: 'alta' | 'media' | 'baixa';
+  checklist?: ItemChecklist[];
   etiquetas?: string[];
   ordem?: number;
   created_by?: string;

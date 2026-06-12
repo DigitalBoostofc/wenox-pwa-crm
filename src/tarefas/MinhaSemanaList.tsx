@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, ListChecks, UserRound } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ListChecks, UserRound } from 'lucide-react';
 import type { Tarefa } from './types';
 import { statusTarefaClass, tarefaConcluida, prazoVencido } from './format';
 import { corAvatar, dataBR } from '@/clientes/format';
@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 /* -------------------------------------------------------------------------- */
-/*  Helpers de avatar (copiado do padrão de TarefaCard)                       */
+/*  Helpers de avatar (padrão de TarefaCard)                                  */
 /* -------------------------------------------------------------------------- */
 
 function iniciais(n?: string): string {
@@ -30,7 +30,7 @@ function responsaveis(t: Tarefa): { id: string; nome: string }[] {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Helpers de datas                                                           */
+/*  Helpers de datas — parse via partes para evitar desvio de fuso horário    */
 /* -------------------------------------------------------------------------- */
 
 function dataHoje(): Date {
@@ -42,18 +42,22 @@ function dataHoje(): Date {
 /** Retorna o domingo seguinte ao hoje (ou hoje se for domingo). */
 function domingoSemana(): Date {
   const d = dataHoje();
-  const diasAte = 7 - d.getDay(); // 0 = domingo → 7 dias
-  d.setDate(d.getDate() + (d.getDay() === 0 ? 0 : diasAte));
+  d.setDate(d.getDate() + (d.getDay() === 0 ? 0 : 7 - d.getDay()));
   return d;
 }
 
+/** Parse seguro usando as partes YYYY-MM-DD para não sofrer desvio de fuso. */
 function parsePrazo(prazo?: string): Date | null {
   if (!prazo) return null;
-  const d = new Date(prazo.replace(' ', 'T'));
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const ymd = prazo.slice(0, 10);
+  const partes = ymd.split('-').map(Number);
+  if (partes.length !== 3 || partes.some(Number.isNaN)) return null;
+  return new Date(partes[0], partes[1] - 1, partes[2]);
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Tipos e configuração das seções                                            */
+/* -------------------------------------------------------------------------- */
 
 type Secao = 'atrasadas' | 'hoje' | 'semana' | 'depois' | 'semprazo' | 'concluidas';
 
@@ -68,10 +72,6 @@ function secaoDaTarefa(t: Tarefa): Secao {
   if (prazo.getTime() <= domingo.getTime()) return 'semana';
   return 'depois';
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Tipos e configuração das seções                                            */
-/* -------------------------------------------------------------------------- */
 
 interface ConfigSecao {
   id: Secao;
@@ -90,7 +90,49 @@ const SECOES: ConfigSecao[] = [
 ];
 
 /* -------------------------------------------------------------------------- */
-/*  Componente de linha                                                        */
+/*  Ordenação dentro de cada seção: alta → média/sem → baixa; empate por prazo */
+/* -------------------------------------------------------------------------- */
+
+function pesoPrioridade(p?: string): number {
+  if (p === 'alta') return 0;
+  if (p === 'baixa') return 2;
+  return 1;
+}
+
+function ordenarSecao(tarefas: Tarefa[]): Tarefa[] {
+  return [...tarefas].sort((a, b) => {
+    const dp = pesoPrioridade(a.prioridade) - pesoPrioridade(b.prioridade);
+    if (dp !== 0) return dp;
+    const pa = parsePrazo(a.prazo)?.getTime() ?? Infinity;
+    const pb = parsePrazo(b.prazo)?.getTime() ?? Infinity;
+    return pa - pb;
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Ícone de prioridade                                                        */
+/* -------------------------------------------------------------------------- */
+
+function IconePrioridade({ prioridade }: { prioridade?: string }) {
+  if (prioridade === 'alta') {
+    return (
+      <span title="Prioridade alta" aria-label="Prioridade alta" className="shrink-0">
+        <ArrowUp className="size-3.5 text-orange-500" />
+      </span>
+    );
+  }
+  if (prioridade === 'baixa') {
+    return (
+      <span title="Prioridade baixa" aria-label="Prioridade baixa" className="shrink-0">
+        <ArrowDown className="size-3.5 text-muted-foreground/60" />
+      </span>
+    );
+  }
+  return null;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Componente de checkbox circular                                            */
 /* -------------------------------------------------------------------------- */
 
 function LinhaCheckbox({
@@ -122,6 +164,10 @@ function LinhaCheckbox({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Linha de tarefa                                                            */
+/* -------------------------------------------------------------------------- */
+
 function LinhaTarefa({
   t, onAbrir, onConcluir, onReabrir,
 }: {
@@ -135,19 +181,18 @@ function LinhaTarefa({
   const vencida = prazoVencido(t.prazo, t.status);
   const resps = responsaveis(t);
 
-  // Contexto: projeto > cliente > 'Interna'
   const contexto = t.expand?.projeto?.nome
     ?? t.expand?.cliente?.nome_fantasia
     ?? t.expand?.cliente?.nome
     ?? (t.projeto || t.cliente ? undefined : 'Interna');
 
+  const checkFeitos = (t.checklist ?? []).filter((i) => i.feito).length;
+  const checkTotal = (t.checklist ?? []).length;
+
   function handleToggle() {
     setOtimista((v) => !v);
-    if (concluida) {
-      onReabrir(t.id);
-    } else {
-      onConcluir(t.id);
-    }
+    if (concluida) onReabrir(t.id);
+    else onConcluir(t.id);
   }
 
   return (
@@ -165,25 +210,34 @@ function LinhaTarefa({
       {/* Checkbox */}
       <LinhaCheckbox concluida={concluida} otimista={otimista} onToggle={handleToggle} />
 
-      {/* Nome + contexto */}
+      {/* Ícone de prioridade + nome + contexto */}
       <div className="min-w-0 flex-1">
-        <span className={cn(
-          'block font-medium leading-snug',
-          (concluida || otimista) && 'line-through',
-        )}>
-          {t.nome}
+        <span className="flex items-center gap-1">
+          <IconePrioridade prioridade={t.prioridade} />
+          <span className={cn(
+            'font-medium leading-snug',
+            (concluida || otimista) && 'line-through',
+          )}>
+            {t.nome}
+          </span>
         </span>
         {contexto && (
           <span className="block text-xs text-muted-foreground">{contexto}</span>
         )}
       </div>
 
-      {/* Badges + prazo + avatares */}
+      {/* Badges + checklist + prazo + avatares */}
       <div className="flex flex-wrap items-center gap-2">
         {t.status && (
           <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>
             {t.status}
           </Badge>
+        )}
+
+        {checkTotal > 0 && (
+          <span className="text-[11px] text-muted-foreground">
+            ✓ {checkFeitos}/{checkTotal}
+          </span>
         )}
 
         {t.prazo && (
@@ -195,7 +249,7 @@ function LinhaTarefa({
           </span>
         )}
 
-        {/* Avatares dos responsáveis */}
+        {/* Avatares */}
         <div className="flex -space-x-2">
           {resps.length === 0 ? (
             <span className="grid size-6 place-items-center rounded-full border-2 border-card bg-secondary text-muted-foreground">
@@ -222,7 +276,7 @@ function LinhaTarefa({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Componente de seção                                                        */
+/*  Seção                                                                      */
 /* -------------------------------------------------------------------------- */
 
 function SecaoTarefas({
@@ -235,10 +289,10 @@ function SecaoTarefas({
   onReabrir: (id: string) => void;
 }) {
   const [aberta, setAberta] = useState(!config.recolhidaInicial);
+  const ordenadas = ordenarSecao(tarefas);
 
   return (
     <div className="flex flex-col">
-      {/* Cabeçalho */}
       <button
         type="button"
         onClick={() => setAberta((v) => !v)}
@@ -262,10 +316,9 @@ function SecaoTarefas({
         </span>
       </button>
 
-      {/* Linhas */}
       {aberta && (
         <div className="flex flex-col divide-y divide-border/40">
-          {tarefas.map((t) => (
+          {ordenadas.map((t) => (
             <LinhaTarefa
               key={t.id}
               t={t}
@@ -297,9 +350,7 @@ export function MinhaSemanaList({
 }) {
   const grupos = new Map<Secao, Tarefa[]>();
   for (const cfg of SECOES) grupos.set(cfg.id, []);
-  for (const t of tarefas) {
-    grupos.get(secaoDaTarefa(t))!.push(t);
-  }
+  for (const t of tarefas) grupos.get(secaoDaTarefa(t))!.push(t);
 
   const secoesVisiveis = SECOES.filter((cfg) => (grupos.get(cfg.id)?.length ?? 0) > 0);
 

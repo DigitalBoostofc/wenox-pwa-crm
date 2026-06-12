@@ -20,7 +20,9 @@ export function prazoVencido(prazo?: string, status?: string): boolean {
   if (!prazo || tarefaConcluida(status)) return false;
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
-  return new Date(prazo).getTime() < hoje.getTime();
+  const [ano, mes, dia] = prazo.slice(0, 10).split('-').map(Number);
+  const prazoDate = new Date(ano, mes - 1, dia);
+  return prazoDate.getTime() < hoje.getTime();
 }
 
 export const LADO_LABEL: Record<string, string> = {

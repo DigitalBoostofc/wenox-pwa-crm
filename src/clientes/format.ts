@@ -45,10 +45,23 @@ export function pillSelectedClass(status?: string): string {
   }
 }
 
-/** Data ISO do PocketBase → "DD/MM/AAAA" (vazio se inválida). */
+/** Data ISO do PocketBase → "DD/MM/AAAA" (vazio se inválida).
+ *  Strings date-only (YYYY-MM-DD) e timestamps à meia-noite UTC são formatadas
+ *  diretamente das partes para evitar o desvio de fuso horário. */
 export function dataBR(dataIso?: string): string {
   if (!dataIso) return '';
-  const d = new Date(dataIso.replace(' ', 'T'));
+  const s = dataIso.trim();
+  // Date-only: "2026-06-12"
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [ano, mes, dia] = s.split('-');
+    return `${dia}/${mes}/${ano}`;
+  }
+  // Timestamp à meia-noite UTC: "2026-06-12 00:00:00.000Z" ou "2026-06-12T00:00:00Z"
+  if (s.endsWith('Z') && (s.includes(' 00:00:00') || s.includes('T00:00:00'))) {
+    const partes = s.slice(0, 10).split('-');
+    if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  }
+  const d = new Date(s.replace(' ', 'T'));
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',

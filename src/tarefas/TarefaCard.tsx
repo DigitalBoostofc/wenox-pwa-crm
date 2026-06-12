@@ -1,4 +1,4 @@
-import { CalendarDays, FolderKanban, UserRound } from 'lucide-react';
+import { ArrowDown, ArrowUp, CalendarDays, FolderKanban, UserRound } from 'lucide-react';
 import type { Tarefa } from './types';
 import { statusTarefaClass, prazoVencido, LADO_LABEL } from './format';
 import { corAvatar, dataBR } from '@/clientes/format';
@@ -71,7 +71,19 @@ export function TarefaCard({
         )}
       </div>
 
-      <h3 className="text-sm font-semibold leading-tight">{t.nome}</h3>
+      <h3 className="flex items-center gap-1 text-sm font-semibold leading-tight">
+        {t.prioridade === 'alta' && (
+          <span title="Prioridade alta" aria-label="Prioridade alta" className="shrink-0">
+            <ArrowUp className="size-3.5 text-orange-500" />
+          </span>
+        )}
+        {t.prioridade === 'baixa' && (
+          <span title="Prioridade baixa" aria-label="Prioridade baixa" className="shrink-0">
+            <ArrowDown className="size-3.5 text-muted-foreground/60" />
+          </span>
+        )}
+        {t.nome}
+      </h3>
 
       {mostrarProjeto && projetoNome && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -89,6 +101,11 @@ export function TarefaCard({
             )}>
               <CalendarDays className="size-3.5" />
               {dataBR(t.prazo)}
+            </span>
+          )}
+          {(t.checklist ?? []).length > 0 && (
+            <span className="text-[11px] text-muted-foreground">
+              ✓ {(t.checklist ?? []).filter((i) => i.feito).length}/{(t.checklist ?? []).length}
             </span>
           )}
         </div>

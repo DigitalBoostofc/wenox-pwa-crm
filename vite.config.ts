@@ -11,6 +11,9 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // O registro do SW é feito manualmente em src/main.tsx (com checagem
+      // periódica de atualização), então não injeta o script automático.
+      injectRegister: false,
       // Atualização "instantânea": ao detectar um SW novo, ele assume controle
       // imediato (skipWaiting+clientsClaim) e limpa caches antigos. A próxima
       // navegação/refresh já carrega o bundle novo, sem precisar unregister.

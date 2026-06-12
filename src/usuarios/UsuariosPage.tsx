@@ -46,7 +46,7 @@ export function UsuariosPage() {
   const { user } = useAuth();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [editando, setEditando] = useState<Usuario | null>(null);
-  const [novo, setNovo] = useState({ nome: '', email: '', role: 'Membro', area: '' });
+  const [novo, setNovo] = useState({ nome: '', email: '', telefone: '', role: 'Membro', area: '' });
   const [senha, setSenha] = useState('');
   const [foto, setFoto] = useState<File | null>(null);
   const [funcoes, setFuncoes] = useState<Opcao[]>([]);
@@ -82,6 +82,7 @@ export function UsuariosPage() {
         {
           nome,
           email,
+          telefone: novo.telefone.trim() || undefined,
           role: novo.role as Usuario['role'],
           area: novo.area || undefined,
           status: 'Ativo',
@@ -91,7 +92,7 @@ export function UsuariosPage() {
       );
       setCriado({ nome, email, senha });
       setCopiado(false);
-      setNovo({ nome: '', email: '', role: 'Membro', area: '' });
+      setNovo({ nome: '', email: '', telefone: '', role: 'Membro', area: '' });
       setSenha('');
       setFoto(null);
       await carregar();
@@ -234,6 +235,19 @@ export function UsuariosPage() {
                 type="email"
                 value={novo.email}
                 onChange={(e) => setNovo({ ...novo, email: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="utel" className="text-sm font-medium text-muted-foreground">
+                Celular
+              </label>
+              <Input
+                id="utel"
+                type="tel"
+                inputMode="tel"
+                placeholder="(00) 00000-0000"
+                value={novo.telefone}
+                onChange={(e) => setNovo({ ...novo, telefone: e.target.value })}
               />
             </div>
             <div className="flex flex-col gap-1.5">

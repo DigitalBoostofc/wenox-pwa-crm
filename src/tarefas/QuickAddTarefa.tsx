@@ -1,0 +1,66 @@
+import { useState, useRef } from 'react';
+import { criarTarefa } from './tarefasService';
+import { listOpcoes } from '@/opcoes/opcoesService';
+import { useAuth } from '@/auth/useAuth';
+
+export function QuickAddTarefa({ onCriada }: { onCriada: () => void }) {
+  const { user } = useAuth();
+  const [valor, setValor] = useState('');
+  const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter') return;
+    const nome = valor.trim();
+    if (!nome) return;
+
+    setSalvando(true);
+    setErro('');
+    try {
+      const opcoes = await listOpcoes('status_tarefa');
+      const statusInicial = opcoes[0]?.valor ?? 'A fazer';
+      const d = new Date();
+      const hoje = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      await criarTarefa({
+        nome,
+        status: statusInicial,
+        prazo: hoje,
+        lado: 'wenox',
+        responsaveis: user?.id ? [user.id] : [],
+        cliente: '',
+        projeto: '',
+        contato: '',
+        descricao: '',
+        etiquetas: [],
+        ordem: 0,
+      });
+      setValor('');
+      onCriada();
+    } catch {
+      setErro('Não foi possível criar a tarefa. Tente novamente.');
+    } finally {
+      setSalvando(false);
+      inputRef.current?.focus();
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder="+ Adicionar tarefa (Enter para criar)"
+        aria-label="Adicionar tarefa rápida"
+        value={valor}
+        onChange={(e) => { setValor(e.target.value); setErro(''); }}
+        onKeyDown={handleKeyDown}
+        disabled={salvando}
+        className="h-9 w-full rounded-md border border-input bg-background/40 px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-60"
+      />
+      {erro && (
+        <p className="text-xs text-destructive">{erro}</p>
+      )}
+    </div>
+  );
+}

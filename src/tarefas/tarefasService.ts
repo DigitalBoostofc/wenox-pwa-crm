@@ -118,6 +118,26 @@ export async function moverTarefaStatus(
   return rec;
 }
 
+/** Marca a tarefa como concluída. */
+export async function concluirTarefa(id: string, statusConcluido: string): Promise<Tarefa> {
+  const rec = (await col().update(id, {
+    status: statusConcluido,
+    ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
+  })) as unknown as Tarefa;
+  await registrarHistorico('tarefa', id, 'Concluiu a tarefa');
+  return rec;
+}
+
+/** Reabre uma tarefa concluída. */
+export async function reabrirTarefa(id: string, statusAberto: string): Promise<Tarefa> {
+  const rec = (await col().update(id, {
+    status: statusAberto,
+    ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
+  })) as unknown as Tarefa;
+  await registrarHistorico('tarefa', id, 'Reabriu a tarefa');
+  return rec;
+}
+
 /** Equipe a notificar sobre o veredito de uma tarefa: responsáveis + gestão. */
 async function alvosAprovacao(rec: Tarefa): Promise<string[]> {
   return [...(rec.responsaveis ?? []), ...(await idsGestao())];

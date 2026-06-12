@@ -163,7 +163,7 @@ export function TarefaDetailPage({ id: idProp }: { id?: string } = {}) {
 }
 
 /** Bloco de aprovação — o cliente aprova/pede alteração; a equipe vê o veredito. */
-function AprovacaoTarefa({
+export function AprovacaoTarefa({
   t, souCliente, onMudou,
 }: {
   t: Tarefa;

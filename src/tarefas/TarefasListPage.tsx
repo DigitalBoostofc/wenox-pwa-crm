@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Plus, Search, ListChecks, List, Columns3 } from 'lucide-react';
-import { listTarefas, moverTarefaStatus } from './tarefasService';
+import { listTarefas, moverTarefaStatus, concluirTarefa, reabrirTarefa } from './tarefasService';
 import type { Tarefa } from './types';
 import { TarefaCard } from './TarefaCard';
 import { statusTarefaClass } from './format';
-import { TabelaTarefas } from './TabelaTarefas';
+import { MinhaSemanaList } from './MinhaSemanaList';
+import { QuickAddTarefa } from './QuickAddTarefa';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
 import { useAuth } from '@/auth/useAuth';
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HeaderSlot } from '@/components/layout/HeaderSlot';
 import { cn } from '@/lib/utils';
+import { TarefaSheet } from './TarefaSheet';
 
 type ViewMode = 'lista' | 'kanban';
 const VIEW_KEY = 'wenox-tarefas-view-v1';
@@ -58,6 +60,16 @@ function ViewToggleBtn({
   );
 }
 
+/** Deriva o status "concluído" das opções: primeiro cujo lowercase contém 'conclu'. */
+function derivarStatusConcluido(opcoes: Opcao[]): string {
+  return opcoes.find((o) => o.valor.toLowerCase().includes('conclu'))?.valor ?? 'Concluída';
+}
+
+/** Deriva o status "aberto": primeiro da lista. */
+function derivarStatusAberto(opcoes: Opcao[]): string {
+  return opcoes[0]?.valor ?? 'A fazer';
+}
+
 export function TarefasListPage() {
   const history = useHistory();
   const { user } = useAuth();
@@ -70,6 +82,9 @@ export function TarefasListPage() {
   const [erro, setErro] = useState('');
   const [recarrega, setRecarrega] = useState(0);
   const seqRef = useRef(0);
+
+  // Painel lateral (TarefaSheet)
+  const [sheetId, setSheetId] = useState<string | null>(null);
 
   useEffect(() => {
     listOpcoes('status_tarefa').then(setStatuses);
@@ -105,7 +120,9 @@ export function TarefasListPage() {
     setView(v);
     try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ }
   };
-  const abrir = (id: string) => history.push(`/tarefas/${id}`);
+
+  /** Abre o painel lateral em vez de navegar. */
+  const abrir = (id: string) => setSheetId(id);
 
   /** Move uma tarefa para outro status (Kanban) — update otimista. */
   async function mover(tarefaId: string, status: string) {
@@ -116,6 +133,30 @@ export function TarefasListPage() {
       await moverTarefaStatus(tarefaId, status);
     } catch {
       setErro('Não foi possível mover a tarefa. Tente novamente.');
+      setRecarrega((n) => n + 1);
+    }
+  }
+
+  /** Conclui tarefa com update otimista na lista. */
+  async function handleConcluir(id: string) {
+    const statusConcluido = derivarStatusConcluido(statuses);
+    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusConcluido } : t)));
+    try {
+      await concluirTarefa(id, statusConcluido);
+    } catch {
+      setErro('Não foi possível concluir a tarefa.');
+      setRecarrega((n) => n + 1);
+    }
+  }
+
+  /** Reabre tarefa com update otimista na lista. */
+  async function handleReabrir(id: string) {
+    const statusAberto = derivarStatusAberto(statuses);
+    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusAberto } : t)));
+    try {
+      await reabrirTarefa(id, statusAberto);
+    } catch {
+      setErro('Não foi possível reabrir a tarefa.');
       setRecarrega((n) => n + 1);
     }
   }
@@ -138,11 +179,9 @@ export function TarefasListPage() {
             <ViewToggleBtn ativo={view === 'lista'} onClick={() => trocarView('lista')} icon={List} label="Lista" />
             <ViewToggleBtn ativo={view === 'kanban'} onClick={() => trocarView('kanban')} icon={Columns3} label="Kanban" />
           </div>
-          {view === 'kanban' && (
-            <Button size="sm" onClick={() => history.push('/tarefas/nova')}>
-              <Plus /> Nova tarefa
-            </Button>
-          )}
+          <Button size="sm" onClick={() => history.push('/tarefas/nova')}>
+            <Plus /> Nova tarefa
+          </Button>
         </div>
       </HeaderSlot>
 
@@ -199,10 +238,15 @@ export function TarefasListPage() {
           />
         )
       ) : (
-        <TabelaTarefas
-          tarefas={tarefas}
-          onMudou={() => setRecarrega((n) => n + 1)}
-        />
+        <div className="flex flex-col gap-3">
+          <QuickAddTarefa onCriada={() => setRecarrega((n) => n + 1)} />
+          <MinhaSemanaList
+            tarefas={tarefas}
+            onAbrir={abrir}
+            onConcluir={handleConcluir}
+            onReabrir={handleReabrir}
+          />
+        </div>
       )}
 
       {!carregando && tarefas.length > 0 && (
@@ -210,6 +254,14 @@ export function TarefasListPage() {
           {tarefas.length} {tarefas.length === 1 ? 'tarefa' : 'tarefas'}
         </p>
       )}
+
+      {/* Painel lateral de detalhe */}
+      <TarefaSheet
+        tarefaId={sheetId}
+        aberto={sheetId !== null}
+        onClose={() => setSheetId(null)}
+        onMudou={() => setRecarrega((n) => n + 1)}
+      />
     </div>
   );
 }

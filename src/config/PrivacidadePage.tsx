@@ -101,6 +101,11 @@ export function PrivacidadePage() {
                         em breve
                       </Badge>
                     )}
+                    {mod.id === 'config' && (
+                      <Badge variant="muted" className="text-[10px] leading-none">
+                        sempre liberado
+                      </Badge>
+                    )}
                   </div>
                 </td>
 
@@ -120,11 +125,18 @@ export function PrivacidadePage() {
                 {ROLES_CONFIGURÁVEIS.map((role) => (
                   <td key={role} className="px-3 py-3 text-center">
                     <div className="flex justify-center">
+                      {/* Configurações é universal — não editável na matriz. */}
                       <input
                         type="checkbox"
-                        checked={!!matriz[role]?.[mod.id]}
+                        checked={mod.id === 'config' ? true : !!matriz[role]?.[mod.id]}
+                        disabled={mod.id === 'config'}
                         onChange={() => toggle(role, mod.id)}
-                        className="size-4 cursor-pointer accent-primary"
+                        className={cn(
+                          'size-4 accent-primary',
+                          mod.id === 'config'
+                            ? 'cursor-not-allowed opacity-40'
+                            : 'cursor-pointer',
+                        )}
                         aria-label={`${role} — ${mod.label}`}
                       />
                     </div>

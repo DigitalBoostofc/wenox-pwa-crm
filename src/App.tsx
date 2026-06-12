@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { BrowserRouter, Redirect, Route, Switch } from 'react-router-dom';
 import { useAuth } from '@/auth/useAuth';
+import { canGerirUsuarios } from '@/auth/perms';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
 import { AppShell } from '@/components/layout/AppShell';
 import { PermissoesProvider, usePermissoes } from '@/config/PermissoesProvider';
@@ -75,6 +76,13 @@ function Protegido({ modulo, children }: { modulo: Modulo; children: ReactNode }
   if (pode(user?.role, modulo)) return <>{children}</>;
   const alvo = NAV_ITEMS.find((i) => i.enabled && pode(user?.role, i.modulo));
   return alvo ? <Redirect to={alvo.path} /> : <SemAcesso />;
+}
+
+/** Área de Administração: só Owner/Admin. Demais voltam pra Configurações. */
+function SomenteAdmin({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (!canGerirUsuarios(user?.role)) return <Redirect to="/config" />;
+  return <>{children}</>;
 }
 
 function UnauthedApp() {
@@ -186,16 +194,16 @@ function AuthedApp() {
             )}
           />
           <Route exact path="/usuarios">
-            <Protegido modulo="config"><UsuariosPage /></Protegido>
+            <SomenteAdmin><UsuariosPage /></SomenteAdmin>
           </Route>
           <Route exact path="/config/parametros">
-            <Protegido modulo="config"><ParametrosPage /></Protegido>
+            <SomenteAdmin><ParametrosPage /></SomenteAdmin>
           </Route>
           <Route exact path="/config/etapas-projeto">
-            <Protegido modulo="config"><EtapasProjetoPage /></Protegido>
+            <SomenteAdmin><EtapasProjetoPage /></SomenteAdmin>
           </Route>
           <Route exact path="/config/privacidade">
-            <Protegido modulo="config"><PrivacidadePage /></Protegido>
+            <SomenteAdmin><PrivacidadePage /></SomenteAdmin>
           </Route>
           <Route exact path="/config">
             <Protegido modulo="config"><ConfigPage /></Protegido>

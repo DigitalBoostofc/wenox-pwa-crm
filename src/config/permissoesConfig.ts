@@ -92,5 +92,9 @@ export function temPermissao(
 ): boolean {
   if (!role) return false;
   if (role === 'Owner') return true;
+  // Configurações é universal: todo usuário precisa acessar a própria conta
+  // (trocar senha, tema). A área de Administração dentro dela é que é
+  // restrita a Owner/Admin (controlada à parte, por canGerirUsuarios).
+  if (modulo === 'config') return true;
   return permissoes[role]?.[modulo] ?? false;
 }

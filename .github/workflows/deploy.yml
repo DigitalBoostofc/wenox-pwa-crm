@@ -21,8 +21,12 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Copiar dist e atualizar serviço Docker
+      - name: Build da imagem e atualização do serviço
         run: |
-          sudo cp -r dist/. /etc/easypanel/projects/wenox/pwa/code/dist/
-          sudo docker build -t wenox_pwa /etc/easypanel/projects/wenox/pwa/code/ -q
-          sudo docker service update --force wenox_pwa
+          # Build a partir do repo recém-clonado pelo CI (não da pasta do
+          # EasyPanel, que pode ter fonte defasado). Tag única por commit: o
+          # swarm fixa a imagem por digest, então sem uma referência nova o
+          # --force só reiniciaria o container ANTIGO.
+          IMG="wenox_pwa:${GITHUB_SHA::7}"
+          sudo docker build -t "$IMG" -t wenox_pwa . -q
+          sudo docker service update --force --image "$IMG" wenox_pwa

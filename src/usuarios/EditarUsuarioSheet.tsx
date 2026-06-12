@@ -46,6 +46,21 @@ export function EditarUsuarioSheet({
   const [telefone, setTelefone] = useState(usuario.telefone ?? '');
   const [foto, setFoto] = useState<File | null>(null);
 
+  // Dados cadastrais completos.
+  const [extra, setExtra] = useState({
+    nome_completo: usuario.nome_completo ?? '',
+    cpf: usuario.cpf ?? '',
+    cnpj: usuario.cnpj ?? '',
+    endereco: usuario.endereco ?? '',
+    data_nascimento: usuario.data_nascimento ?? '',
+    chave_pix: usuario.chave_pix ?? '',
+    contrato: usuario.contrato ?? '',
+    periodo: usuario.periodo ?? '',
+    observacao: usuario.observacao ?? '',
+  });
+  const setCampo = (k: keyof typeof extra, v: string) =>
+    setExtra((e) => ({ ...e, [k]: v }));
+
   const [senha, setSenha] = useState('');
   const [senha2, setSenha2] = useState('');
 
@@ -86,6 +101,15 @@ export function EditarUsuarioSheet({
           role: role as Usuario['role'],
           area: area || undefined,
           telefone: telefone.trim() || undefined,
+          nome_completo: extra.nome_completo.trim(),
+          cpf: extra.cpf.trim(),
+          cnpj: extra.cnpj.trim(),
+          endereco: extra.endereco.trim(),
+          data_nascimento: extra.data_nascimento.trim(),
+          chave_pix: extra.chave_pix.trim(),
+          contrato: extra.contrato.trim(),
+          periodo: extra.periodo.trim(),
+          observacao: extra.observacao.trim(),
         },
         foto,
       );
@@ -182,6 +206,10 @@ export function EditarUsuarioSheet({
           <Campo label="Nome">
             <Input value={nome} onChange={(e) => setNome(e.target.value)} />
           </Campo>
+          <Campo label="Nome completo">
+            <Input value={extra.nome_completo}
+              onChange={(e) => setCampo('nome_completo', e.target.value)} />
+          </Campo>
           <Campo label="E-mail">
             <Input type="email" value={email}
               onChange={(e) => setEmail(e.target.value)} />
@@ -189,6 +217,29 @@ export function EditarUsuarioSheet({
           <Campo label="Telefone">
             <Input value={telefone}
               onChange={(e) => setTelefone(e.target.value)} />
+          </Campo>
+          <div className="grid grid-cols-2 gap-3">
+            <Campo label="CPF">
+              <Input value={extra.cpf}
+                onChange={(e) => setCampo('cpf', e.target.value)} />
+            </Campo>
+            <Campo label="CNPJ">
+              <Input value={extra.cnpj}
+                onChange={(e) => setCampo('cnpj', e.target.value)} />
+            </Campo>
+          </div>
+          <Campo label="Chave Pix">
+            <Input value={extra.chave_pix}
+              onChange={(e) => setCampo('chave_pix', e.target.value)} />
+          </Campo>
+          <Campo label="Data de nascimento">
+            <Input type="date" value={extra.data_nascimento}
+              onChange={(e) => setCampo('data_nascimento', e.target.value)} />
+          </Campo>
+          <Campo label="Endereço">
+            <Input value={extra.endereco}
+              placeholder="Rua, nº, bairro, cidade/UF"
+              onChange={(e) => setCampo('endereco', e.target.value)} />
           </Campo>
           <Campo label="Papel">
             <select
@@ -206,12 +257,29 @@ export function EditarUsuarioSheet({
               </span>
             )}
           </Campo>
-          <Campo label="Função">
+          <Campo label="Função / Cargo">
             <select value={area} onChange={(e) => setArea(e.target.value)}
               className={selectClass}>
               <option value="">—</option>
               {funcoes.map((f) => <option key={f.id} value={f.valor}>{f.valor}</option>)}
             </select>
+          </Campo>
+          <Campo label="Período (admissão)">
+            <Input type="date" value={extra.periodo}
+              onChange={(e) => setCampo('periodo', e.target.value)} />
+          </Campo>
+          <Campo label="Contrato">
+            <Input value={extra.contrato}
+              placeholder="Link ou referência do contrato"
+              onChange={(e) => setCampo('contrato', e.target.value)} />
+          </Campo>
+          <Campo label="Observação">
+            <textarea
+              value={extra.observacao}
+              onChange={(e) => setCampo('observacao', e.target.value)}
+              rows={3}
+              className="w-full rounded-md border border-input bg-background/40 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            />
           </Campo>
 
           <Button type="submit" disabled={salvando}>

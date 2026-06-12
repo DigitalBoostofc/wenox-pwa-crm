@@ -12,7 +12,8 @@ import type { Projeto, EtapaProjeto } from './types';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
 import { logoUrl } from '@/clientes/clientesService';
-import { fotoUrl } from '@/usuarios/usuariosService';
+import { fotoUrl, listUsuarios } from '@/usuarios/usuariosService';
+import type { Usuario } from '@/usuarios/types';
 import { corAvatar, inicial, dataBR } from '@/clientes/format';
 import {
   statusVariantParaTipo, statusesParaTipo, pillStatusParaTipoClass,
@@ -413,6 +414,8 @@ export function ProjetosListPage() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [tipos, setTipos] = useState<Opcao[]>([]);
   const [todasEtapas, setTodasEtapas] = useState<EtapaProjeto[]>([]);
+  // Membros internos — para o seletor de responsáveis editável na lista.
+  const [membros, setMembros] = useState<Usuario[]>([]);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -448,6 +451,9 @@ export function ProjetosListPage() {
       setTipoFiltro((cur) => (cur === 'Todos' && ts.length ? ts[0].valor : cur));
     });
     listEtapas().then(setTodasEtapas);
+    listUsuarios()
+      .then((us) => setMembros(us.filter((u) => u.role !== 'Cliente')))
+      .catch(() => { /* sem membros → seletor fica vazio */ });
   }, []);
 
   useEffect(() => {
@@ -541,6 +547,26 @@ export function ProjetosListPage() {
       await atualizarProjeto(projetoId, { status: novoStatus });
     } catch {
       setErro('Não foi possível atualizar o status. Tente novamente.');
+      recarregar();
+    }
+  }
+
+  /** Edição inline genérica de um campo do projeto (otimista). */
+  async function atualizarCampo(projetoId: string, patch: Partial<Projeto>) {
+    setProjetos((lst) => lst.map((p) => {
+      if (p.id !== projetoId) return p;
+      const np: Projeto = { ...p, ...patch };
+      // Ao mudar responsáveis, reconstrói o expand pra os avatares atualizarem.
+      if (patch.responsaveis) {
+        const sel = membros.filter((m) => patch.responsaveis!.includes(m.id));
+        np.expand = { ...p.expand, responsaveis: sel };
+      }
+      return np;
+    }));
+    try {
+      await atualizarProjeto(projetoId, patch);
+    } catch {
+      setErro('Não foi possível salvar a alteração. Tente novamente.');
       recarregar();
     }
   }
@@ -677,8 +703,10 @@ export function ProjetosListPage() {
           onAbrir={abrirProjeto}
           mostrarColTipo={tipoFiltro === 'Todos'}
           mostrarColEtapa={tipoFiltro !== TIPO_SOCIAL_MEDIA}
-          onStatusChange={atualizarStatus}
-          onEtapaChange={tipoFiltro !== TIPO_SOCIAL_MEDIA ? moverProjeto : undefined}
+          onStatusChange={souCliente ? undefined : atualizarStatus}
+          onEtapaChange={!souCliente && tipoFiltro !== TIPO_SOCIAL_MEDIA ? moverProjeto : undefined}
+          onCampoChange={souCliente ? undefined : atualizarCampo}
+          membros={membros}
           totalBruto={projetos.length}
           colDefs={colDefsProj}
           ordem={ordemProj}
@@ -1051,10 +1079,131 @@ function MenuColunasProj({
   );
 }
 
+/** Texto editável inline: clica → input; Enter/blur salva; Esc cancela. */
+function CelulaTexto({
+  valor, onSalvar, placeholder = '—', multiline = false, className,
+}: {
+  valor: string;
+  onSalvar: (v: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+  className?: string;
+}) {
+  const [editando, setEditando] = useState(false);
+  const [v, setV] = useState(valor);
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  function salvar() {
+    setEditando(false);
+    const limpo = v.trim();
+    if (limpo !== (valor ?? '').trim()) onSalvar(limpo);
+  }
+  const cls = 'w-full rounded border border-input bg-background px-2 py-1 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+  if (!editando) {
+    return (
+      <button type="button"
+        onClick={(e) => { e.stopPropagation(); setV(valor); setEditando(true); }}
+        className={cn('block w-full truncate rounded px-1 py-0.5 text-left hover:bg-secondary', className)}>
+        {valor.trim()
+          ? <span className={multiline ? 'line-clamp-2 text-xs' : ''}>{valor}</span>
+          : <span className="text-muted-foreground">{placeholder}</span>}
+      </button>
+    );
+  }
+  if (multiline) {
+    return (
+      <textarea autoFocus value={v} rows={2} onClick={stop}
+        onChange={(e) => setV(e.target.value)} onBlur={salvar}
+        onKeyDown={(e) => { stop(e); if (e.key === 'Escape') setEditando(false); }}
+        className={cls} />
+    );
+  }
+  return (
+    <input autoFocus value={v} onClick={stop}
+      onChange={(e) => setV(e.target.value)} onBlur={salvar}
+      onKeyDown={(e) => { stop(e); if (e.key === 'Enter') salvar(); if (e.key === 'Escape') setEditando(false); }}
+      className={cls} />
+  );
+}
+
+/** Data (prazo) editável inline. */
+function CelulaData({ valor, onSalvar }: { valor?: string; onSalvar: (v: string) => void }) {
+  const [editando, setEditando] = useState(false);
+  const iso = (valor ?? '').slice(0, 10);
+  if (!editando) {
+    return (
+      <button type="button"
+        onClick={(e) => { e.stopPropagation(); setEditando(true); }}
+        className="w-full rounded px-1 py-0.5 text-left text-muted-foreground hover:bg-secondary">
+        {dataBR(valor) || '—'}
+      </button>
+    );
+  }
+  return (
+    <input type="date" autoFocus defaultValue={iso}
+      onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}
+      onBlur={(e) => { setEditando(false); if (e.target.value !== iso) onSalvar(e.target.value); }}
+      className="w-full rounded border border-input bg-background px-2 py-1 text-sm text-foreground" />
+  );
+}
+
+/** Responsáveis editáveis inline (dropdown com checkboxes). */
+function CelulaResponsaveis({
+  atuais, membros, onSalvar,
+}: {
+  atuais: string[];
+  membros: Usuario[];
+  onSalvar: (ids: string[]) => void;
+}) {
+  const selecionados = membros.filter((m) => atuais.includes(m.id));
+  function toggle(id: string) {
+    onSalvar(atuais.includes(id) ? atuais.filter((x) => x !== id) : [...atuais, id]);
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" onClick={(e) => e.stopPropagation()}
+          className="flex items-center rounded px-1 py-0.5 hover:bg-secondary">
+          {selecionados.length === 0 ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            <div className="flex -space-x-2">
+              {selecionados.slice(0, 3).map((m) => <AvatarResponsavel key={m.id} r={m} />)}
+              {selecionados.length > 3 && (
+                <div className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-[10px] font-bold text-muted-foreground">
+                  +{selecionados.length - 3}
+                </div>
+              )}
+            </div>
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-72 w-56 overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}>
+        {membros.length === 0 ? (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum membro</div>
+        ) : membros.map((m) => {
+          const ativo = atuais.includes(m.id);
+          return (
+            <DropdownMenuItem key={m.id}
+              onSelect={(e) => { e.preventDefault(); toggle(m.id); }}
+              className="gap-2">
+              <span className={cn('grid size-4 shrink-0 place-items-center rounded border',
+                ativo ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}>
+                {ativo && <Check className="size-3" />}
+              </span>
+              <span className="truncate">{m.nome || m.email}</span>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function ListaProjetos({
   projetos, etapasPorTipo, onAbrir, mostrarColTipo = true,
-  mostrarColEtapa = true, onStatusChange, onEtapaChange, totalBruto,
-  colDefs, ordem, larguras, onResize,
+  mostrarColEtapa = true, onStatusChange, onEtapaChange, onCampoChange,
+  membros = [], totalBruto, colDefs, ordem, larguras, onResize,
 }: {
   projetos: Projeto[];
   etapasPorTipo: Record<string, EtapaProjeto[]>;
@@ -1063,6 +1212,8 @@ function ListaProjetos({
   mostrarColEtapa?: boolean;
   onStatusChange?: (id: string, status: string) => void;
   onEtapaChange?: (id: string, etapa: string) => void;
+  onCampoChange?: (id: string, patch: Partial<Projeto>) => void;
+  membros?: Usuario[];
   totalBruto?: number;
   colDefs: ColProjDef[];
   ordem: OrdemProj;
@@ -1146,7 +1297,16 @@ function ListaProjetos({
         </div>
       );
     }
-    if (key === 'projeto') return <span className="font-medium">{p.nome}</span>;
+    if (key === 'projeto') {
+      if (!onCampoChange) return <span className="font-medium">{p.nome}</span>;
+      return (
+        <CelulaTexto
+          valor={p.nome ?? ''}
+          className="font-medium"
+          onSalvar={(v) => { if (v) onCampoChange(p.id, { nome: v }); }}
+        />
+      );
+    }
     if (key === 'etapa') {
       const etapas = etapasPorTipo[p.tipo ?? ''] ?? [];
       const idx = p.etapa ? etapas.findIndex((e) => e.nome === p.etapa) : -1;
@@ -1171,7 +1331,15 @@ function ListaProjetos({
       );
     }
     if (key === 'prazo') {
-      return <span className="text-muted-foreground">{dataBR(p.data_entrega) || '—'}</span>;
+      if (!onCampoChange) {
+        return <span className="text-muted-foreground">{dataBR(p.data_entrega) || '—'}</span>;
+      }
+      return (
+        <CelulaData
+          valor={p.data_entrega}
+          onSalvar={(v) => onCampoChange(p.id, { data_entrega: v })}
+        />
+      );
     }
     if (key === 'status') {
       if (!onStatusChange) {
@@ -1197,6 +1365,15 @@ function ListaProjetos({
       );
     }
     if (key === 'responsaveis') {
+      if (onCampoChange) {
+        return (
+          <CelulaResponsaveis
+            atuais={p.responsaveis ?? []}
+            membros={membros}
+            onSalvar={(ids) => onCampoChange(p.id, { responsaveis: ids })}
+          />
+        );
+      }
       const resps = p.expand?.responsaveis ?? [];
       if (resps.length === 0) return <span className="text-muted-foreground">—</span>;
       return (
@@ -1213,6 +1390,16 @@ function ListaProjetos({
       );
     }
     if (key === 'observacao') {
+      if (onCampoChange) {
+        return (
+          <CelulaTexto
+            valor={p.observacoes ?? ''}
+            multiline
+            placeholder="—"
+            onSalvar={(v) => onCampoChange(p.id, { observacoes: v })}
+          />
+        );
+      }
       const obs = (p.observacoes ?? '').trim();
       return obs ? (
         <span className="line-clamp-2 max-w-xs text-xs text-muted-foreground" title={obs}>

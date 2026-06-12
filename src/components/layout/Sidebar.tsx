@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import {
   Lock, LogOut, Moon, PanelLeft, PanelLeftClose,
@@ -20,7 +19,7 @@ import { useSidebar } from './SidebarContext';
 import { useAuth } from '@/auth/useAuth';
 import { canGerirUsuarios } from '@/auth/perms';
 import { useTheme } from './ThemeProvider';
-import { carregarPermissoes, temPermissao } from '@/config/permissoesConfig';
+import { usePermissoes } from '@/config/PermissoesProvider';
 import logoWenox from '@/assets/wenox-logo.png';
 import iconeWenox from '@/assets/wenox-icon.png';
 
@@ -53,13 +52,11 @@ export function SidebarNav({
 }) {
   const { user } = useAuth();
   const { pathname } = useLocation();
-  const permissoes = useMemo(() => carregarPermissoes(), []);
+  const { pode } = usePermissoes();
   // Conta Cliente tem nav própria, fora da matriz de permissões.
   const itemsVisiveis = user?.role === 'Cliente'
     ? NAV_ITEMS_CLIENTE
-    : NAV_ITEMS.filter((item) =>
-        temPermissao(permissoes, user?.role, item.modulo),
-      );
+    : NAV_ITEMS.filter((item) => pode(user?.role, item.modulo));
   return (
     <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
       {itemsVisiveis.map((item) => {

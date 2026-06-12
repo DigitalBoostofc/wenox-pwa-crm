@@ -5,19 +5,29 @@ import {
   MODULOS_INFO,
   ROLES_CONFIGURÁVEIS,
   PERMISSOES_PADRAO,
-  carregarPermissoes,
-  salvarPermissoes,
   type MatrizPermissoes,
   type Modulo,
 } from './permissoesConfig';
+import { usePermissoes } from './PermissoesProvider';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 export function PrivacidadePage() {
   const history = useHistory();
-  const [matriz, setMatriz] = useState<MatrizPermissoes>(() => carregarPermissoes());
+  const { matriz: matrizRemota, salvar: salvarRemoto } = usePermissoes();
+  const [matriz, setMatriz] = useState<MatrizPermissoes>(matrizRemota);
+  const [base, setBase] = useState<MatrizPermissoes>(matrizRemota);
   const [salvo, setSalvo] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState('');
+
+  // Quando o provider troca a matriz (carga do servidor), recarrega o rascunho.
+  // Padrão oficial do React de ajustar estado durante o render (sem useEffect).
+  if (base !== matrizRemota) {
+    setBase(matrizRemota);
+    setMatriz(matrizRemota);
+  }
 
   function toggle(role: string, modulo: Modulo) {
     setMatriz((prev) => ({
@@ -27,10 +37,18 @@ export function PrivacidadePage() {
     setSalvo(false);
   }
 
-  function salvar() {
-    salvarPermissoes(matriz);
-    setSalvo(true);
-    setTimeout(() => setSalvo(false), 2000);
+  async function salvar() {
+    setErro('');
+    setSalvando(true);
+    try {
+      await salvarRemoto(matriz);
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 2000);
+    } catch {
+      setErro('Não foi possível salvar no servidor. Tente novamente.');
+    } finally {
+      setSalvando(false);
+    }
   }
 
   function resetar() {
@@ -48,7 +66,7 @@ export function PrivacidadePage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Defina quais módulos cada papel de usuário pode acessar. O papel <strong>Owner</strong> sempre tem acesso total e não pode ser alterado.
+        Defina quais módulos cada papel de usuário pode acessar. Vale para todos os dispositivos. O papel <strong>Owner</strong> sempre tem acesso total e não pode ser alterado.
       </p>
 
       <div className="overflow-x-auto rounded-xl border border-border">
@@ -118,10 +136,12 @@ export function PrivacidadePage() {
         </table>
       </div>
 
+      {erro && <p className="text-sm font-medium text-destructive">{erro}</p>}
+
       <div className="flex flex-wrap gap-2">
-        <Button onClick={salvar} variant={salvo ? 'outline' : 'default'}>
+        <Button onClick={salvar} disabled={salvando} variant={salvo ? 'outline' : 'default'}>
           <Save className="size-4" />
-          {salvo ? 'Salvo com sucesso!' : 'Salvar alterações'}
+          {salvando ? 'Salvando…' : salvo ? 'Salvo com sucesso!' : 'Salvar alterações'}
         </Button>
         <Button variant="ghost" onClick={resetar}>
           <RotateCcw className="size-4" />

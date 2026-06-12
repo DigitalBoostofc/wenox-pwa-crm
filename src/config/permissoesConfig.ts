@@ -30,6 +30,7 @@ export const PERMISSOES_PADRAO: MatrizPermissoes = {
 
 const KEY = 'wenox-permissoes-v1';
 
+/** Cache local (síncrono) — usado pra render instantâneo enquanto o PB carrega. */
 export function carregarPermissoes(): MatrizPermissoes {
   try {
     const s = localStorage.getItem(KEY);
@@ -40,6 +41,47 @@ export function carregarPermissoes(): MatrizPermissoes {
 
 export function salvarPermissoes(m: MatrizPermissoes): void {
   try { localStorage.setItem(KEY, JSON.stringify(m)); } catch { /* */ }
+}
+
+/* ------------------------------------------------------------------ *
+ * Fonte de verdade: PocketBase (coleção `configuracoes`, registro
+ * único com chave="permissoes"). Vale pra todos os dispositivos.
+ * O localStorage acima vira só cache pra render imediato/offline.
+ * ------------------------------------------------------------------ */
+
+const CHAVE = 'permissoes';
+
+interface RegistroConfig { id: string; valor?: MatrizPermissoes }
+
+/** Lê a matriz do servidor; atualiza o cache. Cai no cache/padrão se falhar. */
+export async function carregarPermissoesRemoto(): Promise<MatrizPermissoes> {
+  // Import dinâmico evita ciclo de dependência com o cliente PB.
+  const { pb } = await import('@/lib/pocketbase');
+  try {
+    const rec = (await pb
+      .collection('configuracoes')
+      .getFirstListItem(`chave="${CHAVE}"`)) as unknown as RegistroConfig;
+    if (rec?.valor && typeof rec.valor === 'object') {
+      salvarPermissoes(rec.valor);
+      return rec.valor;
+    }
+  } catch { /* sem registro / offline → usa cache local */ }
+  return carregarPermissoes();
+}
+
+/** Grava a matriz no servidor (cria o registro se ainda não existir). */
+export async function salvarPermissoesRemoto(m: MatrizPermissoes): Promise<void> {
+  const { pb } = await import('@/lib/pocketbase');
+  salvarPermissoes(m); // cache imediato
+  const col = pb.collection('configuracoes');
+  const existente = (await col
+    .getFirstListItem(`chave="${CHAVE}"`)
+    .catch(() => null)) as unknown as RegistroConfig | null;
+  if (existente) {
+    await col.update(existente.id, { valor: m });
+  } else {
+    await col.create({ chave: CHAVE, valor: m });
+  }
 }
 
 /** Owner tem acesso a tudo; demais consultam a matriz. */

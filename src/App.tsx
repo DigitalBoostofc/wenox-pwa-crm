@@ -1,8 +1,12 @@
 import { lazy, Suspense } from 'react';
+import type { ReactNode } from 'react';
 import { BrowserRouter, Redirect, Route, Switch } from 'react-router-dom';
 import { useAuth } from '@/auth/useAuth';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
 import { AppShell } from '@/components/layout/AppShell';
+import { PermissoesProvider, usePermissoes } from '@/config/PermissoesProvider';
+import { NAV_ITEMS } from '@/components/layout/nav';
+import type { Modulo } from '@/config/permissoesConfig';
 
 /* Cada página vira um chunk separado: o navegador só baixa a tela
  * que o usuário abrir, deixando o carregamento inicial bem mais leve. */
@@ -49,6 +53,30 @@ function CarregandoTela() {
   );
 }
 
+function SemAcesso() {
+  return (
+    <div className="flex flex-col items-center gap-2 py-20 text-center">
+      <p className="text-base font-semibold">Sem acesso</p>
+      <p className="max-w-sm text-sm text-muted-foreground">
+        Seu perfil não tem permissão para nenhum módulo. Fale com um administrador.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Bloqueia rotas de módulos sem permissão (acesso direto pela URL).
+ * Sem permissão → manda pro 1º módulo liberado; se nenhum, mostra "Sem acesso".
+ */
+function Protegido({ modulo, children }: { modulo: Modulo; children: ReactNode }) {
+  const { user } = useAuth();
+  const { pode, carregando } = usePermissoes();
+  if (carregando) return <CarregandoTela />;
+  if (pode(user?.role, modulo)) return <>{children}</>;
+  const alvo = NAV_ITEMS.find((i) => i.enabled && pode(user?.role, i.modulo));
+  return alvo ? <Redirect to={alvo.path} /> : <SemAcesso />;
+}
+
 function UnauthedApp() {
   return (
     <BrowserRouter>
@@ -70,68 +98,108 @@ function AuthedApp() {
       <AppShell>
         <Suspense fallback={<CarregandoTela />}>
         <Switch>
-          <Route exact path="/dashboard" component={DashboardPage} />
-          <Route exact path="/clientes" component={ClientesListPage} />
-          <Route exact path="/novo-cliente" component={ClienteFormPage} />
+          <Route exact path="/dashboard">
+            <Protegido modulo="dashboard"><DashboardPage /></Protegido>
+          </Route>
+          <Route exact path="/clientes">
+            <Protegido modulo="clientes"><ClientesListPage /></Protegido>
+          </Route>
+          <Route exact path="/novo-cliente">
+            <Protegido modulo="clientes"><ClienteFormPage /></Protegido>
+          </Route>
           <Route
             exact
             path="/clientes/:id/editar"
             render={(props) => (
-              <ClienteFormPage id={(props.match.params as { id: string }).id} />
+              <Protegido modulo="clientes">
+                <ClienteFormPage id={(props.match.params as { id: string }).id} />
+              </Protegido>
             )}
           />
           <Route
             exact
             path="/clientes/:id"
             render={(props) => (
-              <ClienteDetailPage id={(props.match.params as { id: string }).id} />
+              <Protegido modulo="clientes">
+                <ClienteDetailPage id={(props.match.params as { id: string }).id} />
+              </Protegido>
             )}
           />
-          <Route exact path="/projetos" component={ProjetosListPage} />
-          <Route exact path="/projetos/novo" component={ProjetoFormPage} />
+          <Route exact path="/projetos">
+            <Protegido modulo="projetos"><ProjetosListPage /></Protegido>
+          </Route>
+          <Route exact path="/projetos/novo">
+            <Protegido modulo="projetos"><ProjetoFormPage /></Protegido>
+          </Route>
           <Route
             exact
             path="/projetos/:id/editar"
             render={(props) => (
-              <ProjetoFormPage id={(props.match.params as { id: string }).id} />
+              <Protegido modulo="projetos">
+                <ProjetoFormPage id={(props.match.params as { id: string }).id} />
+              </Protegido>
             )}
           />
           <Route
             exact
             path="/projetos/:id"
             render={(props) => (
-              <ProjetoDetailPage id={(props.match.params as { id: string }).id} />
+              <Protegido modulo="projetos">
+                <ProjetoDetailPage id={(props.match.params as { id: string }).id} />
+              </Protegido>
             )}
           />
-          <Route exact path="/tarefas" component={TarefasListPage} />
-          <Route exact path="/tarefas/nova" component={TarefaFormPage} />
+          <Route exact path="/tarefas">
+            <Protegido modulo="tarefas"><TarefasListPage /></Protegido>
+          </Route>
+          <Route exact path="/tarefas/nova">
+            <Protegido modulo="tarefas"><TarefaFormPage /></Protegido>
+          </Route>
           <Route
             exact
             path="/tarefas/:id/editar"
             render={(props) => (
-              <TarefaFormPage id={(props.match.params as { id: string }).id} />
+              <Protegido modulo="tarefas">
+                <TarefaFormPage id={(props.match.params as { id: string }).id} />
+              </Protegido>
             )}
           />
           <Route
             exact
             path="/tarefas/:id"
             render={(props) => (
-              <TarefaDetailPage id={(props.match.params as { id: string }).id} />
+              <Protegido modulo="tarefas">
+                <TarefaDetailPage id={(props.match.params as { id: string }).id} />
+              </Protegido>
             )}
           />
-          <Route exact path="/equipe" component={EquipePage} />
+          <Route exact path="/equipe">
+            <Protegido modulo="equipe"><EquipePage /></Protegido>
+          </Route>
           <Route
             exact
             path="/equipe/:id"
             render={(props) => (
-              <MembroDetailPage id={(props.match.params as { id: string }).id} />
+              <Protegido modulo="equipe">
+                <MembroDetailPage id={(props.match.params as { id: string }).id} />
+              </Protegido>
             )}
           />
-          <Route exact path="/usuarios" component={UsuariosPage} />
-          <Route exact path="/config/parametros" component={ParametrosPage} />
-          <Route exact path="/config/etapas-projeto" component={EtapasProjetoPage} />
-          <Route exact path="/config/privacidade" component={PrivacidadePage} />
-          <Route exact path="/config" component={ConfigPage} />
+          <Route exact path="/usuarios">
+            <Protegido modulo="config"><UsuariosPage /></Protegido>
+          </Route>
+          <Route exact path="/config/parametros">
+            <Protegido modulo="config"><ParametrosPage /></Protegido>
+          </Route>
+          <Route exact path="/config/etapas-projeto">
+            <Protegido modulo="config"><EtapasProjetoPage /></Protegido>
+          </Route>
+          <Route exact path="/config/privacidade">
+            <Protegido modulo="config"><PrivacidadePage /></Protegido>
+          </Route>
+          <Route exact path="/config">
+            <Protegido modulo="config"><ConfigPage /></Protegido>
+          </Route>
           <Route exact path="/login">
             <Redirect to="/dashboard" />
           </Route>
@@ -194,8 +262,14 @@ function ClienteApp({ clienteId }: { clienteId: string }) {
 function Root() {
   const { user } = useAuth();
   if (!user) return <UnauthedApp />;
-  if (user.role === 'Cliente') return <ClienteApp clienteId={user.cliente ?? ''} />;
-  return <AuthedApp />;
+  // Qualquer conta logada carrega a matriz de permissões do servidor.
+  return (
+    <PermissoesProvider>
+      {user.role === 'Cliente'
+        ? <ClienteApp clienteId={user.cliente ?? ''} />
+        : <AuthedApp />}
+    </PermissoesProvider>
+  );
 }
 
 export default function App() {

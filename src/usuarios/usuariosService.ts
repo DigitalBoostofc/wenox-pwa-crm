@@ -58,3 +58,38 @@ export async function atualizarUsuario(
 ): Promise<Usuario> {
   return (await col().update(id, corpo(patch, foto))) as unknown as Usuario;
 }
+
+/**
+ * Admin/Owner define uma nova senha para outro usuário, sem precisar da senha
+ * atual. Só funciona com a "Manage rule" configurada na coleção `usuarios`
+ * (Owner/Admin) — caso contrário o PocketBase recusa por falta do oldPassword.
+ */
+export async function definirSenhaUsuario(
+  id: string,
+  novaSenha: string,
+): Promise<Usuario> {
+  return (await col().update(id, {
+    password: novaSenha,
+    passwordConfirm: novaSenha,
+  })) as unknown as Usuario;
+}
+
+/**
+ * Usuário logado troca a própria senha. O PocketBase exige a senha atual.
+ * A troca invalida o token, então re-autenticamos para manter a sessão viva.
+ */
+export async function trocarMinhaSenha(
+  email: string,
+  senhaAtual: string,
+  novaSenha: string,
+): Promise<void> {
+  const id = pb.authStore.record?.id;
+  if (!id) throw new Error('Sem sessão ativa.');
+  await col().update(id, {
+    oldPassword: senhaAtual,
+    password: novaSenha,
+    passwordConfirm: novaSenha,
+  });
+  // Token antigo deixa de valer após a troca — renova a sessão.
+  await col().authWithPassword(email, novaSenha);
+}

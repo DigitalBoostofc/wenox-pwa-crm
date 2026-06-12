@@ -3,8 +3,10 @@ import { Camera, Image as ImageIcon, X } from 'lucide-react';
 import { listUsuarios, criarUsuario, fotoUrl } from '@/usuarios/usuariosService';
 import { ROLES } from '@/usuarios/types';
 import type { Usuario } from '@/usuarios/types';
+import { EditarUsuarioSheet } from '@/usuarios/EditarUsuarioSheet';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
+import { useAuth } from '@/auth/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +43,9 @@ function mensagemErroUsuario(err: unknown): string {
 }
 
 export function UsuariosPage() {
+  const { user } = useAuth();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [editando, setEditando] = useState<Usuario | null>(null);
   const [novo, setNovo] = useState({ nome: '', email: '', role: 'Membro', area: '' });
   const [senha, setSenha] = useState('');
   const [foto, setFoto] = useState<File | null>(null);
@@ -291,7 +295,12 @@ export function UsuariosPage() {
 
       <Card className="divide-y divide-border">
         {usuarios.map((u) => (
-          <div key={u.id} className="flex items-center gap-4 px-5 py-4">
+          <button
+            key={u.id}
+            type="button"
+            onClick={() => setEditando(u)}
+            className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-secondary/50"
+          >
             {u.foto ? (
               <img src={fotoUrl(u, '100x100')} alt={u.nome}
                 loading="lazy" decoding="async"
@@ -306,14 +315,29 @@ export function UsuariosPage() {
               <p className="text-sm text-muted-foreground">{u.email}</p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {u.status !== 'Ativo' && <Badge variant="muted">Inativo</Badge>}
               {u.area && <Badge variant="muted">{u.area}</Badge>}
               <Badge variant={u.status === 'Ativo' ? 'success' : 'muted'}>
                 {u.role}
               </Badge>
             </div>
-          </div>
+          </button>
         ))}
       </Card>
+
+      {editando && (
+        <EditarUsuarioSheet
+          usuario={editando}
+          funcoes={funcoes}
+          meRole={user?.role}
+          meId={user?.id}
+          onClose={() => setEditando(null)}
+          onSaved={(u) => {
+            setUsuarios((prev) => prev.map((x) => (x.id === u.id ? u : x)));
+            setEditando(u);
+          }}
+        />
+      )}
     </div>
   );
 }

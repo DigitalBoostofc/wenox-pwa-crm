@@ -37,7 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       login: async (identity, password) => {
-        await pb.collection('usuarios').authWithPassword(identity, password);
+        const res = await pb
+          .collection('usuarios')
+          .authWithPassword(identity, password);
+        // Conta desativada não entra — limpa a sessão recém-criada.
+        if ((res.record as { status?: string }).status === 'Inativo') {
+          pb.authStore.clear();
+          throw new Error('Esta conta está desativada. Fale com um administrador.');
+        }
         setUser(currentUser());
       },
       logout: () => {

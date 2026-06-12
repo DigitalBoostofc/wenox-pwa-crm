@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/useAuth';
 import { canGerirUsuarios } from '@/auth/perms';
 import { useTheme } from '@/components/layout/ThemeProvider';
+import { TrocarSenhaCard } from '@/config/TrocarSenhaCard';
 
 export function ConfigPage() {
   const { user, logout } = useAuth();
@@ -33,6 +34,8 @@ export function ConfigPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <TrocarSenhaCard />
 
       {canGerirUsuarios(user?.role) && (
         <Card>

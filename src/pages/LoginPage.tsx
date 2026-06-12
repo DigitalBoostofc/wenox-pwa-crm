@@ -17,8 +17,10 @@ export function LoginPage() {
     setCarregando(true);
     try {
       await login(email, senha);
-    } catch {
-      setErro('Credenciais inválidas');
+    } catch (err) {
+      // Mensagem específica de conta desativada; senão, erro genérico.
+      const msg = (err as { message?: string })?.message ?? '';
+      setErro(msg.includes('desativada') ? msg : 'Credenciais inválidas');
     } finally {
       setCarregando(false);
     }

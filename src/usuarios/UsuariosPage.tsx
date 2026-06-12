@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Camera, Image as ImageIcon, X } from 'lucide-react';
-import { listUsuarios, criarUsuario, fotoUrl } from '@/usuarios/usuariosService';
+import { Camera, Image as ImageIcon, Trash2, X } from 'lucide-react';
+import { listUsuarios, criarUsuario, excluirUsuario, fotoUrl } from '@/usuarios/usuariosService';
 import { ROLES } from '@/usuarios/types';
 import type { Usuario } from '@/usuarios/types';
 import { EditarUsuarioSheet } from '@/usuarios/EditarUsuarioSheet';
@@ -46,6 +46,10 @@ export function UsuariosPage() {
   const { user } = useAuth();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [editando, setEditando] = useState<Usuario | null>(null);
+  /** id do usuário com confirmação de exclusão aberta. */
+  const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null);
+  const [removendo, setRemovendo] = useState(false);
+  const [erroLista, setErroLista] = useState('');
   const [novo, setNovo] = useState({ nome: '', email: '', telefone: '', role: 'Membro', area: '' });
   const [senha, setSenha] = useState('');
   const [foto, setFoto] = useState<File | null>(null);
@@ -116,6 +120,20 @@ export function UsuariosPage() {
       setTimeout(() => setCopiado(false), 2500);
     } catch {
       /* clipboard pode falhar sem https/permissão — ignora */
+    }
+  }
+
+  async function excluir(u: Usuario) {
+    setErroLista('');
+    setRemovendo(true);
+    try {
+      await excluirUsuario(u.id);
+      setUsuarios((prev) => prev.filter((x) => x.id !== u.id));
+      setConfirmarExclusao(null);
+    } catch {
+      setErroLista('Não foi possível excluir o acesso. Tente novamente.');
+    } finally {
+      setRemovendo(false);
     }
   }
 
@@ -307,27 +325,36 @@ export function UsuariosPage() {
         </CardContent>
       </Card>
 
+      {erroLista && (
+        <p className="text-sm font-medium text-destructive">{erroLista}</p>
+      )}
+
       <Card className="divide-y divide-border">
         {usuarios.map((u) => (
-          <button
+          <div
             key={u.id}
-            type="button"
-            onClick={() => setEditando(u)}
-            className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-secondary/50"
+            className="flex w-full items-center gap-4 px-5 py-4 transition-colors hover:bg-secondary/50"
           >
-            {u.foto ? (
-              <img src={fotoUrl(u, '100x100')} alt={u.nome}
-                loading="lazy" decoding="async"
-                className="size-10 shrink-0 rounded-full object-cover" />
-            ) : (
-              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary ring-1 ring-primary/40">
-                {(u.nome || u.email || '?').charAt(0).toUpperCase()}
-              </span>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="font-medium">{u.nome}</p>
-              <p className="text-sm text-muted-foreground">{u.email}</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => setEditando(u)}
+              className="flex min-w-0 flex-1 items-center gap-4 text-left"
+            >
+              {u.foto ? (
+                <img src={fotoUrl(u, '100x100')} alt={u.nome}
+                  loading="lazy" decoding="async"
+                  className="size-10 shrink-0 rounded-full object-cover" />
+              ) : (
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/20 text-sm font-semibold text-primary ring-1 ring-primary/40">
+                  {(u.nome || u.email || '?').charAt(0).toUpperCase()}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{u.nome}</p>
+                <p className="text-sm text-muted-foreground">{u.email}</p>
+              </div>
+            </button>
+
             <div className="flex flex-wrap items-center justify-end gap-1.5">
               {u.status !== 'Ativo' && <Badge variant="muted">Inativo</Badge>}
               {u.area && <Badge variant="muted">{u.area}</Badge>}
@@ -335,7 +362,41 @@ export function UsuariosPage() {
                 {u.role}
               </Badge>
             </div>
-          </button>
+
+            {/* Excluir acesso: só aparece para contas desativadas. */}
+            {u.status !== 'Ativo' && u.id !== user?.id && (
+              confirmarExclusao === u.id ? (
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={removendo}
+                    onClick={() => excluir(u)}
+                  >
+                    {removendo ? 'Excluindo…' : 'Confirmar'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={removendo}
+                    onClick={() => setConfirmarExclusao(null)}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  title="Excluir acesso"
+                  aria-label={`Excluir acesso de ${u.nome || u.email}`}
+                  onClick={() => { setErroLista(''); setConfirmarExclusao(u.id); }}
+                  className="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              )
+            )}
+          </div>
         ))}
       </Card>
 

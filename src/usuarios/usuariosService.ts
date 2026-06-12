@@ -59,6 +59,11 @@ export async function atualizarUsuario(
   return (await col().update(id, corpo(patch, foto))) as unknown as Usuario;
 }
 
+/** Exclui a conta de acesso (só Owner/Admin, pela regra da coleção). */
+export async function excluirUsuario(id: string): Promise<void> {
+  await col().delete(id);
+}
+
 /**
  * Admin/Owner define uma nova senha para outro usuário, sem precisar da senha
  * atual. Só funciona com a "Manage rule" configurada na coleção `usuarios`

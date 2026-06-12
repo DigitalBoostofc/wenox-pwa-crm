@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Plus, Search, FolderKanban, LayoutGrid, List, Columns3, MoreHorizontal,
-  LayoutList, SlidersHorizontal, GripVertical, Repeat2, Check, ChevronDown,
+  SlidersHorizontal, GripVertical, Repeat2, Check, ChevronDown,
+  Palette, Share2, Globe, Target, Code2, Briefcase, Megaphone, Camera, PenTool,
+  Tag, type LucideIcon,
 } from 'lucide-react';
 import { listProjetos, atualizarProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
@@ -108,14 +110,6 @@ function ResizeHandle({
       />
     </span>
   );
-}
-
-/** Iniciais (até 2 letras) pra um botão compacto. */
-function iniciaisTipo(nome: string): string {
-  const partes = nome.trim().split(/\s+/).filter(Boolean);
-  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
-  if (partes[0]?.length >= 2) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0]?.[0] ?? '?').toUpperCase();
 }
 
 function nomeCliente(p: Projeto): string {
@@ -325,7 +319,22 @@ function CardProjeto({
   );
 }
 
-/** Coluna estreita à esquerda da página com botões compactos por tipo. */
+/** Ícone que referencia o tipo de projeto (por palavra-chave no nome). */
+function iconeTipo(nome: string): LucideIcon {
+  const n = nome.toLowerCase();
+  if (n.includes('social')) return Share2;
+  if (n.includes('web') || n.includes('site')) return Globe;
+  if (n.includes('tráfeg') || n.includes('trafeg') || n.includes('ads') || n.includes('anúnc') || n.includes('anunc')) return Target;
+  if (n.includes('design')) return Palette;
+  if (n.includes('dev') || n.includes('program') || n.includes('cod')) return Code2;
+  if (n.includes('gest') || n.includes('admin') || n.includes('consult')) return Briefcase;
+  if (n.includes('market') || n.includes('mídia') || n.includes('midia') || n.includes('lança') || n.includes('lanca')) return Megaphone;
+  if (n.includes('foto') || n.includes('vídeo') || n.includes('video') || n.includes('audiovis')) return Camera;
+  if (n.includes('redaç') || n.includes('redac') || n.includes('copy') || n.includes('conteúd') || n.includes('conteud')) return PenTool;
+  return Tag;
+}
+
+/** Coluna estreita à esquerda da página com um ícone por tipo de projeto. */
 function BarraTipos({
   tipos, ativo, onChange,
 }: {
@@ -333,31 +342,27 @@ function BarraTipos({
   ativo: string;
   onChange: (t: string) => void;
 }) {
-  const itens: { valor: string; label: string; icone?: typeof LayoutGrid }[] = [
-    { valor: 'Todos', label: 'Todos', icone: LayoutList },
-    ...tipos.map((t) => ({ valor: t, label: t })),
-  ];
   return (
     <aside className="hidden shrink-0 flex-col gap-2 lg:flex">
-      {itens.map((it) => {
-        const selecionado = ativo === it.valor;
-        const Icon = it.icone;
+      {tipos.map((t) => {
+        const selecionado = ativo === t;
+        const Icon = iconeTipo(t);
         return (
           <button
-            key={it.valor}
+            key={t}
             type="button"
-            onClick={() => onChange(it.valor)}
-            title={it.label}
-            aria-label={it.label}
+            onClick={() => onChange(t)}
+            title={t}
+            aria-label={t}
             aria-pressed={selecionado}
             className={cn(
-              'grid size-12 place-items-center rounded-xl border text-xs font-bold transition-colors',
+              'grid size-12 place-items-center rounded-xl border transition-colors',
               selecionado
                 ? 'border-primary/50 bg-primary/15 text-primary shadow-[inset_0_0_0_1px_rgba(139,92,246,0.35)]'
                 : 'border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground',
             )}
           >
-            {Icon ? <Icon className="size-5" /> : iniciaisTipo(it.valor)}
+            <Icon className="size-5" />
           </button>
         );
       })}
@@ -437,7 +442,11 @@ export function ProjetosListPage() {
   }
 
   useEffect(() => {
-    listOpcoes('tipo_projeto').then(setTipos);
+    listOpcoes('tipo_projeto').then((ts) => {
+      setTipos(ts);
+      // Sem "Todos": começa no 1º tipo (cai em 'Todos' só se não houver tipos).
+      setTipoFiltro((cur) => (cur === 'Todos' && ts.length ? ts[0].valor : cur));
+    });
     listEtapas().then(setTodasEtapas);
   }, []);
 
@@ -505,7 +514,7 @@ export function ProjetosListPage() {
   /** Em mobile sempre cards; no desktop respeita a escolha salva. */
   const viewEfetiva: ViewMode = isMobile ? 'cards' : view;
 
-  const filtros = useMemo(() => ['Todos', ...tipos.map((t) => t.valor)], [tipos]);
+  const filtros = useMemo(() => tipos.map((t) => t.valor), [tipos]);
   const trocarView = (v: ViewMode) => { setView(v); salvarView(v); };
   const recarregar = () => setRecarregaTrigger((n) => n + 1);
   const abrirProjeto = (id: string) => history.push(`/projetos/${id}`);

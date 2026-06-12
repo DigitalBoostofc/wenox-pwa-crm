@@ -20,6 +20,7 @@ import { useAuth } from '@/auth/useAuth';
 import { canGerirUsuarios } from '@/auth/perms';
 import { useTheme } from './ThemeProvider';
 import { usePermissoes } from '@/config/PermissoesProvider';
+import { fotoUrl } from '@/usuarios/usuariosService';
 import logoWenox from '@/assets/wenox-logo.png';
 import iconeWenox from '@/assets/wenox-icon.png';
 
@@ -119,6 +120,7 @@ export function SidebarBottom({
   const { theme, toggle } = useTheme();
   const history = useHistory();
   const initial = (user?.email ?? '?').charAt(0).toUpperCase();
+  const fotoPerfil = user ? fotoUrl(user, '100x100') : '';
 
   return (
     <div className={cn('flex flex-col gap-1', compacta && 'items-center')}>
@@ -156,9 +158,19 @@ export function SidebarBottom({
             )}
             aria-label="Menu do perfil"
           >
-            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/20 text-xs font-semibold text-primary ring-1 ring-primary/40">
-              {initial}
-            </span>
+            {fotoPerfil ? (
+              <img
+                src={fotoPerfil}
+                alt={user?.nome ?? user?.email ?? ''}
+                loading="lazy"
+                decoding="async"
+                className="size-7 shrink-0 rounded-full object-cover ring-1 ring-primary/40"
+              />
+            ) : (
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/20 text-xs font-semibold text-primary ring-1 ring-primary/40">
+                {initial}
+              </span>
+            )}
             {!compacta && (
               <span className="truncate text-sm text-muted-foreground">
                 {user?.email}

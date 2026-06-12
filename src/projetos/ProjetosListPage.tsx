@@ -10,6 +10,7 @@ import type { Projeto, EtapaProjeto } from './types';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
 import { logoUrl } from '@/clientes/clientesService';
+import { fotoUrl } from '@/usuarios/usuariosService';
 import { corAvatar, inicial, dataBR } from '@/clientes/format';
 import {
   statusVariantParaTipo, statusesParaTipo, pillStatusParaTipoClass,
@@ -134,6 +135,40 @@ function iniciaisResponsavel(r?: { nome?: string; email?: string }): string {
   const partes = n.split(/\s+/).filter(Boolean);
   if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
   return n.charAt(0).toUpperCase() || '?';
+}
+
+type Responsavel = {
+  id: string; nome?: string; email?: string;
+  foto?: string; collectionId?: string; collectionName?: string;
+};
+
+/** Avatar do responsável: foto cadastrada, ou as iniciais com cor de fallback. */
+function AvatarResponsavel({ r }: { r: Responsavel }) {
+  const url = fotoUrl(r, '100x100');
+  const titulo = r.nome ?? r.email;
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={titulo ?? ''}
+        title={titulo}
+        loading="lazy"
+        decoding="async"
+        className="size-7 shrink-0 rounded-full border-2 border-card object-cover"
+      />
+    );
+  }
+  return (
+    <div
+      title={titulo}
+      className={cn(
+        'grid size-7 place-items-center rounded-full border-2 border-card text-[10px] font-bold text-white',
+        corAvatar(r.nome ?? r.email ?? r.id),
+      )}
+    >
+      {iniciaisResponsavel(r)}
+    </div>
+  );
 }
 
 function MenuMoverEtapa({
@@ -277,13 +312,7 @@ function CardProjeto({
         </span>
         <div className="flex -space-x-2">
           {responsaveis.slice(0, 3).map((r) => (
-            <div
-              key={r.id}
-              title={r.nome ?? r.email}
-              className={cn('grid size-7 place-items-center rounded-full border-2 border-card text-[10px] font-bold text-white', corAvatar(r.nome ?? r.email ?? r.id))}
-            >
-              {iniciaisResponsavel(r)}
-            </div>
+            <AvatarResponsavel key={r.id} r={r} />
           ))}
           {responsaveis.length > 3 && (
             <div className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-[10px] font-bold text-muted-foreground">
@@ -1164,13 +1193,7 @@ function ListaProjetos({
       return (
         <div className="flex -space-x-2">
           {resps.slice(0, 3).map((r) => (
-            <div
-              key={r.id}
-              title={r.nome ?? r.email}
-              className={cn('grid size-7 place-items-center rounded-full border-2 border-card text-[10px] font-bold text-white', corAvatar(r.nome ?? r.email ?? r.id))}
-            >
-              {iniciaisResponsavel(r)}
-            </div>
+            <AvatarResponsavel key={r.id} r={r} />
           ))}
           {resps.length > 3 && (
             <div className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-[10px] font-bold text-muted-foreground">

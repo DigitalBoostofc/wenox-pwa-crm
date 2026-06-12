@@ -9,6 +9,10 @@ export interface AuthUser {
   nome?: string;
   /** Preenchido só em contas do tipo Cliente — id do cliente vinculado. */
   cliente?: string;
+  /** Foto de perfil (nome do arquivo no PocketBase) + dados p/ montar a URL. */
+  foto?: string;
+  collectionId?: string;
+  collectionName?: string;
 }
 
 export interface AuthContextValue {

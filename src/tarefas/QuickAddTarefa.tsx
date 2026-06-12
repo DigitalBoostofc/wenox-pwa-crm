@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { criarTarefa } from './tarefasService';
-import { listOpcoes } from '@/opcoes/opcoesService';
+import { STATUS_INICIAL } from './status';
 import { useAuth } from '@/auth/useAuth';
 
 export function QuickAddTarefa({ onCriada }: { onCriada: () => void }) {
@@ -18,13 +18,11 @@ export function QuickAddTarefa({ onCriada }: { onCriada: () => void }) {
     setSalvando(true);
     setErro('');
     try {
-      const opcoes = await listOpcoes('status_tarefa');
-      const statusInicial = opcoes[0]?.valor ?? 'A fazer';
       const d = new Date();
       const hoje = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       await criarTarefa({
         nome,
-        status: statusInicial,
+        status: STATUS_INICIAL,
         prazo: hoje,
         lado: 'wenox',
         responsaveis: user?.id ? [user.id] : [],

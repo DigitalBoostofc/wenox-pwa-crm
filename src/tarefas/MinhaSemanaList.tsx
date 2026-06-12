@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ListChecks, UserRound } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ListChecks, Repeat, UserRound } from 'lucide-react';
 import type { Tarefa } from './types';
 import { statusTarefaClass, tarefaConcluida, prazoVencido } from './format';
 import { corAvatar, dataBR } from '@/clientes/format';
@@ -420,6 +420,11 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
         {t.prazo && (
           <span className={cn('text-[11px]', vencida ? 'font-medium text-destructive' : 'text-muted-foreground')}>
             {dataBR(t.prazo)}
+          </span>
+        )}
+        {t.recorrencia && (
+          <span title={`Repete: ${t.recorrencia}`} className="shrink-0 text-muted-foreground">
+            <Repeat className="size-3" />
           </span>
         )}
         <div className="flex -space-x-2">

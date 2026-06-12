@@ -6,12 +6,11 @@ import {
 import type { Tarefa, TarefaInput } from './types';
 import { listProjetos } from '@/projetos/projetosService';
 import type { Projeto } from '@/projetos/types';
-import { listOpcoes } from '@/opcoes/opcoesService';
+import { STATUS_TAREFA, STATUS_INICIAL } from './status';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import { listClientes } from '@/clientes/clientesService';
 import { listContatos } from '@/contatos/contatosService';
 import { nomeExibicao } from '@/clientes/types';
-import type { Opcao } from '@/opcoes/types';
 import type { Cliente } from '@/clientes/types';
 import type { Contato } from '@/contatos/types';
 import { Button } from '@/components/ui/button';
@@ -45,7 +44,7 @@ interface Usuario { id: string; nome?: string; email: string }
 function vazia(): TarefaInput {
   return {
     nome: '', descricao: '', projeto: '', cliente: '', lado: 'wenox',
-    responsaveis: [], contato: '', status: '', prazo: '', etiquetas: [], ordem: 0,
+    responsaveis: [], contato: '', status: STATUS_INICIAL, prazo: '', etiquetas: [], ordem: 0,
   };
 }
 
@@ -70,7 +69,6 @@ export function TarefaForm({
   const [modo, setModo] = useState<Modo>('interna');
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [statuses, setStatuses] = useState<Opcao[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [novaTag, setNovaTag] = useState('');
@@ -81,7 +79,6 @@ export function TarefaForm({
   useEffect(() => {
     listProjetos().then(setProjetos);
     listClientes('').then(setClientes);
-    listOpcoes('status_tarefa').then(setStatuses);
     listUsuarios().then(setUsuarios as never);
   }, []);
 
@@ -125,13 +122,6 @@ export function TarefaForm({
       setCarregado(true);
     });
   }, [tarefaId]);
-
-  // Status default = primeira opção, quando ainda não escolhido.
-  useEffect(() => {
-    if (!tarefaId && !form.status && statuses.length > 0) {
-      setForm((f) => ({ ...f, status: statuses[0].valor }));
-    }
-  }, [statuses, tarefaId, form.status]);
 
   // Carrega contatos do cliente vinculado (para tarefa do lado cliente).
   useEffect(() => {
@@ -280,9 +270,8 @@ export function TarefaForm({
             <Campo id="status" label="Status">
               <select id="status" value={form.status ?? ''} className={selectClass}
                 onChange={(e) => set('status', e.target.value)}>
-                <option value="">—</option>
-                {statuses.map((s) => (
-                  <option key={s.id} value={s.valor}>{s.valor}</option>
+                {STATUS_TAREFA.map((s) => (
+                  <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </Campo>

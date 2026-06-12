@@ -5,16 +5,16 @@ import {
   getTarefa, atualizarTarefa, removerTarefa,
 } from './tarefasService';
 import type { Tarefa } from './types';
+import { RECORRENCIA_LABEL } from './types';
 import { statusTarefaClass } from './format';
+import { STATUS_TAREFA } from './status';
 import { AprovacaoTarefa } from './TarefaDetailPage';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
-import { listOpcoes } from '@/opcoes/opcoesService';
 import { listProjetos } from '@/projetos/projetosService';
 import { listClientes } from '@/clientes/clientesService';
 import { listContatos } from '@/contatos/contatosService';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import { nomeExibicao } from '@/clientes/types';
-import type { Opcao } from '@/opcoes/types';
 import type { Projeto } from '@/projetos/types';
 import type { Cliente } from '@/clientes/types';
 import type { Contato } from '@/contatos/types';
@@ -61,7 +61,6 @@ export function TarefaSheet({
   const [erroSalvo, setErroSalvo] = useState('');
 
   // Listas de suporte
-  const [statuses, setStatuses] = useState<Opcao[]>([]);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [contatos, setContatos] = useState<Contato[]>([]);
@@ -74,7 +73,6 @@ export function TarefaSheet({
 
   // Carrega listas de suporte uma única vez
   useEffect(() => {
-    listOpcoes('status_tarefa').then(setStatuses);
     listProjetos().then(setProjetos);
     listClientes('').then(setClientes);
     listUsuarios().then(setUsuarios as never);
@@ -163,6 +161,10 @@ export function TarefaSheet({
 
   function handlePrioridade(p: 'alta' | 'media' | 'baixa') {
     salvarCampo({ prioridade: p });
+  }
+
+  function handleRecorrencia(r: '' | 'semanal' | 'quinzenal' | 'mensal') {
+    salvarCampo({ recorrencia: r });
   }
 
   async function handleProjeto(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -345,8 +347,8 @@ export function TarefaSheet({
                     className={selectCls}
                   >
                     <option value="">—</option>
-                    {statuses.map((s) => (
-                      <option key={s.id} value={s.valor}>{s.valor}</option>
+                    {STATUS_TAREFA.map((s) => (
+                      <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
                   {t.status && (
@@ -400,6 +402,43 @@ export function TarefaSheet({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* 2c. Repetir */}
+              <div>
+                <RotuloCampo>Repetir</RotuloCampo>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      { valor: '' as const, label: 'Não' },
+                      { valor: 'semanal' as const, label: RECORRENCIA_LABEL.semanal },
+                      { valor: 'quinzenal' as const, label: RECORRENCIA_LABEL.quinzenal },
+                      { valor: 'mensal' as const, label: RECORRENCIA_LABEL.mensal },
+                    ]
+                  ).map(({ valor, label }) => {
+                    const ativo = (t.recorrencia ?? '') === valor;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => handleRecorrencia(valor)}
+                        className={cn(
+                          'rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
+                          ativo
+                            ? 'border-primary/60 bg-primary/15 text-primary'
+                            : 'border-border text-muted-foreground hover:bg-secondary',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {t.recorrencia && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Ao concluir, uma nova ocorrência é criada com o próximo prazo.
+                  </p>
+                )}
               </div>
 
               {/* 3. Projeto */}

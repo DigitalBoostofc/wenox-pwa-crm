@@ -4,13 +4,12 @@ import { Plus, Check, ExternalLink, X } from 'lucide-react';
 import { criarTarefa, atualizarTarefa } from './tarefasService';
 import type { Tarefa, TarefaInput, LadoTarefa } from './types';
 import { statusTarefaClass } from './format';
-import { listOpcoes } from '@/opcoes/opcoesService';
+import { STATUS_TAREFA } from './status';
 import { listClientes } from '@/clientes/clientesService';
 import { listProjetos } from '@/projetos/projetosService';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import { listContatos } from '@/contatos/contatosService';
 import { nomeExibicao } from '@/clientes/types';
-import type { Opcao } from '@/opcoes/types';
 import type { Cliente } from '@/clientes/types';
 import type { Projeto } from '@/projetos/types';
 import type { Contato } from '@/contatos/types';
@@ -109,7 +108,6 @@ export function TabelaTarefas({
 }) {
   const history = useHistory();
   const [linhas, setLinhas] = useState<Linha[]>([]);
-  const [statuses, setStatuses] = useState<Opcao[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -120,7 +118,6 @@ export function TabelaTarefas({
 
   useEffect(() => { setLinhas(tarefas.map(tarefaParaLinha)); }, [tarefas]);
   useEffect(() => {
-    listOpcoes('status_tarefa').then(setStatuses);
     listClientes('').then(setClientes);
     listProjetos().then(setProjetos);
     listUsuarios().then(setUsuarios as never);
@@ -219,7 +216,7 @@ export function TabelaTarefas({
 
   function abrirNova() {
     setNova({
-      id: 'nova', nome: '', status: statuses[0]?.valor ?? '', prazo: '',
+      id: 'nova', nome: '', status: STATUS_TAREFA[0], prazo: '',
       modo: presetCliente ? 'equipe' : 'interna',
       cliente: presetCliente ?? '', projeto: presetProjeto ?? '',
       responsaveis: [], contato: '', descricao: '', etiquetas: [],
@@ -263,7 +260,7 @@ export function TabelaTarefas({
               <Row
                 key={l.id} l={l} ehNova={false}
                 edit={edit} setEdit={setEdit}
-                statuses={statuses} clientesParaLinha={clientesParaLinha}
+                statuses={STATUS_TAREFA} clientesParaLinha={clientesParaLinha}
                 projetosDe={projetosDe} usuarios={usuarios}
                 contatosDe={contatosDe} carregarContatos={carregarContatos}
                 nomeUsuario={nomeUsuario} nomeCliente={nomeCliente} nomeProjeto={nomeProjeto}
@@ -277,7 +274,7 @@ export function TabelaTarefas({
               <Row
                 l={nova} ehNova
                 edit={edit} setEdit={setEdit}
-                statuses={statuses} clientesParaLinha={clientesParaLinha}
+                statuses={STATUS_TAREFA} clientesParaLinha={clientesParaLinha}
                 projetosDe={projetosDe} usuarios={usuarios}
                 contatosDe={contatosDe} carregarContatos={carregarContatos}
                 nomeUsuario={nomeUsuario} nomeCliente={nomeCliente} nomeProjeto={nomeProjeto}
@@ -313,7 +310,7 @@ interface RowProps {
   ehNova: boolean;
   edit: { id: string; campo: Campo } | null;
   setEdit: (e: { id: string; campo: Campo } | null) => void;
-  statuses: Opcao[];
+  statuses: readonly string[];
   clientesParaLinha: (l: Linha) => Cliente[];
   projetosDe: (clienteId: string) => Projeto[];
   usuarios: Usuario[];
@@ -393,7 +390,7 @@ function Row(p: RowProps) {
           onChange={(e) => { onCampo('status', e.target.value); fechar(); }}
           onBlur={fechar}>
           <option value="">—</option>
-          {p.statuses.map((s) => <option key={s.id} value={s.valor}>{s.valor}</option>)}
+          {p.statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       );
     }

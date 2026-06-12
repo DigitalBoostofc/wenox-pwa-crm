@@ -21,6 +21,7 @@ export interface Tarefa {
   aprovacao?: '' | 'aprovada' | 'alteracao';
   prazo?: string;
   prioridade?: 'alta' | 'media' | 'baixa';
+  recorrencia?: '' | 'semanal' | 'quinzenal' | 'mensal';
   checklist?: ItemChecklist[];
   etiquetas?: string[];
   ordem?: number;
@@ -42,6 +43,12 @@ export interface Tarefa {
     contato?: { id: string; nome?: string; cargo?: string };
   };
 }
+
+export const RECORRENCIA_LABEL = {
+  semanal: 'Semanal',
+  quinzenal: 'Quinzenal',
+  mensal: 'Mensal',
+} as const;
 
 export type TarefaInput = Omit<
   Tarefa,

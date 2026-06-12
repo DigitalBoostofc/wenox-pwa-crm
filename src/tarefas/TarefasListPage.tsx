@@ -8,8 +8,7 @@ import { statusTarefaClass } from './format';
 import { MinhaSemanaList } from './MinhaSemanaList';
 import type { TipoAgrupamento } from './MinhaSemanaList';
 import { QuickAddTarefa } from './QuickAddTarefa';
-import { listOpcoes } from '@/opcoes/opcoesService';
-import type { Opcao } from '@/opcoes/types';
+import { STATUS_TAREFA, STATUS_CONCLUIDO, STATUS_INICIAL } from './status';
 import { useAuth } from '@/auth/useAuth';
 import { ehCliente } from '@/auth/perms';
 import { Card } from '@/components/ui/card';
@@ -88,16 +87,6 @@ function ViewToggleBtn({ ativo, onClick, icon: Icon, label }: {
   );
 }
 
-/** Deriva o status "concluído": primeiro cujo lowercase contém 'conclu'. */
-function derivarStatusConcluido(opcoes: Opcao[]): string {
-  return opcoes.find((o) => o.valor.toLowerCase().includes('conclu'))?.valor ?? 'Concluída';
-}
-
-/** Deriva o status "aberto": primeiro da lista. */
-function derivarStatusAberto(opcoes: Opcao[]): string {
-  return opcoes[0]?.valor ?? 'A fazer';
-}
-
 /* -------------------------------------------------------------------------- */
 /*  Página principal                                                           */
 /* -------------------------------------------------------------------------- */
@@ -109,7 +98,6 @@ export function TarefasListPage() {
   const [escopo, setEscopo] = useState<Escopo>('minhas');
   const [view, setView] = useState<ViewMode>(carregarView);
   const [agrupar, setAgrupar] = useState<TipoAgrupamento>(carregarAgrupar);
-  const [statuses, setStatuses] = useState<Opcao[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -118,10 +106,6 @@ export function TarefasListPage() {
   const [sheetId, setSheetId] = useState<string | null>(null);
 
   const isCliente = ehCliente(user?.role);
-
-  useEffect(() => {
-    listOpcoes('status_tarefa').then(setStatuses);
-  }, []);
 
   useEffect(() => {
     if (isCliente) return; // PortalClienteTarefas cuida do fetch do cliente
@@ -173,10 +157,9 @@ export function TarefasListPage() {
   }
 
   async function handleConcluir(id: string) {
-    const statusConcluido = derivarStatusConcluido(statuses);
-    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusConcluido } : t)));
+    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: STATUS_CONCLUIDO } : t)));
     try {
-      await concluirTarefa(id, statusConcluido);
+      await concluirTarefa(id, STATUS_CONCLUIDO);
     } catch {
       setErro('Não foi possível concluir a tarefa.');
       setRecarrega((n) => n + 1);
@@ -184,10 +167,9 @@ export function TarefasListPage() {
   }
 
   async function handleReabrir(id: string) {
-    const statusAberto = derivarStatusAberto(statuses);
-    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusAberto } : t)));
+    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: STATUS_INICIAL } : t)));
     try {
-      await reabrirTarefa(id, statusAberto);
+      await reabrirTarefa(id, STATUS_INICIAL);
     } catch {
       setErro('Não foi possível reabrir a tarefa.');
       setRecarrega((n) => n + 1);
@@ -303,7 +285,7 @@ export function TarefasListPage() {
             </div>
           </Card>
         ) : (
-          <KanbanTarefas tarefas={tarefas} statuses={statuses} onAbrir={abrir} onMover={mover} />
+          <KanbanTarefas tarefas={tarefas} statuses={STATUS_TAREFA} onAbrir={abrir} onMover={mover} />
         )
       ) : (
         <div className="flex flex-col gap-3">
@@ -314,7 +296,7 @@ export function TarefasListPage() {
             onConcluir={handleConcluir}
             onReabrir={handleReabrir}
             agrupar={agrupar}
-            statuses={statuses.map((s) => s.valor)}
+            statuses={[...STATUS_TAREFA]}
           />
         </div>
       )}
@@ -341,23 +323,11 @@ export function TarefasListPage() {
 
 function KanbanTarefas({ tarefas, statuses, onAbrir, onMover }: {
   tarefas: Tarefa[];
-  statuses: Opcao[];
+  statuses: readonly string[];
   onAbrir: (id: string) => void;
   onMover: (id: string, status: string) => Promise<void>;
 }) {
-  if (statuses.length === 0) {
-    return (
-      <Card>
-        <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
-          <Columns3 className="size-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Cadastre os status das tarefas em <em>Configurações → Parâmetros</em>.
-          </p>
-        </div>
-      </Card>
-    );
-  }
-  const nomes = statuses.map((s) => s.valor);
+  const nomes = statuses;
   const buckets = new Map<string, Tarefa[]>();
   for (const n of nomes) buckets.set(n, []);
   const semStatus: Tarefa[] = [];

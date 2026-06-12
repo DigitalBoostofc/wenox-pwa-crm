@@ -160,6 +160,7 @@ export function TarefasListPage() {
     setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: STATUS_CONCLUIDO } : t)));
     try {
       await concluirTarefa(id, STATUS_CONCLUIDO);
+      setRecarrega((n) => n + 1);
     } catch {
       setErro('Não foi possível concluir a tarefa.');
       setRecarrega((n) => n + 1);
@@ -170,6 +171,7 @@ export function TarefasListPage() {
     setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: STATUS_INICIAL } : t)));
     try {
       await reabrirTarefa(id, STATUS_INICIAL);
+      setRecarrega((n) => n + 1);
     } catch {
       setErro('Não foi possível reabrir a tarefa.');
       setRecarrega((n) => n + 1);

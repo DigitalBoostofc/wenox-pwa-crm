@@ -6,10 +6,12 @@ import type { Tarefa } from './types';
 import { TarefaCard } from './TarefaCard';
 import { statusTarefaClass } from './format';
 import { MinhaSemanaList } from './MinhaSemanaList';
+import type { TipoAgrupamento } from './MinhaSemanaList';
 import { QuickAddTarefa } from './QuickAddTarefa';
 import { listOpcoes } from '@/opcoes/opcoesService';
 import type { Opcao } from '@/opcoes/types';
 import { useAuth } from '@/auth/useAuth';
+import { ehCliente } from '@/auth/perms';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +19,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { HeaderSlot } from '@/components/layout/HeaderSlot';
 import { cn } from '@/lib/utils';
 import { TarefaSheet } from './TarefaSheet';
+import { PortalClienteTarefas } from './PortalClienteTarefas';
+
+/* -------------------------------------------------------------------------- */
+/*  Persistência de preferências                                               */
+/* -------------------------------------------------------------------------- */
 
 type ViewMode = 'lista' | 'kanban';
 const VIEW_KEY = 'wenox-tarefas-view-v1';
@@ -28,6 +35,20 @@ function carregarView(): ViewMode {
   return 'lista';
 }
 
+const AGRUPAR_KEY = 'wenox-tarefas-agrupar-v1';
+const AGRUPAMENTOS_VALIDOS: TipoAgrupamento[] = ['prazo', 'responsavel', 'projeto', 'cliente', 'status'];
+function carregarAgrupar(): TipoAgrupamento {
+  try {
+    const s = localStorage.getItem(AGRUPAR_KEY);
+    if (s && AGRUPAMENTOS_VALIDOS.includes(s as TipoAgrupamento)) return s as TipoAgrupamento;
+  } catch { /* */ }
+  return 'prazo';
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Configuração das opções de escopo e agrupamento                           */
+/* -------------------------------------------------------------------------- */
+
 type Escopo = 'minhas' | 'todas' | 'internas';
 const ESCOPOS: { v: Escopo; label: string }[] = [
   { v: 'minhas', label: 'Minhas' },
@@ -35,13 +56,20 @@ const ESCOPOS: { v: Escopo; label: string }[] = [
   { v: 'internas', label: 'Internas (sem projeto)' },
 ];
 
-function ViewToggleBtn({
-  ativo, onClick, icon: Icon, label,
-}: {
-  ativo: boolean;
-  onClick: () => void;
-  icon: typeof List;
-  label: string;
+const AGRUPAMENTOS: { v: TipoAgrupamento; label: string }[] = [
+  { v: 'prazo', label: 'Prazo' },
+  { v: 'responsavel', label: 'Responsável' },
+  { v: 'projeto', label: 'Projeto' },
+  { v: 'cliente', label: 'Cliente' },
+  { v: 'status', label: 'Status' },
+];
+
+/* -------------------------------------------------------------------------- */
+/*  Componentes auxiliares                                                     */
+/* -------------------------------------------------------------------------- */
+
+function ViewToggleBtn({ ativo, onClick, icon: Icon, label }: {
+  ativo: boolean; onClick: () => void; icon: typeof List; label: string;
 }) {
   return (
     <button
@@ -60,7 +88,7 @@ function ViewToggleBtn({
   );
 }
 
-/** Deriva o status "concluído" das opções: primeiro cujo lowercase contém 'conclu'. */
+/** Deriva o status "concluído": primeiro cujo lowercase contém 'conclu'. */
 function derivarStatusConcluido(opcoes: Opcao[]): string {
   return opcoes.find((o) => o.valor.toLowerCase().includes('conclu'))?.valor ?? 'Concluída';
 }
@@ -70,27 +98,33 @@ function derivarStatusAberto(opcoes: Opcao[]): string {
   return opcoes[0]?.valor ?? 'A fazer';
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Página principal                                                           */
+/* -------------------------------------------------------------------------- */
+
 export function TarefasListPage() {
   const history = useHistory();
   const { user } = useAuth();
   const [busca, setBusca] = useState('');
   const [escopo, setEscopo] = useState<Escopo>('minhas');
   const [view, setView] = useState<ViewMode>(carregarView);
+  const [agrupar, setAgrupar] = useState<TipoAgrupamento>(carregarAgrupar);
   const [statuses, setStatuses] = useState<Opcao[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [recarrega, setRecarrega] = useState(0);
   const seqRef = useRef(0);
-
-  // Painel lateral (TarefaSheet)
   const [sheetId, setSheetId] = useState<string | null>(null);
+
+  const isCliente = ehCliente(user?.role);
 
   useEffect(() => {
     listOpcoes('status_tarefa').then(setStatuses);
   }, []);
 
   useEffect(() => {
+    if (isCliente) return; // PortalClienteTarefas cuida do fetch do cliente
     const seq = ++seqRef.current;
     const q = busca.trim();
     setCarregando(true);
@@ -109,22 +143,23 @@ export function TarefasListPage() {
           if (seq !== seqRef.current) return;
           setErro('Não foi possível carregar as tarefas.');
         })
-        .finally(() => {
-          if (seq === seqRef.current) setCarregando(false);
-        });
+        .finally(() => { if (seq === seqRef.current) setCarregando(false); });
     }, q ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [busca, escopo, user?.id, recarrega]);
+  }, [busca, escopo, user?.id, recarrega, isCliente]);
 
   const trocarView = (v: ViewMode) => {
     setView(v);
     try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ }
   };
 
-  /** Abre o painel lateral em vez de navegar. */
+  const trocarAgrupar = (v: TipoAgrupamento) => {
+    setAgrupar(v);
+    try { localStorage.setItem(AGRUPAR_KEY, v); } catch { /* */ }
+  };
+
   const abrir = (id: string) => setSheetId(id);
 
-  /** Move uma tarefa para outro status (Kanban) — update otimista. */
   async function mover(tarefaId: string, status: string) {
     const alvo = tarefas.find((t) => t.id === tarefaId);
     if (!alvo || alvo.status === status) return;
@@ -137,7 +172,6 @@ export function TarefasListPage() {
     }
   }
 
-  /** Conclui tarefa com update otimista na lista. */
   async function handleConcluir(id: string) {
     const statusConcluido = derivarStatusConcluido(statuses);
     setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusConcluido } : t)));
@@ -149,7 +183,6 @@ export function TarefasListPage() {
     }
   }
 
-  /** Reabre tarefa com update otimista na lista. */
   async function handleReabrir(id: string) {
     const statusAberto = derivarStatusAberto(statuses);
     setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusAberto } : t)));
@@ -161,6 +194,26 @@ export function TarefasListPage() {
     }
   }
 
+  /* ---- Portal do cliente: UI simplificada ---- */
+  if (isCliente) {
+    return (
+      <div className="flex min-w-0 flex-1 flex-col gap-5">
+        <PortalClienteTarefas
+          key={recarrega}
+          clienteId={user?.cliente ?? ''}
+          onAbrir={abrir}
+        />
+        <TarefaSheet
+          tarefaId={sheetId}
+          aberto={sheetId !== null}
+          onClose={() => setSheetId(null)}
+          onMudou={() => setRecarrega((n) => n + 1)}
+        />
+      </div>
+    );
+  }
+
+  /* ---- Interface interna (equipe Wenox) ---- */
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5">
       <HeaderSlot>
@@ -185,22 +238,44 @@ export function TarefasListPage() {
         </div>
       </HeaderSlot>
 
-      {/* Pills de escopo */}
-      <div className="flex gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-visible">
-        {ESCOPOS.map((e) => (
-          <button
-            key={e.v}
-            onClick={() => setEscopo(e.v)}
-            className={cn(
-              'shrink-0 rounded-full border px-3.5 py-1 text-sm transition-colors',
-              escopo === e.v
-                ? 'border-primary/50 bg-primary/15 text-primary'
-                : 'border-border text-muted-foreground hover:bg-secondary',
-            )}
-          >
-            {e.label}
-          </button>
-        ))}
+      {/* Pills de escopo + seletor de agrupamento (só na lista) */}
+      <div className="flex flex-wrap gap-3">
+        <div className="flex gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-visible">
+          {ESCOPOS.map((e) => (
+            <button
+              key={e.v}
+              onClick={() => setEscopo(e.v)}
+              className={cn(
+                'shrink-0 rounded-full border px-3.5 py-1 text-sm transition-colors',
+                escopo === e.v
+                  ? 'border-primary/50 bg-primary/15 text-primary'
+                  : 'border-border text-muted-foreground hover:bg-secondary',
+              )}
+            >
+              {e.label}
+            </button>
+          ))}
+        </div>
+
+        {view === 'lista' && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden lg:overflow-visible">
+            <span className="shrink-0 text-xs text-muted-foreground">Agrupar:</span>
+            {AGRUPAMENTOS.map((ag) => (
+              <button
+                key={ag.v}
+                onClick={() => trocarAgrupar(ag.v)}
+                className={cn(
+                  'shrink-0 rounded-full border px-3 py-0.5 text-xs transition-colors',
+                  agrupar === ag.v
+                    ? 'border-primary/50 bg-primary/15 text-primary'
+                    : 'border-border text-muted-foreground hover:bg-secondary',
+                )}
+              >
+                {ag.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {erro && (
@@ -224,18 +299,11 @@ export function TarefasListPage() {
           <Card>
             <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
               <ListChecks className="size-10 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Nenhuma tarefa neste filtro.
-              </p>
+              <p className="text-sm text-muted-foreground">Nenhuma tarefa neste filtro.</p>
             </div>
           </Card>
         ) : (
-          <KanbanTarefas
-            tarefas={tarefas}
-            statuses={statuses}
-            onAbrir={abrir}
-            onMover={mover}
-          />
+          <KanbanTarefas tarefas={tarefas} statuses={statuses} onAbrir={abrir} onMover={mover} />
         )
       ) : (
         <div className="flex flex-col gap-3">
@@ -245,6 +313,8 @@ export function TarefasListPage() {
             onAbrir={abrir}
             onConcluir={handleConcluir}
             onReabrir={handleReabrir}
+            agrupar={agrupar}
+            statuses={statuses.map((s) => s.valor)}
           />
         </div>
       )}
@@ -255,7 +325,6 @@ export function TarefasListPage() {
         </p>
       )}
 
-      {/* Painel lateral de detalhe */}
       <TarefaSheet
         tarefaId={sheetId}
         aberto={sheetId !== null}
@@ -266,11 +335,11 @@ export function TarefasListPage() {
   );
 }
 
-/* --------------------------------- Kanban --------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*  Kanban                                                                     */
+/* -------------------------------------------------------------------------- */
 
-function KanbanTarefas({
-  tarefas, statuses, onAbrir, onMover,
-}: {
+function KanbanTarefas({ tarefas, statuses, onAbrir, onMover }: {
   tarefas: Tarefa[];
   statuses: Opcao[];
   onAbrir: (id: string) => void;
@@ -317,9 +386,7 @@ function KanbanTarefas({
   );
 }
 
-function ColunaKanban({
-  titulo, statusAlvo, tarefas, onAbrir, onSoltar, destaque,
-}: {
+function ColunaKanban({ titulo, statusAlvo, tarefas, onAbrir, onSoltar, destaque }: {
   titulo: string;
   statusAlvo?: string;
   tarefas: Tarefa[];

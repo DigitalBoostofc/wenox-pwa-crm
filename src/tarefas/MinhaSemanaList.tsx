@@ -7,8 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
+export type TipoAgrupamento = 'prazo' | 'responsavel' | 'projeto' | 'cliente' | 'status';
+
 /* -------------------------------------------------------------------------- */
-/*  Helpers de avatar (padrão de TarefaCard)                                  */
+/*  Helpers de avatar                                                          */
 /* -------------------------------------------------------------------------- */
 
 function iniciais(n?: string): string {
@@ -39,15 +41,13 @@ function dataHoje(): Date {
   return d;
 }
 
-/** Retorna o domingo seguinte ao hoje (ou hoje se for domingo). */
 function domingoSemana(): Date {
   const d = dataHoje();
   d.setDate(d.getDate() + (d.getDay() === 0 ? 0 : 7 - d.getDay()));
   return d;
 }
 
-/** Parse seguro usando as partes YYYY-MM-DD para não sofrer desvio de fuso. */
-function parsePrazo(prazo?: string): Date | null {
+export function parsePrazo(prazo?: string): Date | null {
   if (!prazo) return null;
   const ymd = prazo.slice(0, 10);
   const partes = ymd.split('-').map(Number);
@@ -56,41 +56,7 @@ function parsePrazo(prazo?: string): Date | null {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Tipos e configuração das seções                                            */
-/* -------------------------------------------------------------------------- */
-
-type Secao = 'atrasadas' | 'hoje' | 'semana' | 'depois' | 'semprazo' | 'concluidas';
-
-function secaoDaTarefa(t: Tarefa): Secao {
-  if (tarefaConcluida(t.status)) return 'concluidas';
-  const prazo = parsePrazo(t.prazo);
-  if (!prazo) return 'semprazo';
-  const hoje = dataHoje();
-  const domingo = domingoSemana();
-  if (prazo.getTime() < hoje.getTime()) return 'atrasadas';
-  if (prazo.getTime() === hoje.getTime()) return 'hoje';
-  if (prazo.getTime() <= domingo.getTime()) return 'semana';
-  return 'depois';
-}
-
-interface ConfigSecao {
-  id: Secao;
-  titulo: string;
-  destructive?: boolean;
-  recolhidaInicial?: boolean;
-}
-
-const SECOES: ConfigSecao[] = [
-  { id: 'atrasadas', titulo: 'Atrasadas', destructive: true },
-  { id: 'hoje', titulo: 'Hoje' },
-  { id: 'semana', titulo: 'Esta semana' },
-  { id: 'depois', titulo: 'Depois' },
-  { id: 'semprazo', titulo: 'Sem prazo' },
-  { id: 'concluidas', titulo: 'Concluídas', recolhidaInicial: true },
-];
-
-/* -------------------------------------------------------------------------- */
-/*  Ordenação dentro de cada seção: alta → média/sem → baixa; empate por prazo */
+/*  Ordenação: alta → média/sem → baixa, empate por prazo crescente           */
 /* -------------------------------------------------------------------------- */
 
 function pesoPrioridade(p?: string): number {
@@ -107,6 +73,236 @@ function ordenarSecao(tarefas: Tarefa[]): Tarefa[] {
     const pb = parsePrazo(b.prazo)?.getTime() ?? Infinity;
     return pa - pb;
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Config de seção genérica                                                   */
+/* -------------------------------------------------------------------------- */
+
+interface ConfigSecaoGen {
+  chave: string;
+  titulo: string;
+  /** Seção "Atrasadas" do modo prazo — cabeçalho em destructive. */
+  destructive?: boolean;
+  /** Seções de fallback "sem X" — estilo tracejado. */
+  tracejado?: boolean;
+  recolhidaInicial?: boolean;
+  /** Modos não-prazo: número de tarefas com prazo vencido (badge destructive). */
+  atrasadas?: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Agrupamentos                                                               */
+/* -------------------------------------------------------------------------- */
+
+// ---- prazo ----
+
+type SecaoPrazo = 'atrasadas' | 'hoje' | 'semana' | 'depois' | 'semprazo' | 'concluidas';
+
+const SECOES_PRAZO: { id: SecaoPrazo; titulo: string; destructive?: boolean; recolhidaInicial?: boolean }[] = [
+  { id: 'atrasadas', titulo: 'Atrasadas', destructive: true },
+  { id: 'hoje', titulo: 'Hoje' },
+  { id: 'semana', titulo: 'Esta semana' },
+  { id: 'depois', titulo: 'Depois' },
+  { id: 'semprazo', titulo: 'Sem prazo' },
+  { id: 'concluidas', titulo: 'Concluídas', recolhidaInicial: true },
+];
+
+function secaoPrazo(t: Tarefa): SecaoPrazo {
+  if (tarefaConcluida(t.status)) return 'concluidas';
+  const prazo = parsePrazo(t.prazo);
+  if (!prazo) return 'semprazo';
+  const hoje = dataHoje();
+  const domingo = domingoSemana();
+  if (prazo.getTime() < hoje.getTime()) return 'atrasadas';
+  if (prazo.getTime() === hoje.getTime()) return 'hoje';
+  if (prazo.getTime() <= domingo.getTime()) return 'semana';
+  return 'depois';
+}
+
+function construirGruposPrazo(tarefas: Tarefa[]): { cfg: ConfigSecaoGen; lista: Tarefa[] }[] {
+  const map = new Map<SecaoPrazo, Tarefa[]>();
+  for (const s of SECOES_PRAZO) map.set(s.id, []);
+  for (const t of tarefas) map.get(secaoPrazo(t))!.push(t);
+
+  return SECOES_PRAZO
+    .filter((s) => (map.get(s.id)?.length ?? 0) > 0)
+    .map((s) => ({
+      cfg: { chave: s.id, titulo: s.titulo, destructive: s.destructive, recolhidaInicial: s.recolhidaInicial },
+      lista: map.get(s.id)!,
+    }));
+}
+
+// ---- helpers compartilhados para modos não-prazo ----
+
+function contarAtrasadas(tarefas: Tarefa[]): number {
+  return tarefas.filter((t) => prazoVencido(t.prazo, t.status)).length;
+}
+
+// ---- responsavel ----
+
+function construirGruposResponsavel(tarefas: Tarefa[]): Array<{ cfg: ConfigSecaoGen; lista: Tarefa[] }> {
+  const abertas = tarefas.filter((t) => !tarefaConcluida(t.status));
+  const map = new Map<string, { nome: string; lista: Tarefa[] }>();
+  const semResp: Tarefa[] = [];
+
+  for (const t of abertas) {
+    const resps = responsaveis(t);
+    if (resps.length === 0) {
+      semResp.push(t);
+    } else {
+      for (const r of resps) {
+        if (!map.has(r.id)) map.set(r.id, { nome: r.nome, lista: [] });
+        map.get(r.id)!.lista.push(t);
+      }
+    }
+  }
+
+  const grupos: Array<{ cfg: ConfigSecaoGen; lista: Tarefa[] }> = [...map.entries()]
+    .sort((a, b) => a[1].nome.localeCompare(b[1].nome, 'pt-BR'))
+    .map(([chave, { nome, lista }]) => ({
+      cfg: { chave, titulo: nome, atrasadas: contarAtrasadas(lista) },
+      lista,
+    }));
+
+  if (semResp.length > 0) {
+    grupos.push({
+      cfg: {
+        chave: '__sem_responsavel',
+        titulo: '⚠ Sem responsável',
+        tracejado: true,
+        atrasadas: contarAtrasadas(semResp),
+      },
+      lista: semResp,
+    });
+  }
+
+  return grupos;
+}
+
+// ---- projeto ----
+
+function construirGruposProjeto(tarefas: Tarefa[]): Array<{ cfg: ConfigSecaoGen; lista: Tarefa[] }> {
+  const abertas = tarefas.filter((t) => !tarefaConcluida(t.status));
+  const map = new Map<string, { titulo: string; lista: Tarefa[] }>();
+  const internas: Tarefa[] = [];
+
+  for (const t of abertas) {
+    const proj = t.expand?.projeto;
+    if (!proj) {
+      internas.push(t);
+      continue;
+    }
+    const chave = proj.id;
+    if (!map.has(chave)) {
+      const cli = t.expand?.cliente;
+      const nomeCliente = cli?.nome_fantasia ?? cli?.nome;
+      const titulo = nomeCliente ? `${proj.nome} — ${nomeCliente}` : (proj.nome ?? chave);
+      map.set(chave, { titulo, lista: [] });
+    }
+    map.get(chave)!.lista.push(t);
+  }
+
+  const grupos: Array<{ cfg: ConfigSecaoGen; lista: Tarefa[] }> = [...map.entries()]
+    .sort((a, b) => a[1].titulo.localeCompare(b[1].titulo, 'pt-BR'))
+    .map(([chave, { titulo, lista }]) => ({
+      cfg: { chave, titulo, atrasadas: contarAtrasadas(lista) },
+      lista,
+    }));
+
+  if (internas.length > 0) {
+    grupos.push({
+      cfg: {
+        chave: '__internas',
+        titulo: 'Internas / avulsas',
+        tracejado: true,
+        atrasadas: contarAtrasadas(internas),
+      },
+      lista: internas,
+    });
+  }
+
+  return grupos;
+}
+
+// ---- cliente ----
+
+function construirGruposCliente(tarefas: Tarefa[]): Array<{ cfg: ConfigSecaoGen; lista: Tarefa[] }> {
+  const abertas = tarefas.filter((t) => !tarefaConcluida(t.status));
+  const map = new Map<string, { titulo: string; lista: Tarefa[] }>();
+  const internas: Tarefa[] = [];
+
+  for (const t of abertas) {
+    const cli = t.expand?.cliente;
+    if (!cli) {
+      internas.push(t);
+      continue;
+    }
+    const chave = cli.id;
+    if (!map.has(chave)) {
+      map.set(chave, { titulo: cli.nome_fantasia ?? cli.nome ?? chave, lista: [] });
+    }
+    map.get(chave)!.lista.push(t);
+  }
+
+  const grupos: Array<{ cfg: ConfigSecaoGen; lista: Tarefa[] }> = [...map.entries()]
+    .sort((a, b) => a[1].titulo.localeCompare(b[1].titulo, 'pt-BR'))
+    .map(([chave, { titulo, lista }]) => ({
+      cfg: { chave, titulo, atrasadas: contarAtrasadas(lista) },
+      lista,
+    }));
+
+  if (internas.length > 0) {
+    grupos.push({
+      cfg: {
+        chave: '__internas',
+        titulo: 'Internas',
+        tracejado: true,
+        atrasadas: contarAtrasadas(internas),
+      },
+      lista: internas,
+    });
+  }
+
+  return grupos;
+}
+
+// ---- status ----
+
+function construirGruposStatus(
+  tarefas: Tarefa[],
+  ordemStatus: string[],
+): Array<{ cfg: ConfigSecaoGen; lista: Tarefa[] }> {
+  const abertas = tarefas.filter((t) => !tarefaConcluida(t.status));
+  const map = new Map<string, Tarefa[]>();
+  for (const s of ordemStatus) map.set(s, []);
+  const semStatus: Tarefa[] = [];
+
+  for (const t of abertas) {
+    if (t.status && map.has(t.status)) map.get(t.status)!.push(t);
+    else semStatus.push(t);
+  }
+
+  const grupos: Array<{ cfg: ConfigSecaoGen; lista: Tarefa[] }> = ordemStatus
+    .filter((s) => (map.get(s)?.length ?? 0) > 0)
+    .map((s) => ({
+      cfg: { chave: s, titulo: s, atrasadas: contarAtrasadas(map.get(s)!) },
+      lista: map.get(s)!,
+    }));
+
+  if (semStatus.length > 0) {
+    grupos.push({
+      cfg: {
+        chave: '__sem_status',
+        titulo: 'Sem status',
+        tracejado: true,
+        atrasadas: contarAtrasadas(semStatus),
+      },
+      lista: semStatus,
+    });
+  }
+
+  return grupos;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -132,15 +328,11 @@ function IconePrioridade({ prioridade }: { prioridade?: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Componente de checkbox circular                                            */
+/*  Checkbox circular                                                          */
 /* -------------------------------------------------------------------------- */
 
-function LinhaCheckbox({
-  concluida, otimista, onToggle,
-}: {
-  concluida: boolean;
-  otimista: boolean;
-  onToggle: () => void;
+function LinhaCheckbox({ concluida, otimista, onToggle }: {
+  concluida: boolean; otimista: boolean; onToggle: () => void;
 }) {
   const marcada = concluida || otimista;
   return (
@@ -150,9 +342,7 @@ function LinhaCheckbox({
       aria-label={marcada ? 'Reabrir tarefa' : 'Concluir tarefa'}
       className={cn(
         'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-        marcada
-          ? 'border-emerald-500 bg-emerald-500 text-white'
-          : 'border-border hover:border-emerald-400',
+        marcada ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-border hover:border-emerald-400',
       )}
     >
       {marcada && (
@@ -168,9 +358,7 @@ function LinhaCheckbox({
 /*  Linha de tarefa                                                            */
 /* -------------------------------------------------------------------------- */
 
-function LinhaTarefa({
-  t, onAbrir, onConcluir, onReabrir,
-}: {
+function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
   t: Tarefa;
   onAbrir: (id: string) => void;
   onConcluir: (id: string) => void;
@@ -191,8 +379,7 @@ function LinhaTarefa({
 
   function handleToggle() {
     setOtimista((v) => !v);
-    if (concluida) onReabrir(t.id);
-    else onConcluir(t.id);
+    if (concluida) onReabrir(t.id); else onConcluir(t.id);
   }
 
   return (
@@ -207,49 +394,34 @@ function LinhaTarefa({
         (concluida || otimista) && 'opacity-60',
       )}
     >
-      {/* Checkbox */}
       <LinhaCheckbox concluida={concluida} otimista={otimista} onToggle={handleToggle} />
 
-      {/* Ícone de prioridade + nome + contexto */}
       <div className="min-w-0 flex-1">
         <span className="flex items-center gap-1">
           <IconePrioridade prioridade={t.prioridade} />
-          <span className={cn(
-            'font-medium leading-snug',
-            (concluida || otimista) && 'line-through',
-          )}>
+          <span className={cn('font-medium leading-snug', (concluida || otimista) && 'line-through')}>
             {t.nome}
           </span>
         </span>
-        {contexto && (
-          <span className="block text-xs text-muted-foreground">{contexto}</span>
-        )}
+        {contexto && <span className="block text-xs text-muted-foreground">{contexto}</span>}
       </div>
 
-      {/* Badges + checklist + prazo + avatares */}
       <div className="flex flex-wrap items-center gap-2">
         {t.status && (
           <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>
             {t.status}
           </Badge>
         )}
-
         {checkTotal > 0 && (
           <span className="text-[11px] text-muted-foreground">
             ✓ {checkFeitos}/{checkTotal}
           </span>
         )}
-
         {t.prazo && (
-          <span className={cn(
-            'text-[11px]',
-            vencida ? 'font-medium text-destructive' : 'text-muted-foreground',
-          )}>
+          <span className={cn('text-[11px]', vencida ? 'font-medium text-destructive' : 'text-muted-foreground')}>
             {dataBR(t.prazo)}
           </span>
         )}
-
-        {/* Avatares */}
         <div className="flex -space-x-2">
           {resps.length === 0 ? (
             <span className="grid size-6 place-items-center rounded-full border-2 border-card bg-secondary text-muted-foreground">
@@ -260,10 +432,7 @@ function LinhaTarefa({
               <div
                 key={r.id}
                 title={r.nome}
-                className={cn(
-                  'grid size-6 place-items-center rounded-full border-2 border-card text-[9px] font-bold text-white',
-                  corAvatar(r.nome),
-                )}
+                className={cn('grid size-6 place-items-center rounded-full border-2 border-card text-[9px] font-bold text-white', corAvatar(r.nome))}
               >
                 {iniciais(r.nome)}
               </div>
@@ -276,56 +445,49 @@ function LinhaTarefa({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Seção                                                                      */
+/*  Seção genérica                                                             */
 /* -------------------------------------------------------------------------- */
 
-function SecaoTarefas({
-  config, tarefas, onAbrir, onConcluir, onReabrir,
-}: {
-  config: ConfigSecao;
+function SecaoTarefas({ cfg, tarefas, onAbrir, onConcluir, onReabrir }: {
+  cfg: ConfigSecaoGen;
   tarefas: Tarefa[];
   onAbrir: (id: string) => void;
   onConcluir: (id: string) => void;
   onReabrir: (id: string) => void;
 }) {
-  const [aberta, setAberta] = useState(!config.recolhidaInicial);
+  const [aberta, setAberta] = useState(!cfg.recolhidaInicial);
   const ordenadas = ordenarSecao(tarefas);
 
   return (
-    <div className="flex flex-col">
+    <div className={cn('flex flex-col', cfg.tracejado && 'border-t border-dashed border-muted-foreground/30')}>
       <button
         type="button"
         onClick={() => setAberta((v) => !v)}
         className={cn(
-          'flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide',
-          config.destructive ? 'text-destructive' : 'text-muted-foreground',
-          'hover:text-foreground transition-colors',
+          'flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:text-foreground',
+          cfg.destructive ? 'text-destructive' : cfg.tracejado ? 'text-muted-foreground/70' : 'text-muted-foreground',
         )}
       >
-        {aberta
-          ? <ChevronDown className="size-3.5" />
-          : <ChevronRight className="size-3.5" />}
-        <span>{config.titulo}</span>
+        {aberta ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+        <span>{cfg.titulo}</span>
         <span className={cn(
           'rounded-full px-1.5 py-0.5 text-[10px] font-bold',
-          config.destructive
-            ? 'bg-destructive/15 text-destructive'
-            : 'bg-secondary text-muted-foreground',
+          cfg.destructive ? 'bg-destructive/15 text-destructive' : 'bg-secondary text-muted-foreground',
         )}>
           {tarefas.length}
         </span>
+        {/* Badge "N atrasadas" para modos não-prazo */}
+        {(cfg.atrasadas ?? 0) > 0 && (
+          <span className="rounded-full border border-destructive/50 bg-destructive/15 px-1.5 py-0.5 text-[10px] font-bold text-destructive">
+            {cfg.atrasadas} atrasada{cfg.atrasadas !== 1 ? 's' : ''}
+          </span>
+        )}
       </button>
 
       {aberta && (
         <div className="flex flex-col divide-y divide-border/40">
           {ordenadas.map((t) => (
-            <LinhaTarefa
-              key={t.id}
-              t={t}
-              onAbrir={onAbrir}
-              onConcluir={onConcluir}
-              onReabrir={onReabrir}
-            />
+            <LinhaTarefa key={t.id} t={t} onAbrir={onAbrir} onConcluir={onConcluir} onReabrir={onReabrir} />
           ))}
         </div>
       )}
@@ -342,19 +504,27 @@ export function MinhaSemanaList({
   onAbrir,
   onConcluir,
   onReabrir,
+  agrupar = 'prazo',
+  statuses = [],
 }: {
   tarefas: Tarefa[];
   onAbrir: (id: string) => void;
   onConcluir: (id: string) => void;
   onReabrir: (id: string) => void;
+  agrupar?: TipoAgrupamento;
+  statuses?: string[];
 }) {
-  const grupos = new Map<Secao, Tarefa[]>();
-  for (const cfg of SECOES) grupos.set(cfg.id, []);
-  for (const t of tarefas) grupos.get(secaoDaTarefa(t))!.push(t);
+  let grupos: { cfg: ConfigSecaoGen; lista: Tarefa[] }[];
 
-  const secoesVisiveis = SECOES.filter((cfg) => (grupos.get(cfg.id)?.length ?? 0) > 0);
+  switch (agrupar) {
+    case 'responsavel': grupos = construirGruposResponsavel(tarefas); break;
+    case 'projeto':     grupos = construirGruposProjeto(tarefas); break;
+    case 'cliente':     grupos = construirGruposCliente(tarefas); break;
+    case 'status':      grupos = construirGruposStatus(tarefas, statuses); break;
+    default:            grupos = construirGruposPrazo(tarefas); break;
+  }
 
-  if (secoesVisiveis.length === 0) {
+  if (grupos.length === 0) {
     return (
       <Card>
         <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
@@ -367,11 +537,11 @@ export function MinhaSemanaList({
 
   return (
     <Card className="divide-y divide-border/40">
-      {secoesVisiveis.map((cfg) => (
+      {grupos.map(({ cfg, lista }) => (
         <SecaoTarefas
-          key={cfg.id}
-          config={cfg}
-          tarefas={grupos.get(cfg.id)!}
+          key={cfg.chave}
+          cfg={cfg}
+          tarefas={lista}
           onAbrir={onAbrir}
           onConcluir={onConcluir}
           onReabrir={onReabrir}

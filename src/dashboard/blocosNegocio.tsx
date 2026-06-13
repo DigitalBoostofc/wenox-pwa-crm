@@ -383,9 +383,19 @@ export function ValidacaoPendenteBloco() {
         <Card className="divide-y divide-border/40">
           {linhas.map(({ t, etapa }) => {
             const data = dataCor(etapa.prazo);
+            const cli = t.expand?.cliente;
+            const cliNome = cli?.nome_fantasia ?? cli?.nome ?? 'Sem cliente';
             return (
               <button key={t.id} type="button" onClick={() => setSheetId(t.id)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50">
+                {cli?.logo ? (
+                  <img src={logoUrl(cli as never, '100x100')} alt={cliNome} loading="lazy"
+                    className="size-8 shrink-0 rounded-lg object-cover" />
+                ) : (
+                  <div className={cn('grid size-8 shrink-0 place-items-center rounded-lg text-xs font-bold text-white', corAvatar(cliNome))}>
+                    {inicial(cliNome)}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{t.nome}</p>
                   <div className="flex flex-wrap items-center gap-1.5">

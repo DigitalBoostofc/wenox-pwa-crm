@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react';
-import { useHistory } from 'react-router-dom';
 import { Plus, Search, ListChecks, List, Columns3 } from 'lucide-react';
 import { listTarefas, moverTarefaStatus, concluirTarefa, reabrirTarefa } from './tarefasService';
 import type { Tarefa } from './types';
@@ -92,7 +91,6 @@ function ViewToggleBtn({ ativo, onClick, icon: Icon, label }: {
 /* -------------------------------------------------------------------------- */
 
 export function TarefasListPage() {
-  const history = useHistory();
   const { user } = useAuth();
   const [busca, setBusca] = useState('');
   const [escopo, setEscopo] = useState<Escopo>('minhas');
@@ -104,6 +102,7 @@ export function TarefasListPage() {
   const [recarrega, setRecarrega] = useState(0);
   const seqRef = useRef(0);
   const [sheetId, setSheetId] = useState<string | null>(null);
+  const [criando, setCriando] = useState(false);
 
   const isCliente = ehCliente(user?.role);
 
@@ -216,7 +215,7 @@ export function TarefasListPage() {
             <ViewToggleBtn ativo={view === 'lista'} onClick={() => trocarView('lista')} icon={List} label="Lista" />
             <ViewToggleBtn ativo={view === 'kanban'} onClick={() => trocarView('kanban')} icon={Columns3} label="Kanban" />
           </div>
-          <Button size="sm" onClick={() => history.push('/tarefas/nova')}>
+          <Button size="sm" onClick={() => setCriando(true)}>
             <Plus /> Nova tarefa
           </Button>
         </div>
@@ -310,9 +309,10 @@ export function TarefasListPage() {
       )}
 
       <TarefaSheet
-        tarefaId={sheetId}
-        aberto={sheetId !== null}
-        onClose={() => setSheetId(null)}
+        tarefaId={criando ? null : sheetId}
+        aberto={criando || sheetId !== null}
+        criar={criando}
+        onClose={() => { setCriando(false); setSheetId(null); }}
         onMudou={() => setRecarrega((n) => n + 1)}
       />
     </div>

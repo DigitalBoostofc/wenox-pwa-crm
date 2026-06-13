@@ -37,8 +37,6 @@ const DashboardPage = lazy(() =>
   import('@/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const TarefasListPage = lazy(() =>
   import('@/tarefas/TarefasListPage').then((m) => ({ default: m.TarefasListPage })));
-const TarefaFormPage = lazy(() =>
-  import('@/tarefas/TarefaFormPage').then((m) => ({ default: m.TarefaFormPage })));
 const TarefaDetailPage = lazy(() =>
   import('@/tarefas/TarefaDetailPage').then((m) => ({ default: m.TarefaDetailPage })));
 const PrivacidadePage = lazy(() =>
@@ -161,17 +159,9 @@ function AuthedApp() {
             <Protegido modulo="tarefas"><TarefasListPage /></Protegido>
           </Route>
           <Route exact path="/tarefas/nova">
-            <Protegido modulo="tarefas"><TarefaFormPage /></Protegido>
+            <Redirect to="/tarefas" />
           </Route>
-          <Route
-            exact
-            path="/tarefas/:id/editar"
-            render={(props) => (
-              <Protegido modulo="tarefas">
-                <TarefaFormPage id={(props.match.params as { id: string }).id} />
-              </Protegido>
-            )}
-          />
+          <Route exact path="/tarefas/:id/editar" render={(props) => <Redirect to={`/tarefas/${(props.match.params as { id: string }).id}`} />} />
           <Route
             exact
             path="/tarefas/:id"
@@ -237,14 +227,10 @@ function ClienteApp({ clienteId }: { clienteId: string }) {
               )}
             />
             <Route exact path="/tarefas" component={TarefasListPage} />
-            <Route exact path="/tarefas/nova" component={TarefaFormPage} />
-            <Route
-              exact
-              path="/tarefas/:id/editar"
-              render={(props) => (
-                <TarefaFormPage id={(props.match.params as { id: string }).id} />
-              )}
-            />
+            <Route exact path="/tarefas/nova">
+              <Redirect to="/tarefas" />
+            </Route>
+            <Route exact path="/tarefas/:id/editar" render={(props) => <Redirect to={`/tarefas/${(props.match.params as { id: string }).id}`} />} />
             <Route
               exact
               path="/tarefas/:id"

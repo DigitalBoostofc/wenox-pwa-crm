@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Trash2, ExternalLink, Check, X, Plus } from 'lucide-react';
 import {
-  getTarefa, atualizarTarefa, removerTarefa,
+  getTarefa, atualizarTarefa, removerTarefa, criarTarefa,
 } from './tarefasService';
-import type { Tarefa } from './types';
+import type { Tarefa, TarefaInput } from './types';
 import { RECORRENCIA_LABEL } from './types';
 import { statusTarefaClass } from './format';
-import { STATUS_TAREFA } from './status';
+import { STATUS_TAREFA, STATUS_INICIAL } from './status';
 import { AprovacaoTarefa } from './TarefaDetailPage';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { listProjetos } from '@/projetos/projetosService';
@@ -44,21 +44,38 @@ function RotuloCampo({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Retorna a data de hoje em YYYY-MM-DD usando partes locais (sem toISOString). */
+function hojeLocal(): string {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 export function TarefaSheet({
-  tarefaId, aberto, onClose, onMudou,
+  tarefaId, aberto, onClose, onMudou, criar, presetProjeto, presetCliente,
 }: {
   tarefaId: string | null;
   aberto: boolean;
   onClose: () => void;
   onMudou: () => void;
+  criar?: boolean;
+  presetProjeto?: string;
+  presetCliente?: string;
 }) {
   const history = useHistory();
   const { user } = useAuth();
   const souCliente = ehCliente(user?.role);
 
+  /** true = painel em modo rascunho (criação); false = edição de tarefa existente. */
+  const modoRascunho = !!criar;
+
   const [t, setT] = useState<Tarefa | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erroSalvo, setErroSalvo] = useState('');
+  const [salvandoCriar, setSalvandoCriar] = useState(false);
 
   // Listas de suporte
   const [projetos, setProjetos] = useState<Projeto[]>([]);
@@ -71,6 +88,9 @@ export function TarefaSheet({
   const [novoItemChecklist, setNovoItemChecklist] = useState('');
   const inputTagRef = useRef<HTMLInputElement>(null);
 
+  // Guarda se o rascunho já foi inicializado nesta abertura
+  const rascunhoIniciado = useRef(false);
+
   // Carrega listas de suporte uma única vez
   useEffect(() => {
     listProjetos().then(setProjetos);
@@ -78,16 +98,47 @@ export function TarefaSheet({
     listUsuarios().then(setUsuarios as never);
   }, []);
 
-  // Carrega/recarrega a tarefa ao abrir
+  // Inicializa rascunho ou carrega tarefa existente ao abrir
   useEffect(() => {
-    if (!aberto || !tarefaId) { setT(null); return; }
+    if (!aberto) {
+      setT(null);
+      rascunhoIniciado.current = false;
+      return;
+    }
+
+    if (modoRascunho) {
+      if (rascunhoIniciado.current) return; // evita reset quando projetos recarregam
+      rascunhoIniciado.current = true;
+      const projetoPreset = projetos.find((p) => p.id === presetProjeto);
+      const clienteId = projetoPreset?.cliente ?? presetCliente ?? '';
+      setT({
+        id: '',
+        nome: '',
+        status: STATUS_INICIAL,
+        prazo: hojeLocal(),
+        projeto: presetProjeto ?? '',
+        cliente: clienteId,
+        lado: 'wenox',
+        responsaveis: user?.id ? [user.id] : [],
+        contato: '',
+        checklist: [],
+        etiquetas: [],
+        descricao: '',
+        recorrencia: '',
+      });
+      return;
+    }
+
+    if (!tarefaId) { setT(null); return; }
     setCarregando(true);
     setErroSalvo('');
     getTarefa(tarefaId).then((rec) => {
       setT(rec as Tarefa);
       setCarregando(false);
     }).catch(() => setCarregando(false));
-  }, [aberto, tarefaId]);
+  // projetos na dep: necessário para derivar cliente quando projetos carregam antes do init
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aberto, modoRascunho, tarefaId, projetos, presetProjeto, presetCliente, user?.id]);
 
   // Carrega contatos quando o cliente muda
   useEffect(() => {
@@ -98,9 +149,16 @@ export function TarefaSheet({
 
   // ---------- helpers ----------
 
-  /** Atualiza estado local e persiste um campo com auto-save otimista. */
+  /**
+   * Modo edição: atualiza estado local otimistamente e persiste via API.
+   * Modo rascunho: apenas merge local, sem chamada à API.
+   */
   async function salvarCampo(parcial: Partial<Tarefa>) {
     if (!t) return;
+    if (modoRascunho) {
+      setT({ ...t, ...parcial });
+      return;
+    }
     const anterior = t;
     setT({ ...t, ...parcial });
     setErroSalvo('');
@@ -174,6 +232,7 @@ export function TarefaSheet({
     } else {
       const proj = projetos.find((p) => p.id === projetoId);
       const clienteId = proj?.cliente ?? '';
+      // Atualiza estado local (merge direto para preservar regras de cascata)
       setT((prev) => prev ? {
         ...prev,
         projeto: projetoId,
@@ -183,6 +242,8 @@ export function TarefaSheet({
           projeto: proj ? { id: proj.id, nome: proj.nome } : undefined,
         },
       } : prev);
+      if (modoRascunho) return;
+      // Modo edição: persiste via API
       setErroSalvo('');
       try {
         const atualizado = await atualizarTarefa(t!.id, { projeto: projetoId, cliente: clienteId });
@@ -263,6 +324,38 @@ export function TarefaSheet({
     onMudou();
   }
 
+  /** Confirma a criação da tarefa a partir do rascunho local. */
+  async function confirmarCriacao() {
+    if (!t || !t.nome.trim()) return;
+    setSalvandoCriar(true);
+    setErroSalvo('');
+    try {
+      const input: TarefaInput = {
+        nome: t.nome.trim(),
+        descricao: t.descricao ?? '',
+        projeto: t.projeto ?? '',
+        cliente: t.cliente ?? '',
+        lado: t.lado ?? 'wenox',
+        responsaveis: t.responsaveis ?? [],
+        contato: t.contato ?? '',
+        status: t.status ?? STATUS_INICIAL,
+        prazo: t.prazo ?? '',
+        prioridade: t.prioridade,
+        recorrencia: t.recorrencia ?? '',
+        etiquetas: t.etiquetas ?? [],
+        checklist: t.checklist ?? [],
+        ordem: 0,
+      };
+      await criarTarefa(input);
+      onMudou();
+      onClose();
+    } catch (e) {
+      setErroSalvo(e instanceof Error ? e.message : 'Erro ao criar tarefa');
+    } finally {
+      setSalvandoCriar(false);
+    }
+  }
+
   // ---------- render ----------
 
   const checklist = t?.checklist ?? [];
@@ -277,30 +370,32 @@ export function TarefaSheet({
         {/* Topo */}
         <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-3 pr-12">
           <SheetTitle className="truncate text-base">
-            {t?.nome ?? 'Carregando…'}
+            {modoRascunho ? 'Nova tarefa' : (t?.nome ?? 'Carregando…')}
           </SheetTitle>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1 text-xs text-muted-foreground"
-              onClick={() => {
-                if (t) { history.push(`/tarefas/${t.id}`); onClose(); }
-              }}
-            >
-              <ExternalLink className="size-3.5" /> Abrir página completa
-            </Button>
-            {!souCliente && (
+          {!modoRascunho && (
+            <div className="flex shrink-0 items-center gap-1">
               <Button
                 variant="ghost"
                 size="sm"
-                className="gap-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={apagar}
+                className="gap-1 text-xs text-muted-foreground"
+                onClick={() => {
+                  if (t) { history.push(`/tarefas/${t.id}`); onClose(); }
+                }}
               >
-                <Trash2 className="size-3.5" /> Apagar
+                <ExternalLink className="size-3.5" /> Abrir página completa
               </Button>
-            )}
-          </div>
+              {!souCliente && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={apagar}
+                >
+                  <Trash2 className="size-3.5" /> Apagar
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Corpo */}
@@ -328,8 +423,10 @@ export function TarefaSheet({
               {/* 1. Nome */}
               <div>
                 <input
-                  key={`nome-${t.id}`}
+                  key={`nome-${t.id || 'rascunho'}`}
                   defaultValue={t.nome}
+                  // Em rascunho captura cada tecla para habilitar o botão Criar
+                  onChange={modoRascunho ? (e) => salvarCampo({ nome: e.target.value }) : undefined}
                   onBlur={handleNomeBlur}
                   onKeyDown={handleNomeKeyDown}
                   placeholder="Nome da tarefa"
@@ -361,7 +458,7 @@ export function TarefaSheet({
                   <RotuloCampo>Prazo</RotuloCampo>
                   <input
                     type="date"
-                    key={`prazo-${t.id}`}
+                    key={`prazo-${t.id || 'rascunho'}`}
                     defaultValue={(t.prazo ?? '').slice(0, 10)}
                     onChange={handlePrazo}
                     className={cn(inputCls, '[color-scheme:dark]')}
@@ -682,7 +779,7 @@ export function TarefaSheet({
               <div>
                 <RotuloCampo>Descrição</RotuloCampo>
                 <textarea
-                  key={`desc-${t.id}`}
+                  key={`desc-${t.id || 'rascunho'}`}
                   rows={4}
                   defaultValue={t.descricao ?? ''}
                   onBlur={handleDescricaoBlur}
@@ -691,15 +788,32 @@ export function TarefaSheet({
                 />
               </div>
 
-              {/* Bloco de aprovação */}
-              <AprovacaoTarefa
-                t={t}
-                souCliente={souCliente}
-                onMudou={(nova) => { setT(nova as Tarefa); onMudou(); }}
-              />
+              {/* Aprovação e atividade — apenas no modo edição */}
+              {!modoRascunho && (
+                <>
+                  <AprovacaoTarefa
+                    t={t}
+                    souCliente={souCliente}
+                    onMudou={(nova) => { setT(nova as Tarefa); onMudou(); }}
+                  />
+                  <AtividadeFeed entidade="tarefa" refId={t.id} />
+                </>
+              )}
 
-              {/* Feed de atividade */}
-              <AtividadeFeed entidade="tarefa" refId={t.id} />
+              {/* Rodapé do modo rascunho */}
+              {modoRascunho && (
+                <div className="flex gap-2 border-t border-border pt-4">
+                  <Button
+                    onClick={confirmarCriacao}
+                    disabled={salvandoCriar || !t.nome.trim()}
+                  >
+                    {salvandoCriar ? 'Criando…' : 'Criar tarefa'}
+                  </Button>
+                  <Button variant="ghost" onClick={onClose} disabled={salvandoCriar}>
+                    Cancelar
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </div>

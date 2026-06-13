@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
+import { TarefaSheet } from './TarefaSheet';
 import {
   ArrowLeft, Pencil, ListChecks, Trash2, Check, RotateCcw,
 } from 'lucide-react';
@@ -35,6 +36,7 @@ export function TarefaDetailPage({ id: idProp }: { id?: string } = {}) {
   const { user } = useAuth();
   const souCliente = ehCliente(user?.role);
   const [t, setT] = useState<Tarefa | null>(null);
+  const [editando, setEditando] = useState(false);
 
   useEffect(() => {
     if (id) getTarefa(id).then(setT);
@@ -90,10 +92,17 @@ export function TarefaDetailPage({ id: idProp }: { id?: string } = {}) {
             <Trash2 /> Apagar
           </Button>
         )}
-        <Button size="sm" onClick={() => history.push(`/tarefas/${t.id}/editar`)}>
+        <Button size="sm" onClick={() => setEditando(true)}>
           <Pencil /> Editar
         </Button>
       </div>
+
+      <TarefaSheet
+        tarefaId={t.id}
+        aberto={editando}
+        onClose={() => setEditando(false)}
+        onMudou={() => getTarefa(id).then(setT)}
+      />
 
       <AprovacaoTarefa t={t} souCliente={souCliente} onMudou={(nova) => setT(nova)} />
 

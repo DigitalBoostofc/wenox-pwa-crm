@@ -3,7 +3,15 @@ import { criarTarefa } from './tarefasService';
 import { STATUS_INICIAL } from './status';
 import { useAuth } from '@/auth/useAuth';
 
-export function QuickAddTarefa({ onCriada }: { onCriada: () => void }) {
+export function QuickAddTarefa({
+  onCriada,
+  presetProjeto,
+  presetCliente,
+}: {
+  onCriada: () => void;
+  presetProjeto?: string;
+  presetCliente?: string;
+}) {
   const { user } = useAuth();
   const [valor, setValor] = useState('');
   const [erro, setErro] = useState('');
@@ -26,8 +34,8 @@ export function QuickAddTarefa({ onCriada }: { onCriada: () => void }) {
         prazo: hoje,
         lado: 'wenox',
         responsaveis: user?.id ? [user.id] : [],
-        cliente: '',
-        projeto: '',
+        cliente: presetCliente ?? '',
+        projeto: presetProjeto ?? '',
         contato: '',
         descricao: '',
         etiquetas: [],

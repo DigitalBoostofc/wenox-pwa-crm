@@ -7,6 +7,18 @@ vi.mock('@/auth/useAuth', () => ({
   useAuth: () => ({ user: { id: 'u1', email: 'owner@wenox.com.br', role: 'Owner' } }),
 }));
 
+// SidebarNav usa usePermissoes — mockado para rodar sem <PermissoesProvider>.
+// Owner tem acesso a tudo: pode() sempre retorna true.
+vi.mock('@/config/PermissoesProvider', () => ({
+  usePermissoes: () => ({
+    matriz: {},
+    carregando: false,
+    pode: () => true,
+    salvar: async () => {},
+    recarregar: async () => {},
+  }),
+}));
+
 import { SidebarNav } from '@/components/layout/Sidebar';
 import { NAV_ITEMS } from '@/components/layout/nav';
 

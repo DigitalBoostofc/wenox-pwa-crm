@@ -1,6 +1,6 @@
 export const TIPOS_OPCAO = [
   'origem', 'status', 'servico', 'status_contato',
-  'categoria_acesso', 'categoria_documento', 'tipo_projeto', 'status_tarefa',
+  'categoria_acesso', 'categoria_documento', 'tipo_projeto',
 ] as const;
 export type TipoOpcao = (typeof TIPOS_OPCAO)[number];
 
@@ -19,5 +19,4 @@ export const ROTULO_TIPO: Record<TipoOpcao, string> = {
   categoria_acesso: 'Categoria de acesso',
   categoria_documento: 'Categoria de documento',
   tipo_projeto: 'Tipo de projeto',
-  status_tarefa: 'Status da tarefa',
 };

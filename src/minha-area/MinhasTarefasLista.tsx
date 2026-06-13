@@ -5,11 +5,10 @@ import { useAuth } from '@/auth/useAuth';
 import type { Tarefa } from '@/tarefas/types';
 import { TarefaViewSheet } from '@/tarefas/TarefaViewSheet';
 import { statusTarefaClass, prazoVencido, prazoBR, tarefaConcluida, prazoLimite } from '@/tarefas/format';
-import { temEtapas, progressoEtapas } from '@/tarefas/etapas';
 import { STATUS_TAREFA } from '@/tarefas/status';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { logoUrl } from '@/clientes/clientesService';
-import { dataBR, corAvatar, inicial } from '@/clientes/format';
+import { corAvatar, inicial } from '@/clientes/format';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
@@ -24,21 +23,19 @@ const filtroCls =
 
 /* --------------------------------- Colunas -------------------------------- */
 
-type ColKey = 'tarefa' | 'projeto' | 'cliente' | 'status' | 'prazo' | 'prioridade' | 'responsaveis' | 'etapa' | 'criada';
+type ColKey = 'cliente' | 'projeto' | 'tarefa' | 'status' | 'prazo' | 'prioridade' | 'responsaveis';
 interface ColDef { key: ColKey; label: string; visivel: boolean }
 
 const COLS_PADRAO: ColDef[] = [
-  { key: 'tarefa', label: 'Tarefa', visivel: true },
+  { key: 'cliente', label: 'Cliente', visivel: true },
   { key: 'projeto', label: 'Projeto', visivel: true },
-  { key: 'cliente', label: 'Cliente', visivel: false },
+  { key: 'tarefa', label: 'Tarefa', visivel: true },
   { key: 'status', label: 'Status', visivel: true },
   { key: 'prazo', label: 'Prazo', visivel: true },
   { key: 'prioridade', label: 'Prioridade', visivel: true },
   { key: 'responsaveis', label: 'Responsáveis', visivel: true },
-  { key: 'etapa', label: 'Etapas', visivel: false },
-  { key: 'criada', label: 'Criada em', visivel: false },
 ];
-const COL_KEY = 'wenox-minha-lista-colunas-v1';
+const COL_KEY = 'wenox-minha-lista-colunas-v2';
 function carregarColunas(): ColDef[] {
   try {
     const s = localStorage.getItem(COL_KEY);
@@ -241,12 +238,6 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
         </div>
       );
     }
-    if (key === 'etapa') {
-      if (!temEtapas(t)) return <span className="text-muted-foreground">—</span>;
-      const { feitas, total } = progressoEtapas(t.etapas ?? []);
-      return <span className="text-xs text-muted-foreground">{feitas}/{total}</span>;
-    }
-    if (key === 'criada') return <span className="text-muted-foreground">{dataBR(t.created) || '—'}</span>;
     return null;
   }
 

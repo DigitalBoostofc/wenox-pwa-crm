@@ -48,6 +48,8 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
     });
     // Status de tarefas configuráveis: atualiza o cache global (notifica via store).
     import('@/tarefas/status').then((m) => m.carregarStatusRemoto()).catch(() => { /* */ });
+    // Modelos de etapas por tipo de tarefa.
+    import('@/tarefas/etapasPreset').then((m) => m.carregarPresetsRemoto()).catch(() => { /* */ });
     return () => { vivo = false; };
   }, []);
 

@@ -8,6 +8,7 @@ import {
 import type { Tarefa, TarefaInput, EtapaTarefa, TipoEtapa } from './types';
 import { RECORRENCIA_LABEL } from './types';
 import { etapaAtualIndex, progressoEtapas, novaEtapaId } from './etapas';
+import { usePresetsEtapa, presetsDoTipo, type PresetEtapa } from './etapasPreset';
 import { statusTarefaClass, temHoraPrazo } from './format';
 import { useStatuses, statusInicial } from './status';
 import { AprovacaoTarefa } from './TarefaDetailPage';
@@ -65,6 +66,7 @@ function EtapasFluxoEditor({
   setTarefa: setT,
   modoRascunho,
   nomeUsuario,
+  tipoTarefa,
   onMudou,
   setErro,
 }: {
@@ -72,12 +74,16 @@ function EtapasFluxoEditor({
   setTarefa: (t: Tarefa) => void;
   modoRascunho: boolean;
   nomeUsuario: (id: string) => string;
+  /** Tipo da tarefa (do projeto) — define quais etapas-modelo aparecem. */
+  tipoTarefa: string;
   onMudou: () => void;
   setErro: (e: string) => void;
 }) {
   const [novoTexto, setNovoTexto] = useState('');
   const [novoTipo, setNovoTipo] = useState<TipoEtapa>('interna');
   const [novoResp, setNovoResp] = useState('');
+  usePresetsEtapa(); // re-renderiza quando os modelos mudam
+  const presets = presetsDoTipo(tipoTarefa);
 
   const etapas = t.etapas ?? [];
   const { feitas, total } = progressoEtapas(etapas);
@@ -116,6 +122,37 @@ function EtapasFluxoEditor({
 
   function remover(id: string) {
     persistirEtapas(etapas.filter((e) => e.id !== id));
+  }
+
+  /** Insere uma ou mais etapas-modelo, garantindo o responsável na tarefa. */
+  async function inserirPresets(ps: PresetEtapa[]) {
+    if (ps.length === 0) return;
+    const novas: EtapaTarefa[] = ps.map((p) => ({
+      id: novaEtapaId(),
+      texto: p.texto,
+      tipo: p.tipo,
+      responsavel: p.tipo === 'interna' ? (p.responsavel || undefined) : undefined,
+      feito: false,
+    }));
+    const respAtuais = new Set(t.responsaveis ?? []);
+    const addResp: string[] = [];
+    for (const n of novas) {
+      if (n.responsavel && !respAtuais.has(n.responsavel)) { respAtuais.add(n.responsavel); addResp.push(n.responsavel); }
+    }
+    const novosResp = [...(t.responsaveis ?? []), ...addResp];
+    const todas = [...etapas, ...novas];
+    if (modoRascunho) {
+      setT({ ...t, etapas: todas, responsaveis: novosResp });
+      return;
+    }
+    setErro('');
+    try {
+      const atualizada = await salvarEtapas(t, todas, addResp.length ? { responsaveis: novosResp } : {});
+      setT(atualizada);
+      onMudou();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao salvar etapas');
+    }
   }
 
   function mover(idx: number, dir: -1 | 1) {
@@ -341,6 +378,30 @@ function EtapasFluxoEditor({
 
       {/* Adicionar etapa */}
       <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-2">
+        {presets.length > 0 && (
+          <select
+            value=""
+            onChange={(ev) => {
+              const v = ev.target.value;
+              if (v === '__todas__') inserirPresets(presets);
+              else { const p = presets.find((x) => x.id === v); if (p) inserirPresets([p]); }
+              ev.target.value = '';
+            }}
+            className="h-7 rounded border border-primary/40 bg-primary/5 px-2 text-xs text-primary"
+            aria-label="Inserir etapa do modelo"
+          >
+            <option value="">+ Inserir etapa do modelo…</option>
+            <option value="__todas__">★ Aplicar modelo completo ({presets.length})</option>
+            {presets.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.texto}
+                {p.tipo === 'aprovacao_cliente'
+                  ? ' · Aprovação'
+                  : p.responsavel ? ` · ${nomeUsuario(p.responsavel)}` : ''}
+              </option>
+            ))}
+          </select>
+        )}
         <div className="flex gap-2">
           <input
             value={novoTexto}
@@ -1039,6 +1100,7 @@ export function TarefaSheet({
                 setTarefa={setT}
                 modoRascunho={modoRascunho}
                 nomeUsuario={nomeUsuario}
+                tipoTarefa={projetos.find((p) => p.id === t.projeto)?.tipo ?? tipoProjeto ?? ''}
                 onMudou={onMudou}
                 setErro={setErroSalvo}
               />

@@ -266,7 +266,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
                     {col.label}
                     <span role="separator" aria-orientation="vertical" aria-label="Redimensionar"
                       onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)}
-                      className="group absolute -right-1 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center">
+                      className="group absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center">
                       <span aria-hidden className="h-2/3 w-px bg-border transition-colors group-hover:w-0.5 group-hover:bg-primary" />
                     </span>
                   </th>

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { ListChecks, FolderKanban, CheckCircle2, AlarmClock, ClipboardList } from 'lucide-react';
+import { ListChecks, FolderKanban, CheckCircle2, AlarmClock, ClipboardList, Pencil } from 'lucide-react';
 import { useAuth } from '@/auth/useAuth';
+import { pb } from '@/lib/pocketbase';
 import { listTarefas, concluirTarefa, reabrirTarefa } from '@/tarefas/tarefasService';
 import { listProjetos } from '@/projetos/projetosService';
 import type { Tarefa } from '@/tarefas/types';
 import type { Projeto } from '@/projetos/types';
+import type { Usuario } from '@/usuarios/types';
 import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
 import { STATUS_CONCLUIDO, STATUS_INICIAL } from '@/tarefas/status';
 import { MinhaSemanaList } from '@/tarefas/MinhaSemanaList';
@@ -13,8 +15,10 @@ import { QuickAddTarefa } from '@/tarefas/QuickAddTarefa';
 import { TarefaSheet } from '@/tarefas/TarefaSheet';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { MeusDadosSheet } from './MeusDadosSheet';
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers de semana (sem desvio de fuso — usa partes locais)                */
@@ -235,6 +239,74 @@ function StatCard({
         </p>
         <p className="truncate text-xs text-muted-foreground">{rotulo}</p>
       </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  4. MeusDadosBloco                                                          */
+/* -------------------------------------------------------------------------- */
+
+function LinhaDado({ rotulo, valor }: { rotulo: string; valor: string }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="w-24 shrink-0 text-sm text-muted-foreground">{rotulo}</span>
+      <span className="min-w-0 flex-1 truncate text-sm">{valor}</span>
+    </div>
+  );
+}
+
+export function MeusDadosBloco() {
+  const { user } = useAuth();
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [recarrega, setRecarrega] = useState(0);
+  const [aberto, setAberto] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setCarregando(true);
+    pb.collection('usuarios')
+      .getOne(user.id)
+      .then((r) => { setUsuario(r as unknown as Usuario); })
+      .catch(() => null)
+      .finally(() => setCarregando(false));
+  }, [user?.id, recarrega]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold">Meus Dados</h2>
+
+      {carregando ? (
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-5 w-full rounded-md" />
+          <Skeleton className="h-5 w-full rounded-md" />
+          <Skeleton className="h-5 w-3/4 rounded-md" />
+        </div>
+      ) : (
+        <Card className="flex flex-col gap-3 p-4">
+          <LinhaDado rotulo="E-mail"      valor={usuario?.email ?? user?.email ?? '—'} />
+          <LinhaDado rotulo="Telefone"    valor={usuario?.telefone || '—'} />
+          <LinhaDado rotulo="Chave Pix"   valor={usuario?.chave_pix || '—'} />
+          <LinhaDado rotulo="Endereço"    valor={usuario?.endereco || '—'} />
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-1 w-fit gap-2"
+            onClick={() => setAberto(true)}
+          >
+            <Pencil className="size-3.5" />
+            Editar meus dados
+          </Button>
+        </Card>
+      )}
+
+      <MeusDadosSheet
+        aberto={aberto}
+        onClose={() => setAberto(false)}
+        onSalvo={() => { setRecarrega((n) => n + 1); setAberto(false); }}
+      />
     </div>
   );
 }

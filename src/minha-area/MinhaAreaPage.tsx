@@ -7,16 +7,16 @@ import { pb } from '@/lib/pocketbase';
 import { fotoUrl } from '@/usuarios/usuariosService';
 import { corAvatar, inicial } from '@/clientes/format';
 import type { Usuario } from '@/usuarios/types';
-import { MeuDiaBloco, MeusProjetosBloco, MinhaProdutividadeBloco } from './blocos';
+import { MeuDiaBloco, MeusProjetosBloco, MinhaProdutividadeBloco, MeusDadosBloco } from './blocos';
 
-type BlocoId = 'meu-dia' | 'meu-dia-readonly' | 'meus-projetos' | 'produtividade';
+type BlocoId = 'meu-dia' | 'meu-dia-readonly' | 'meus-projetos' | 'produtividade' | 'meus-dados';
 
 const BLOCOS_POR_ROLE: Record<string, BlocoId[]> = {
-  Owner:        ['meu-dia', 'meus-projetos', 'produtividade'],
-  Admin:        ['meu-dia', 'meus-projetos', 'produtividade'],
-  Gestor:       ['meu-dia', 'meus-projetos', 'produtividade'],
-  Membro:       ['meu-dia', 'meus-projetos', 'produtividade'],
-  Visualizador: ['meu-dia-readonly', 'meus-projetos'],
+  Owner:        ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
+  Admin:        ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
+  Gestor:       ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
+  Membro:       ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
+  Visualizador: ['meu-dia-readonly', 'meus-projetos', 'meus-dados'],
 };
 
 export function MinhaAreaPage() {
@@ -95,9 +95,10 @@ export function MinhaAreaPage() {
             <MeuDiaBloco somenteLeitura={blocos.includes('meu-dia-readonly')} />
           </div>
         )}
-        {blocos.includes('meus-projetos') && (
-          <div className="lg:col-span-1">
-            <MeusProjetosBloco />
+        {(blocos.includes('meus-projetos') || blocos.includes('meus-dados')) && (
+          <div className="flex flex-col gap-4 lg:col-span-1">
+            {blocos.includes('meus-projetos') && <MeusProjetosBloco />}
+            {blocos.includes('meus-dados') && <MeusDadosBloco />}
           </div>
         )}
       </div>

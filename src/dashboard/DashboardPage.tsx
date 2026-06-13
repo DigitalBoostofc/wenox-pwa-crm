@@ -1,9 +1,14 @@
+import { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Building2, FolderKanban, ListChecks, AlarmClock, ArrowRight,
 } from 'lucide-react';
 import { DadosAgenciaProvider, useDadosAgencia } from './useDadosAgencia';
 import { SaudeProjetosBloco, PulsoEquipeBloco, AprovacoesPendentesBloco } from './blocosNegocio';
+import { SeletorMeses } from './SeletorMeses';
+import { SecaoDesempenho } from './blocosDesempenho';
+import { mesesRecentes } from './relatoriosService';
+import type { MesRef } from './relatoriosService';
 import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
 import { useAuth } from '@/auth/useAuth';
 import { canGerirEquipe } from '@/auth/perms';
@@ -62,13 +67,14 @@ function CockpitNegocio() {
   const history = useHistory();
   const { user } = useAuth();
   const { tarefas, projetos, clientes, carregando, erro } = useDadosAgencia();
+  const [meses, setMeses] = useState<MesRef[]>(() => mesesRecentes(1));
 
   const abertas = tarefas.filter((t) => !tarefaConcluida(t.status));
   const vencidas = tarefas.filter((t) => prazoVencido(t.prazo, t.status));
   const projetosAndamento = projetos.filter((p) => p.status && p.status !== 'Inativo');
 
   return (
-    <div className="flex max-w-5xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
       <div>
         <h2 className="text-2xl font-semibold">
           {saudacao()}, {primeiroNome(user?.nome, user?.email)}
@@ -77,6 +83,8 @@ function CockpitNegocio() {
           Cockpit da agência — visão geral do negócio.
         </p>
       </div>
+
+      <SeletorMeses selecionados={meses} onChange={setMeses} meses={12} />
 
       {erro && (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
@@ -115,9 +123,10 @@ function CockpitNegocio() {
             />
           </div>
 
-          <SaudeProjetosBloco />
+          <SecaoDesempenho meses={meses} />
 
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid gap-5 lg:grid-cols-3">
+            <SaudeProjetosBloco />
             <PulsoEquipeBloco />
             <AprovacoesPendentesBloco />
           </div>

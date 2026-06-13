@@ -197,12 +197,12 @@ export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolea
       return <Badge className="shrink-0 border border-border bg-secondary text-[10px] text-muted-foreground">Em equipe</Badge>;
     }
     if (ehVezDoUsuario(t, uid)) {
-      return <Badge className="shrink-0 animate-pulse border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">Concluir etapa</Badge>;
+      return <Badge className="shrink-0 animate-pulse border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">Concluir Etapa</Badge>;
     }
     if (aguardandoAprovacaoCliente(t)) {
-      return <Badge className="shrink-0 border border-yellow-500/50 bg-yellow-500/15 text-[10px] text-yellow-500">Aguardando cliente</Badge>;
+      return <Badge className="shrink-0 border border-yellow-500/50 bg-yellow-500/15 text-[10px] text-yellow-500">Aguardando Cliente</Badge>;
     }
-    return <Badge className="shrink-0 border border-amber-700/50 bg-amber-700/15 text-[10px] text-amber-600">Aguardando equipe</Badge>;
+    return <Badge className="shrink-0 border border-amber-700/50 bg-amber-700/15 text-[10px] text-amber-600">Aguardando Equipe</Badge>;
   }
 
   function abrirEquipe(t: Tarefa) {

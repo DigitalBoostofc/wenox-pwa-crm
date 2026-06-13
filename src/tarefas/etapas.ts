@@ -37,7 +37,7 @@ export function progressoEtapas(etapas?: EtapaTarefa[]): { feitas: number; total
  * - todas feitas → Concluído
  * - aprovacao = 'alteracao' → Em alteração
  * - etapa atual é aprovacao_cliente → Aguardando aprovação
- * - alguma feita → Fazendo; senão → A fazer
+ * - alguma feita → Em andamento; senão → Não iniciado
  */
 export function statusDerivado(etapas: EtapaTarefa[], aprovacao?: string): string {
   const i = etapaAtualIndex(etapas);
@@ -45,7 +45,7 @@ export function statusDerivado(etapas: EtapaTarefa[], aprovacao?: string): strin
   if (aprovacao === 'alteracao') return 'Em alteração';
   const atual = etapas[i];
   if (atual.tipo === 'aprovacao_cliente') return 'Aguardando aprovação';
-  return etapas.some((e) => e.feito) ? 'Fazendo' : STATUS_INICIAL;
+  return etapas.some((e) => e.feito) ? 'Em andamento' : STATUS_INICIAL;
 }
 
 /** Tarefa em equipe = mais de um responsável (independe da qtd de etapas). */

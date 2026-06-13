@@ -391,6 +391,7 @@ export function TarefaSheet({
 
   // Listas de suporte
   const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [tipoProjFiltro, setTipoProjFiltro] = useState('');
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -503,6 +504,8 @@ export function TarefaSheet({
   const projetosOrdenados = [...projetos].sort((a, b) =>
     nomeCliente(a.cliente).localeCompare(nomeCliente(b.cliente), 'pt-BR'),
   );
+  // Tipos de projeto disponíveis (para filtrar o dropdown ao criar tarefa)
+  const tiposProjeto = [...new Set(projetos.map((p) => p.tipo).filter(Boolean))] as string[];
 
   // ---------- handlers ----------
 
@@ -851,17 +854,32 @@ export function TarefaSheet({
               {/* 3. Projeto */}
               <div>
                 <RotuloCampo>Projeto</RotuloCampo>
+                {tiposProjeto.length > 0 && (
+                  <select
+                    aria-label="Filtrar projetos por tipo"
+                    value={tipoProjFiltro}
+                    onChange={(e) => setTipoProjFiltro(e.target.value)}
+                    className={cn(selectCls, 'mb-2 text-xs')}
+                  >
+                    <option value="">Todos os tipos</option>
+                    {tiposProjeto.map((tp) => (
+                      <option key={tp} value={tp}>{tp}</option>
+                    ))}
+                  </select>
+                )}
                 <select
                   value={t.projeto ?? ''}
                   onChange={handleProjeto}
                   className={selectCls}
                 >
                   <option value="">Sem projeto</option>
-                  {projetosOrdenados.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nome} — {nomeCliente(p.cliente)}
-                    </option>
-                  ))}
+                  {projetosOrdenados
+                    .filter((p) => p.id === t.projeto || !tipoProjFiltro || p.tipo === tipoProjFiltro)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nome} — {nomeCliente(p.cliente)}
+                      </option>
+                    ))}
                 </select>
                 {/* Cliente derivado do projeto */}
                 {t.projeto && t.cliente && (

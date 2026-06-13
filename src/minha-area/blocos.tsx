@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { FolderKanban, CheckCircle2, AlarmClock, ClipboardList, Pencil, CheckCheck } from 'lucide-react';
+import { FolderKanban, Pencil, CheckCheck } from 'lucide-react';
 import { useAuth } from '@/auth/useAuth';
 import { pb } from '@/lib/pocketbase';
 import { concluirTarefa, reabrirTarefa } from '@/tarefas/tarefasService';
@@ -19,33 +19,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useDadosAgencia } from '@/dashboard/useDadosAgencia';
+import { desempenhoDoUsuario, mesesRecentes } from '@/dashboard/relatoriosService';
+import { Donut } from '@/dashboard/charts';
 import { MeusDadosSheet } from './MeusDadosSheet';
-
-/* -------------------------------------------------------------------------- */
-/*  Helpers de semana (sem desvio de fuso — usa partes locais)                */
-/* -------------------------------------------------------------------------- */
-
-function inicioSemana(): Date {
-  const hoje = new Date();
-  const dia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  const dow = dia.getDay();
-  const offsetSegunda = dow === 0 ? -6 : 1 - dow;
-  dia.setDate(dia.getDate() + offsetSegunda);
-  return dia;
-}
-
-function fimSemana(): Date {
-  const seg = inicioSemana();
-  seg.setDate(seg.getDate() + 6);
-  return seg;
-}
-
-function dentroSemana(dataStr?: string): boolean {
-  if (!dataStr) return false;
-  const d = new Date(dataStr);
-  const local = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  return local >= inicioSemana() && local <= fimSemana();
-}
 
 /* -------------------------------------------------------------------------- */
 /*  1. MeuDiaBloco                                                             */
@@ -201,7 +177,8 @@ export function MeusProjetosBloco() {
   const { projetos: todosProjetos, carregando, erro } = useDadosAgencia();
 
   const projetos = todosProjetos.filter(
-    (p) => (p.responsaveis ?? []).includes(user?.id ?? ''),
+    (p) => (p.responsaveis ?? []).includes(user?.id ?? '')
+      && p.status && p.status !== 'Inativo',
   );
 
   return (
@@ -263,49 +240,21 @@ export function MeusProjetosBloco() {
 /*  3. MinhaProdutividadeBloco                                                 */
 /* -------------------------------------------------------------------------- */
 
-function StatCard({
-  icone: Icone,
-  rotulo,
-  valor,
-  cor,
-  alerta,
-}: {
-  icone: typeof CheckCircle2;
-  rotulo: string;
-  valor: number;
-  cor: string;
-  alerta?: boolean;
-}) {
+function MiniKpi({ valor, rotulo, cor }: { valor: number; rotulo: string; cor?: string }) {
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4">
-      <div className={cn('grid size-11 shrink-0 place-items-center rounded-xl', cor)}>
-        <Icone className="size-5" />
-      </div>
-      <div className="min-w-0">
-        <p className={cn('text-2xl font-semibold leading-tight', alerta && valor > 0 && 'text-destructive')}>
-          {valor}
-        </p>
-        <p className="truncate text-xs text-muted-foreground">{rotulo}</p>
-      </div>
+    <div className="flex flex-col items-center gap-0.5">
+      <p className={cn('text-xl font-semibold leading-tight', cor)}>{valor}</p>
+      <p className="text-[11px] text-muted-foreground">{rotulo}</p>
     </div>
   );
 }
 
 export function MinhaProdutividadeBloco() {
   const { user } = useAuth();
-  const { tarefas: todasTarefas, carregando, erro } = useDadosAgencia();
+  const { tarefas, carregando, erro } = useDadosAgencia();
 
-  const minhasTarefas = todasTarefas.filter(
-    (t) => (t.responsaveis ?? []).includes(user?.id ?? ''),
-  );
-
-  const concluidas = minhasTarefas.filter(
-    (t) => tarefaConcluida(t.status) && dentroSemana(t.updated),
-  ).length;
-
-  const abertas = minhasTarefas.filter((t) => !tarefaConcluida(t.status)).length;
-
-  const atrasadas = minhasTarefas.filter((t) => prazoVencido(t.prazo, t.status)).length;
+  const nome = user?.nome || user?.email || '';
+  const d = desempenhoDoUsuario(user?.id ?? '', nome, tarefas, mesesRecentes(1));
 
   return (
     <div className="flex flex-col gap-3">
@@ -318,33 +267,30 @@ export function MinhaProdutividadeBloco() {
       )}
 
       {carregando ? (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Skeleton className="h-20 w-full rounded-xl" />
-          <Skeleton className="h-20 w-full rounded-xl" />
-          <Skeleton className="h-20 w-full rounded-xl" />
+        <div className="flex flex-col items-center gap-4">
+          <Skeleton className="size-28 rounded-full" />
+          <div className="grid w-full grid-cols-3 gap-3">
+            <Skeleton className="h-14 rounded-xl" />
+            <Skeleton className="h-14 rounded-xl" />
+            <Skeleton className="h-14 rounded-xl" />
+          </div>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <StatCard
-            icone={CheckCircle2}
-            rotulo="Concluídas na semana"
-            valor={concluidas}
-            cor="bg-emerald-500/15 text-emerald-400"
+        <Card className="flex flex-col items-center gap-5 p-5">
+          <Donut
+            porcentagem={d.taxaNoPrazo}
+            rotulo="No prazo"
+            sublabel={`${d.noPrazo}/${d.noPrazo + d.atrasadas} com prazo`}
           />
-          <StatCard
-            icone={ClipboardList}
-            rotulo="Abertas"
-            valor={abertas}
-            cor="bg-cyan-500/15 text-cyan-400"
-          />
-          <StatCard
-            icone={AlarmClock}
-            rotulo="Atrasadas"
-            valor={atrasadas}
-            cor="bg-destructive/15 text-destructive"
-            alerta
-          />
-        </div>
+          <div className="grid w-full grid-cols-3 gap-4">
+            <MiniKpi valor={d.concluidas} rotulo="Concluídas" />
+            <MiniKpi valor={d.noPrazo} rotulo="No prazo" cor="text-emerald-500" />
+            <MiniKpi valor={d.atrasadas} rotulo="Atrasadas" cor="text-destructive" />
+            <MiniKpi valor={d.semPrazo} rotulo="Sem prazo" cor="text-muted-foreground" />
+            <MiniKpi valor={d.abertasAgora} rotulo="Abertas agora" />
+            <MiniKpi valor={d.atrasadasAgora} rotulo="Atrasadas agora" cor="text-destructive" />
+          </div>
+        </Card>
       )}
     </div>
   );

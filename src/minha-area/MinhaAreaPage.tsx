@@ -8,17 +8,10 @@ import { fotoUrl } from '@/usuarios/usuariosService';
 import { corAvatar, inicial } from '@/clientes/format';
 import type { Usuario } from '@/usuarios/types';
 import { DadosAgenciaProvider } from '@/dashboard/useDadosAgencia';
-import { MeuDiaBloco, MeusProjetosBloco, MinhaProdutividadeBloco, MeusDadosBloco, MinhasAprovacoesBloco } from './blocos';
+import { MeusProjetosBloco, MinhaProdutividadeBloco } from './blocos';
+import { MinhasTarefasBloco, TarefasEquipeBloco } from './blocosTarefas';
 
-type BlocoId = 'meu-dia' | 'meu-dia-readonly' | 'meus-projetos' | 'produtividade' | 'meus-dados' | 'minhas-aprovacoes';
-
-const BLOCOS_POR_ROLE: Record<string, BlocoId[]> = {
-  Owner:        ['meu-dia', 'minhas-aprovacoes', 'meus-projetos', 'produtividade', 'meus-dados'],
-  Admin:        ['meu-dia', 'minhas-aprovacoes', 'meus-projetos', 'produtividade', 'meus-dados'],
-  Gestor:       ['meu-dia', 'minhas-aprovacoes', 'meus-projetos', 'produtividade', 'meus-dados'],
-  Membro:       ['meu-dia', 'minhas-aprovacoes', 'meus-projetos', 'produtividade', 'meus-dados'],
-  Visualizador: ['meu-dia-readonly', 'meus-projetos', 'meus-dados'],
-};
+const ROLES_COMPLETOS = new Set(['Owner', 'Admin', 'Gestor', 'Membro']);
 
 export function MinhaAreaPage() {
   const { user } = useAuth();
@@ -39,8 +32,8 @@ export function MinhaAreaPage() {
   const area = usuario?.area ?? '';
   const subLinha = [cargo, area].filter(Boolean).join(' · ');
   const role = user.role as Role;
-  const blocos = BLOCOS_POR_ROLE[role] ?? BLOCOS_POR_ROLE['Membro'];
-  const temProdutividade = blocos.includes('produtividade');
+  const completo = ROLES_COMPLETOS.has(role);
+  const somenteLeitura = role === 'Visualizador';
 
   const fotoSrc = user.foto
     ? fotoUrl(
@@ -83,28 +76,13 @@ export function MinhaAreaPage() {
           </div>
         </div>
 
-        {/* Minha Produtividade */}
-        {temProdutividade && (
-          <div>
-            <MinhaProdutividadeBloco />
-          </div>
-        )}
+        {completo && <MinhaProdutividadeBloco />}
 
-        {/* Grade principal */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          {(blocos.includes('meu-dia') || blocos.includes('meu-dia-readonly')) && (
-            <div className="lg:col-span-2">
-              <MeuDiaBloco somenteLeitura={blocos.includes('meu-dia-readonly')} />
-            </div>
-          )}
-          {(blocos.includes('minhas-aprovacoes') || blocos.includes('meus-projetos') || blocos.includes('meus-dados')) && (
-            <div className="flex flex-col gap-4 lg:col-span-1">
-              {blocos.includes('minhas-aprovacoes') && <MinhasAprovacoesBloco />}
-              {blocos.includes('meus-projetos') && <MeusProjetosBloco />}
-              {blocos.includes('meus-dados') && <MeusDadosBloco />}
-            </div>
-          )}
-        </div>
+        <MinhasTarefasBloco somenteLeitura={somenteLeitura} />
+
+        {completo && <TarefasEquipeBloco />}
+
+        <MeusProjetosBloco />
       </div>
     </DadosAgenciaProvider>
   );

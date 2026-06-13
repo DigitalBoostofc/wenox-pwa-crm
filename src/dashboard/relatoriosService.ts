@@ -178,6 +178,37 @@ export function calcularDesempenho(p: {
   };
 }
 
+/** Desempenho de UM usuário (para a Minha Produtividade pessoal). */
+export function desempenhoDoUsuario(
+  uid: string,
+  nome: string,
+  tarefas: Tarefa[],
+  meses: MesRef[],
+): DesempenhoMembro {
+  const mesesSet = new Set(meses.map(mesKey));
+  let concluidas = 0, noPrazo = 0, atrasadas = 0, semPrazo = 0, abertasAgora = 0, atrasadasAgora = 0;
+  for (const t of tarefas) {
+    if (!(t.responsaveis ?? []).includes(uid) || t.lado === 'cliente') continue;
+    if (tarefaConcluida(t.status)) {
+      const dc = parsePrazo(t.concluida_em);
+      if (dc && mesesSet.has(mesKey({ ano: dc.getFullYear(), mes: dc.getMonth() + 1 }))) {
+        concluidas++;
+        const lim = prazoLimite(t.prazo);
+        if (!lim) semPrazo++;
+        else if (dc.getTime() <= lim.getTime()) noPrazo++;
+        else atrasadas++;
+      }
+    } else {
+      abertasAgora++;
+      if (prazoVencido(t.prazo, t.status)) atrasadasAgora++;
+    }
+  }
+  const taxaNoPrazo = (noPrazo + atrasadas) > 0
+    ? Math.round(noPrazo / (noPrazo + atrasadas) * 100)
+    : 0;
+  return { id: uid, nome, concluidas, noPrazo, atrasadas, semPrazo, abertasAgora, atrasadasAgora, taxaNoPrazo };
+}
+
 /* ── Loader de conveniência ───────────────────────────────────────────────── */
 
 export async function carregarDesempenho(

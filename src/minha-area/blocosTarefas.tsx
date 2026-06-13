@@ -129,6 +129,9 @@ function LinhaTarefa({ t, onClick, badge }: { t: Tarefa; onClick: () => void; ba
   );
 }
 
+/** Altura fixa ≈ 5 linhas; passa disso, rola dentro do próprio card. */
+const ALTURA_LISTA = 'h-[19rem]';
+
 function CardLista({ titulo, vazio, children }: { titulo: string; vazio: boolean; children: React.ReactNode }) {
   return (
     <Card className="flex flex-col">
@@ -136,9 +139,13 @@ function CardLista({ titulo, vazio, children }: { titulo: string; vazio: boolean
         <span className="text-xs font-medium text-muted-foreground">{titulo}</span>
       </div>
       {vazio ? (
-        <div className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhuma tarefa.</div>
+        <div className={cn('flex items-center justify-center px-4 text-center text-sm text-muted-foreground', ALTURA_LISTA)}>
+          Nenhuma tarefa.
+        </div>
       ) : (
-        <div className="divide-y divide-border/40">{children}</div>
+        <div className={cn('divide-y divide-border/40 overflow-y-auto', ALTURA_LISTA)}>
+          {children}
+        </div>
       )}
     </Card>
   );

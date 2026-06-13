@@ -80,8 +80,8 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
     const nome = nomeCliente(t);
     const logo = c.logo ? logoUrl(c as never, '100x100') : '';
     return logo
-      ? <img src={logo} alt={nome} title={nome} loading="lazy" className="size-7 rounded-md object-cover" />
-      : <div title={nome} className={cn('grid size-7 place-items-center rounded-md text-[10px] font-bold text-white', corAvatar(nome))}>{inicial(nome)}</div>;
+      ? <img src={logo} alt={nome} title={nome} loading="lazy" className="size-8 shrink-0 rounded-lg object-cover" />
+      : <div title={nome} className={cn('grid size-8 shrink-0 place-items-center rounded-lg text-xs font-bold text-white', corAvatar(nome))}>{inicial(nome)}</div>;
   }
 
   if (carregando) return <Skeleton className="h-64 w-full rounded-xl" />;

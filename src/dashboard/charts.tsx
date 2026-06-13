@@ -120,6 +120,62 @@ export function RoscaSegmentada({
 }
 
 /* -------------------------------------------------------------------------- */
+/*  LinhaPontualidade — tendência de % no prazo ao longo dos meses            */
+/* -------------------------------------------------------------------------- */
+
+export function LinhaPontualidade({
+  pontos,
+}: {
+  pontos: { rotulo: string; pct: number; semDados?: boolean }[];
+}) {
+  if (pontos.length === 0) {
+    return <p className="py-8 text-center text-sm text-muted-foreground">Sem dados.</p>;
+  }
+
+  const W = 320, H = 150;
+  const padL = 26, padR = 12, padT = 16, padB = 26;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const n = pontos.length;
+  const x = (i: number) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const y = (pct: number) => padT + (1 - pct / 100) * plotH;
+
+  const comDados = pontos.filter((p) => !p.semDados);
+  const linha = comDados.map((p) => `${x(pontos.indexOf(p))},${y(p.pct)}`).join(' ');
+  const marcasY = [0, 25, 50, 75, 100];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Tendência de pontualidade">
+      {/* grade + eixo Y */}
+      {marcasY.map((m) => (
+        <g key={m}>
+          <line x1={padL} y1={y(m)} x2={W - padR} y2={y(m)} className="stroke-border/40" strokeWidth="0.5" />
+          <text x={padL - 4} y={y(m)} textAnchor="end" dominantBaseline="central" className="fill-muted-foreground/70 text-[7px]">{m}</text>
+        </g>
+      ))}
+
+      {/* linha de tendência */}
+      {comDados.length > 1 && (
+        <polyline points={linha} fill="none" className="stroke-primary" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      )}
+
+      {/* pontos + rótulos */}
+      {pontos.map((p, i) => (
+        <g key={i}>
+          {!p.semDados && (
+            <>
+              <circle cx={x(i)} cy={y(p.pct)} r="2.6" className="fill-primary" />
+              <text x={x(i)} y={y(p.pct) - 6} textAnchor="middle" className="fill-foreground text-[8px] font-semibold">{p.pct}%</text>
+            </>
+          )}
+          <text x={x(i)} y={H - 8} textAnchor="middle" className="fill-muted-foreground text-[8px]">{p.rotulo}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  BarrasMensais — barras verticais empilhadas (noPrazo + atrasadas)         */
 /* -------------------------------------------------------------------------- */
 

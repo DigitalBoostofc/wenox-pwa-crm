@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Users } from 'lucide-react';
 import { useDadosAgencia } from './useDadosAgencia';
-import { carregarDesempenho } from './relatoriosService';
+import { carregarDesempenho, calcularDesempenho, mesesRecentes } from './relatoriosService';
 import type { MesRef, DesempenhoAgencia, DesempenhoMembro } from './relatoriosService';
-import { BarrasMensais, BarraProgresso, RoscaSegmentada } from './charts';
+import { LinhaPontualidade, BarraProgresso, RoscaSegmentada } from './charts';
 import { corAvatar } from '@/clientes/format';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -156,6 +156,39 @@ function MembroDesempenhoSheet({
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Tendência de pontualidade (últimos 6 meses — independente do seletor)     */
+/* -------------------------------------------------------------------------- */
+
+function TendenciaPontualidade() {
+  const { tarefas, usuarios, carregando } = useDadosAgencia();
+
+  if (carregando) return <Skeleton className="h-full min-h-44 w-full rounded-xl" />;
+
+  const meses = mesesRecentes(6);
+  const dados = calcularDesempenho({ meses, tarefas, usuarios });
+  const pontos = dados.porMes.map((p) => {
+    const comPrazo = p.noPrazo + p.atrasadas;
+    return {
+      rotulo: p.rotulo,
+      pct: comPrazo > 0 ? Math.round((p.noPrazo / comPrazo) * 100) : 0,
+      semDados: comPrazo === 0,
+    };
+  });
+
+  return (
+    <Card className="lg:col-span-1">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Tendência de pontualidade</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <LinhaPontualidade pontos={pontos} />
+        <p className="mt-1 text-center text-[10px] text-muted-foreground">% de entregas no prazo por mês</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Visão geral da agência (donut + barras + resumo)                          */
 /* -------------------------------------------------------------------------- */
 
@@ -198,20 +231,8 @@ export function VisaoGeralDesempenho({ meses }: { meses: MesRef[] }) {
           </CardContent>
         </Card>
 
-        {/* Entregas por mês */}
-        <Card className="lg:col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Entregas por mês</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarrasMensais
-              dados={dados.porMes.map((p) => ({
-                rotulo: p.rotulo, noPrazo: p.noPrazo, atrasadas: p.atrasadas,
-              }))}
-              altura={200}
-            />
-          </CardContent>
-        </Card>
+        {/* Tendência de pontualidade (últimos 6 meses) */}
+        <TendenciaPontualidade />
       </div>
     </div>
   );

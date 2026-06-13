@@ -13,6 +13,11 @@ import { AcessosTab } from '@/acessos/AcessosTab';
 import { DocumentosTab } from '@/documentos/DocumentosTab';
 import { ProjetosTabCliente } from '@/projetos/ProjetosTabCliente';
 import { TarefasTabCliente } from '@/tarefas/TarefasTabCliente';
+import { listProjetos } from '@/projetos/projetosService';
+import { listTarefas } from '@/tarefas/tarefasService';
+import type { Projeto } from '@/projetos/types';
+import type { Tarefa } from '@/tarefas/types';
+import { tarefaConcluida, prazoVencido, prazoBR } from '@/tarefas/format';
 import { CriarAcessoCliente } from '@/clientes/CriarAcessoCliente';
 import { useAuth } from '@/auth/useAuth';
 import { ehCliente, canCriarAcessoCliente } from '@/auth/perms';
@@ -48,6 +53,140 @@ const ABAS: { id: Aba; label: string; icon: typeof Users; emBreve?: boolean }[] 
   { id: 'documentos', label: 'Documentos', icon: FileText },
   { id: 'equipe', label: 'Equipe', icon: Users },
 ];
+
+/** Mini-stat do resumo (número grande + rótulo). */
+function Stat({ valor, rotulo, tom }: { valor: number; rotulo: string; tom?: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-background/40 px-3 py-2.5">
+      <p className={cn('text-xl font-bold leading-none', tom)}>{valor}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">{rotulo}</p>
+    </div>
+  );
+}
+
+/** Resumo funcional de projetos e tarefas do cliente (aba Visão Geral). */
+function ResumoAtividades({
+  clienteId, onVerProjetos, onVerTarefas,
+}: {
+  clienteId: string;
+  onVerProjetos: () => void;
+  onVerTarefas: () => void;
+}) {
+  const history = useHistory();
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    if (!clienteId) return;
+    let vivo = true;
+    setCarregando(true);
+    Promise.all([
+      listProjetos({ clienteId }).catch(() => []),
+      listTarefas({ clienteId }).catch(() => []),
+    ]).then(([ps, ts]) => {
+      if (!vivo) return;
+      setProjetos(ps);
+      setTarefas(ts);
+      setCarregando(false);
+    });
+    return () => { vivo = false; };
+  }, [clienteId]);
+
+  const projAtivos = projetos.filter((p) => p.status !== 'Inativo').length;
+  const tarefasAbertas = tarefas.filter((t) => !tarefaConcluida(t.status));
+  const concluidas = tarefas.length - tarefasAbertas.length;
+  const atrasadas = tarefasAbertas.filter((t) => prazoVencido(t.prazo, t.status)).length;
+
+  // Tarefas abertas mais urgentes (por prazo) para um preview curto.
+  const urgentes = [...tarefasAbertas]
+    .sort((a, b) => {
+      const pa = a.prazo ? new Date(a.prazo).getTime() : Infinity;
+      const pb = b.prazo ? new Date(b.prazo).getTime() : Infinity;
+      return pa - pb;
+    })
+    .slice(0, 4);
+
+  if (carregando) {
+    return <p className="text-sm text-muted-foreground">Carregando atividades…</p>;
+  }
+
+  if (projetos.length === 0 && tarefas.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Nenhum projeto ou tarefa cadastrado para este cliente ainda.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Stat valor={projetos.length} rotulo={projetos.length === 1 ? 'Projeto' : 'Projetos'} />
+        <Stat valor={projAtivos} rotulo="Ativos" tom="text-emerald-400" />
+        <Stat valor={tarefasAbertas.length} rotulo="Tarefas abertas" />
+        <Stat valor={atrasadas} rotulo="Atrasadas" tom={atrasadas > 0 ? 'text-destructive' : undefined} />
+      </div>
+
+      {/* Projetos (preview) */}
+      {projetos.length > 0 && (
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Projetos</span>
+            <button type="button" onClick={onVerProjetos} className="text-xs text-primary hover:underline">Ver todos</button>
+          </div>
+          <div className="flex flex-col divide-y divide-border/40 overflow-hidden rounded-lg border border-border">
+            {projetos.slice(0, 4).map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => history.push(`/projetos/${p.id}`)}
+                className="flex items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-secondary/50"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm">{p.nome}</span>
+                {p.status && (
+                  <Badge variant={statusVariant(p.status)} className="shrink-0 text-[10px]">{p.status}</Badge>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tarefas abertas (preview) */}
+      {tarefasAbertas.length > 0 && (
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">
+              Tarefas abertas{concluidas > 0 ? ` · ${concluidas} concluída${concluidas === 1 ? '' : 's'}` : ''}
+            </span>
+            <button type="button" onClick={onVerTarefas} className="text-xs text-primary hover:underline">Ver todas</button>
+          </div>
+          <div className="flex flex-col divide-y divide-border/40 overflow-hidden rounded-lg border border-border">
+            {urgentes.map((t) => {
+              const vencida = prazoVencido(t.prazo, t.status);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={onVerTarefas}
+                  className="flex items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-secondary/50"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm">{t.nome}</span>
+                  {t.prazo && (
+                    <span className={cn('shrink-0 text-[11px]', vencida ? 'font-medium text-destructive' : 'text-muted-foreground')}>
+                      {prazoBR(t.prazo)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const params = useParams<{ id?: string }>();
@@ -293,10 +432,11 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Projetos e tarefas deste cliente aparecerão aqui quando os
-                  módulos de Projetos e Tarefas forem ativados.
-                </p>
+                <ResumoAtividades
+                  clienteId={c.id}
+                  onVerProjetos={() => setAba('projetos')}
+                  onVerTarefas={() => setAba('tarefas')}
+                />
               </CardContent>
             </Card>
           </div>

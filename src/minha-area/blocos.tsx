@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { FolderKanban, CheckCircle2, AlarmClock, ClipboardList, Pencil } from 'lucide-react';
+import { FolderKanban, CheckCircle2, AlarmClock, ClipboardList, Pencil, CheckCheck } from 'lucide-react';
 import { useAuth } from '@/auth/useAuth';
 import { pb } from '@/lib/pocketbase';
 import { concluirTarefa, reabrirTarefa } from '@/tarefas/tarefasService';
 import type { Usuario } from '@/usuarios/types';
-import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
+import { tarefaConcluida, prazoVencido, prazoBR } from '@/tarefas/format';
 import { STATUS_CONCLUIDO, STATUS_INICIAL } from '@/tarefas/status';
 import { MinhaSemanaList } from '@/tarefas/MinhaSemanaList';
 import { QuickAddTarefa } from '@/tarefas/QuickAddTarefa';
@@ -358,6 +358,86 @@ export function MeusDadosBloco() {
         aberto={aberto}
         onClose={() => setAberto(false)}
         onSalvo={() => { setRecarrega((n) => n + 1); setAberto(false); }}
+      />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  5. MinhasAprovacoesBloco — tarefas MINHAS aguardando aprovação do cliente  */
+/* -------------------------------------------------------------------------- */
+
+export function MinhasAprovacoesBloco() {
+  const { user } = useAuth();
+  const { tarefas, carregando, refresh } = useDadosAgencia();
+  const [viewId, setViewId] = useState<string | null>(null);
+
+  const minhas = tarefas
+    .filter(
+      (t) =>
+        (t.responsaveis ?? []).includes(user?.id ?? '') &&
+        (t.status ?? '').toLowerCase().includes('aprova') &&
+        t.aprovacao !== 'aprovada' &&
+        !tarefaConcluida(t.status),
+    )
+    .sort((a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999'));
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold">Aprovações Pendentes</h2>
+
+      {carregando ? (
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-12 w-full rounded-md" />
+          <Skeleton className="h-12 w-full rounded-md" />
+        </div>
+      ) : minhas.length === 0 ? (
+        <Card>
+          <div className="flex flex-col items-center gap-3 px-5 py-8 text-center">
+            <CheckCheck className="size-8 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Nenhuma tarefa sua aguardando aprovação do cliente.
+            </p>
+          </div>
+        </Card>
+      ) : (
+        <Card className="divide-y divide-border/40">
+          {minhas.map((t) => {
+            const cli = t.expand?.cliente;
+            const contexto = t.expand?.projeto?.nome ?? cli?.nome_fantasia ?? cli?.nome;
+            const vencida = prazoVencido(t.prazo, t.status);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setViewId(t.id)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{t.nome}</p>
+                  {contexto && (
+                    <p className="truncate text-xs text-muted-foreground">{contexto}</p>
+                  )}
+                </div>
+                {t.prazo && (
+                  <span className={cn(
+                    'shrink-0 text-xs',
+                    vencida ? 'font-medium text-destructive' : 'text-muted-foreground',
+                  )}>
+                    {prazoBR(t.prazo)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </Card>
+      )}
+
+      <TarefaViewSheet
+        tarefaId={viewId}
+        aberto={viewId !== null}
+        onClose={() => setViewId(null)}
+        onMudou={() => refresh()}
       />
     </div>
   );

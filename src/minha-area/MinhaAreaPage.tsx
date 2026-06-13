@@ -8,15 +8,15 @@ import { fotoUrl } from '@/usuarios/usuariosService';
 import { corAvatar, inicial } from '@/clientes/format';
 import type { Usuario } from '@/usuarios/types';
 import { DadosAgenciaProvider } from '@/dashboard/useDadosAgencia';
-import { MeuDiaBloco, MeusProjetosBloco, MinhaProdutividadeBloco, MeusDadosBloco } from './blocos';
+import { MeuDiaBloco, MeusProjetosBloco, MinhaProdutividadeBloco, MeusDadosBloco, MinhasAprovacoesBloco } from './blocos';
 
-type BlocoId = 'meu-dia' | 'meu-dia-readonly' | 'meus-projetos' | 'produtividade' | 'meus-dados';
+type BlocoId = 'meu-dia' | 'meu-dia-readonly' | 'meus-projetos' | 'produtividade' | 'meus-dados' | 'minhas-aprovacoes';
 
 const BLOCOS_POR_ROLE: Record<string, BlocoId[]> = {
-  Owner:        ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
-  Admin:        ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
-  Gestor:       ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
-  Membro:       ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
+  Owner:        ['meu-dia', 'minhas-aprovacoes', 'meus-projetos', 'produtividade', 'meus-dados'],
+  Admin:        ['meu-dia', 'minhas-aprovacoes', 'meus-projetos', 'produtividade', 'meus-dados'],
+  Gestor:       ['meu-dia', 'minhas-aprovacoes', 'meus-projetos', 'produtividade', 'meus-dados'],
+  Membro:       ['meu-dia', 'minhas-aprovacoes', 'meus-projetos', 'produtividade', 'meus-dados'],
   Visualizador: ['meu-dia-readonly', 'meus-projetos', 'meus-dados'],
 };
 
@@ -97,8 +97,9 @@ export function MinhaAreaPage() {
               <MeuDiaBloco somenteLeitura={blocos.includes('meu-dia-readonly')} />
             </div>
           )}
-          {(blocos.includes('meus-projetos') || blocos.includes('meus-dados')) && (
+          {(blocos.includes('minhas-aprovacoes') || blocos.includes('meus-projetos') || blocos.includes('meus-dados')) && (
             <div className="flex flex-col gap-4 lg:col-span-1">
+              {blocos.includes('minhas-aprovacoes') && <MinhasAprovacoesBloco />}
               {blocos.includes('meus-projetos') && <MeusProjetosBloco />}
               {blocos.includes('meus-dados') && <MeusDadosBloco />}
             </div>

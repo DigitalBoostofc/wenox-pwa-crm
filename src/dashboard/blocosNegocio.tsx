@@ -7,19 +7,13 @@ import { useDadosAgencia } from './useDadosAgencia';
 import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
 import { temEtapas, aguardandoAprovacaoCliente } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
-import { dataBR, corAvatar } from '@/clientes/format';
+import { dataBR } from '@/clientes/format';
+import { AvatarMembro } from './AvatarMembro';
 import { TarefaSheet } from '@/tarefas/TarefaSheet';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-
-function iniciais(n?: string): string {
-  const t = (n ?? '?').trim();
-  const partes = t.split(/\s+/).filter(Boolean);
-  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
-  return t.charAt(0).toUpperCase() || '?';
-}
 
 /* -------------------------------------------------------------------------- */
 /*  Saúde dos Projetos                                                        */
@@ -128,6 +122,9 @@ export function SaudeProjetosBloco() {
 interface LinhaEquipe {
   id: string;
   nome: string;
+  foto?: string;
+  collectionId?: string;
+  collectionName?: string;
   abertas: number;
   atrasadas: number;
 }
@@ -162,6 +159,9 @@ export function PulsoEquipeBloco() {
       return {
         id: u.id,
         nome: u.nome ?? u.email ?? u.id,
+        foto: u.foto,
+        collectionId: u.collectionId,
+        collectionName: u.collectionName,
         abertas: abertas.length,
         atrasadas,
       };
@@ -210,14 +210,7 @@ export function PulsoEquipeBloco() {
               onClick={() => irParaMembro(l.id, l.nome)}
               className="flex w-full flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
             >
-              <div
-                className={cn(
-                  'grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white',
-                  corAvatar(l.nome),
-                )}
-              >
-                {iniciais(l.nome)}
-              </div>
+              <AvatarMembro membro={l} />
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{l.nome}</span>
               <span className="shrink-0 text-xs text-muted-foreground">{l.abertas} abertas</span>
               {l.atrasadas > 0 && (

@@ -8,6 +8,7 @@ export interface MesRef { ano: number; mes: number }
 
 export interface DesempenhoMembro {
   id: string; nome: string;
+  foto?: string; collectionId?: string; collectionName?: string;
   concluidas: number; noPrazo: number; atrasadas: number; semPrazo: number;
   abertasAgora: number; atrasadasAgora: number;
   taxaNoPrazo: number;
@@ -158,6 +159,9 @@ export function calcularDesempenho(p: {
     membros.push({
       id: u.id,
       nome: u.nome || u.email || u.id,
+      foto: u.foto,
+      collectionId: u.collectionId,
+      collectionName: u.collectionName,
       concluidas: acc.concluidas,
       noPrazo: acc.noPrazo,
       atrasadas: acc.atrasadas,

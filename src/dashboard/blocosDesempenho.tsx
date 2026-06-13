@@ -4,19 +4,12 @@ import { useDadosAgencia } from './useDadosAgencia';
 import { carregarDesempenho, calcularDesempenho, mesesRecentes } from './relatoriosService';
 import type { MesRef, DesempenhoAgencia, DesempenhoMembro } from './relatoriosService';
 import { LinhaPontualidade, BarraProgresso, RoscaSegmentada } from './charts';
-import { corAvatar } from '@/clientes/format';
+import { AvatarMembro } from './AvatarMembro';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-
-function iniciais(n?: string): string {
-  const t = (n ?? '?').trim();
-  const p = t.split(/\s+/).filter(Boolean);
-  if (p.length >= 2) return (p[0][0] + p[1][0]).toUpperCase();
-  return t.charAt(0).toUpperCase() || '?';
-}
 
 /* -------------------------------------------------------------------------- */
 /*  Hook de dados (compute em memória — barato, sem fetch)                     */
@@ -273,14 +266,7 @@ export function RankingMembros({ meses }: { meses: MesRef[] }) {
                   onClick={() => setMembroSel(m)}
                   className="flex w-full flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
                 >
-                  <div
-                    className={cn(
-                      'grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold text-white',
-                      corAvatar(m.nome),
-                    )}
-                  >
-                    {iniciais(m.nome)}
-                  </div>
+                  <AvatarMembro membro={m} className="size-9" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{m.nome}</p>
                     <p className="text-xs text-muted-foreground">

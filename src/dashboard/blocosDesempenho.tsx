@@ -187,7 +187,7 @@ export function RankingMembros({ meses }: { meses: MesRef[] }) {
   const [membroSel, setMembroSel] = useState<DesempenhoMembro | null>(null);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex h-full flex-col gap-3">
       <h2 className="text-lg font-semibold">Desempenho por membro</h2>
       <Card className="flex-1">
         <CardContent className="p-0">

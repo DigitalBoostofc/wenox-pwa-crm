@@ -183,24 +183,29 @@ export function PulsoEquipeBloco() {
     history.push('/tarefas');
   }
 
+  // Clica num membro → página de Tarefas filtrada por ele, só as não concluídas.
+  function irParaMembro(id: string, nome: string) {
+    history.push(`/tarefas?responsavel=${id}&nome=${encodeURIComponent(nome)}&abertas=1`);
+  }
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex h-full flex-col gap-3">
       <h2 className="text-lg font-semibold">Pulso da Equipe</h2>
 
       {linhas.length === 0 && semResponsavel === 0 ? (
-        <Card>
+        <Card className="flex-1">
           <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
             <Users className="size-9 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Ninguém tem tarefas abertas.</p>
           </div>
         </Card>
       ) : (
-        <Card className="divide-y divide-border/40">
+        <Card className="flex-1 divide-y divide-border/40">
           {linhas.map((l) => (
             <button
               key={l.id}
               type="button"
-              onClick={irParaTarefas}
+              onClick={() => irParaMembro(l.id, l.nome)}
               className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
             >
               <div

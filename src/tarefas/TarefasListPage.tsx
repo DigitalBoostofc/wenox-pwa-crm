@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
-import { Plus, Search, ListChecks, List, Columns3 } from 'lucide-react';
+import { useHistory, useLocation } from 'react-router-dom';
+import { Plus, Search, ListChecks, List, Columns3, X } from 'lucide-react';
 import { listTarefas, moverTarefaStatus, concluirTarefa, reabrirTarefa } from './tarefasService';
 import type { Tarefa } from './types';
 import { TarefaCard } from './TarefaCard';
-import { statusTarefaClass } from './format';
+import { statusTarefaClass, tarefaConcluida } from './format';
 import { MinhaSemanaList } from './MinhaSemanaList';
 import type { TipoAgrupamento } from './MinhaSemanaList';
 import { QuickAddTarefa } from './QuickAddTarefa';
@@ -92,6 +93,8 @@ function ViewToggleBtn({ ativo, onClick, icon: Icon, label }: {
 
 export function TarefasListPage() {
   const { user } = useAuth();
+  const history = useHistory();
+  const location = useLocation();
   const [busca, setBusca] = useState('');
   const [escopo, setEscopo] = useState<Escopo>('minhas');
   const [view, setView] = useState<ViewMode>(carregarView);
@@ -103,8 +106,30 @@ export function TarefasListPage() {
   const seqRef = useRef(0);
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [criando, setCriando] = useState(false);
+  // Filtro por responsável vindo do Dashboard (Pulso da Equipe) via querystring.
+  const [respFiltro, setRespFiltro] = useState<{ id: string; nome: string } | null>(null);
+  const [soAbertas, setSoAbertas] = useState(false);
 
   const isCliente = ehCliente(user?.role);
+
+  // Sincroniza o filtro de responsável a partir da URL (?responsavel=&nome=&abertas=1).
+  useEffect(() => {
+    const p = new URLSearchParams(location.search);
+    const r = p.get('responsavel');
+    setRespFiltro(r ? { id: r, nome: p.get('nome') ?? '' } : null);
+    setSoAbertas(p.get('abertas') === '1');
+  }, [location.search]);
+
+  function limparFiltroResp() {
+    setRespFiltro(null);
+    setSoAbertas(false);
+    history.replace('/tarefas');
+  }
+
+  function trocarEscopo(v: Escopo) {
+    setEscopo(v);
+    if (respFiltro) limparFiltroResp();
+  }
 
   useEffect(() => {
     if (isCliente) return; // PortalClienteTarefas cuida do fetch do cliente
@@ -114,7 +139,7 @@ export function TarefasListPage() {
     const timer = setTimeout(() => {
       listTarefas({
         busca: q || undefined,
-        responsavelId: escopo === 'minhas' ? user?.id : undefined,
+        responsavelId: respFiltro ? respFiltro.id : (escopo === 'minhas' ? user?.id : undefined),
         somenteAvulsas: escopo === 'internas' ? true : undefined,
       })
         .then((res) => {
@@ -129,7 +154,12 @@ export function TarefasListPage() {
         .finally(() => { if (seq === seqRef.current) setCarregando(false); });
     }, q ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [busca, escopo, user?.id, recarrega, isCliente]);
+  }, [busca, escopo, user?.id, recarrega, isCliente, respFiltro]);
+
+  // Quando filtrado por "só abertas" (vindo do Pulso da Equipe), esconde concluídas.
+  const tarefasExibidas = soAbertas
+    ? tarefas.filter((t) => !tarefaConcluida(t.status))
+    : tarefas;
 
   const trocarView = (v: ViewMode) => {
     setView(v);
@@ -227,10 +257,10 @@ export function TarefasListPage() {
           {ESCOPOS.map((e) => (
             <button
               key={e.v}
-              onClick={() => setEscopo(e.v)}
+              onClick={() => trocarEscopo(e.v)}
               className={cn(
                 'shrink-0 rounded-full border px-3.5 py-1 text-sm transition-colors',
-                escopo === e.v
+                !respFiltro && escopo === e.v
                   ? 'border-primary/50 bg-primary/15 text-primary'
                   : 'border-border text-muted-foreground hover:bg-secondary',
               )}
@@ -239,6 +269,18 @@ export function TarefasListPage() {
             </button>
           ))}
         </div>
+
+        {respFiltro && (
+          <button
+            type="button"
+            onClick={limparFiltroResp}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/50 bg-primary/15 px-3 py-1 text-sm text-primary transition-colors hover:bg-primary/25"
+            title="Limpar filtro"
+          >
+            Responsável: {respFiltro.nome || '—'}{soAbertas ? ' · só abertas' : ''}
+            <X className="size-3.5" />
+          </button>
+        )}
 
         {view === 'lista' && (
           <div className="flex items-center gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden lg:overflow-visible">
@@ -278,7 +320,7 @@ export function TarefasListPage() {
           ))}
         </div>
       ) : view === 'kanban' ? (
-        tarefas.length === 0 ? (
+        tarefasExibidas.length === 0 ? (
           <Card>
             <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
               <ListChecks className="size-10 text-muted-foreground" />
@@ -286,7 +328,7 @@ export function TarefasListPage() {
             </div>
           </Card>
         ) : (
-          <KanbanTarefas tarefas={tarefas} statuses={STATUS_TAREFA} onAbrir={abrir} onMover={mover} />
+          <KanbanTarefas tarefas={tarefasExibidas} statuses={STATUS_TAREFA} onAbrir={abrir} onMover={mover} />
         )
       ) : (
         <div className="flex flex-col gap-3">
@@ -294,7 +336,7 @@ export function TarefasListPage() {
             onCriada={(id) => { setRecarrega((n) => n + 1); setSheetId(id); }}
           />
           <MinhaSemanaList
-            tarefas={tarefas}
+            tarefas={tarefasExibidas}
             onAbrir={abrir}
             onConcluir={handleConcluir}
             onReabrir={handleReabrir}
@@ -304,9 +346,9 @@ export function TarefasListPage() {
         </div>
       )}
 
-      {!carregando && tarefas.length > 0 && (
+      {!carregando && tarefasExibidas.length > 0 && (
         <p className="pt-1 text-right text-xs text-muted-foreground">
-          {tarefas.length} {tarefas.length === 1 ? 'tarefa' : 'tarefas'}
+          {tarefasExibidas.length} {tarefasExibidas.length === 1 ? 'tarefa' : 'tarefas'}
         </p>
       )}
 

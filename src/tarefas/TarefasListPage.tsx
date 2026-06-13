@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { HeaderSlot } from '@/components/layout/HeaderSlot';
 import { cn } from '@/lib/utils';
 import { TarefaSheet } from './TarefaSheet';
+import { TarefaViewSheet } from './TarefaViewSheet';
 import { PortalClienteTarefas } from './PortalClienteTarefas';
 
 /* -------------------------------------------------------------------------- */
@@ -113,6 +114,7 @@ export function TarefasListPage() {
   const [recarrega, setRecarrega] = useState(0);
   const seqRef = useRef(0);
   const [sheetId, setSheetId] = useState<string | null>(null);
+  const [viewId, setViewId] = useState<string | null>(null);
   const [criando, setCriando] = useState(false);
   // Filtro por responsável vindo do Dashboard (Pulso da Equipe) via querystring.
   const [respFiltro, setRespFiltro] = useState<{ id: string; nome: string } | null>(null);
@@ -123,6 +125,8 @@ export function TarefasListPage() {
 
   const isCliente = ehCliente(user?.role);
   const gerencia = canGerirEquipe(user?.role);
+  // Membro/Visualizador: vê só as tarefas dele e só edita as que criou.
+  const ehMembro = !isCliente && !gerencia;
 
   // Carrega os tipos visíveis: gestão vê todos; membro vê só a função dele (user.area).
   useEffect(() => {
@@ -167,8 +171,8 @@ export function TarefasListPage() {
     const timer = setTimeout(() => {
       listTarefas({
         busca: q || undefined,
-        responsavelId: respFiltro ? respFiltro.id : (escopo === 'minhas' ? user?.id : undefined),
-        somenteAvulsas: escopo === 'internas' ? true : undefined,
+        responsavelId: respFiltro ? respFiltro.id : ((ehMembro || escopo === 'minhas') ? user?.id : undefined),
+        somenteAvulsas: !ehMembro && escopo === 'internas' ? true : undefined,
       })
         .then((res) => {
           if (seq !== seqRef.current) return;
@@ -203,7 +207,15 @@ export function TarefasListPage() {
     try { localStorage.setItem(AGRUPAR_KEY, v); } catch { /* */ }
   };
 
-  const abrir = (id: string) => setSheetId(id);
+  // Membro abre em modo visualização (status + concluir etapa); só edita os campos
+  // de tarefas que ele mesmo criou. Gestão/cliente seguem no editor.
+  function abrir(id: string) {
+    if (ehMembro) {
+      const t = tarefas.find((x) => x.id === id);
+      if (t && t.created_by !== user?.id) { setViewId(id); return; }
+    }
+    setSheetId(id);
+  }
 
   async function mover(tarefaId: string, status: string) {
     const alvo = tarefas.find((t) => t.id === tarefaId);
@@ -291,7 +303,7 @@ export function TarefasListPage() {
       {/* Pills de escopo + seletor de agrupamento (só na lista) */}
       <div className="flex flex-wrap gap-3">
         <div className="flex gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-visible">
-          {ESCOPOS.map((e) => (
+          {(ehMembro ? ESCOPOS.filter((e) => e.v === 'minhas') : ESCOPOS).map((e) => (
             <button
               key={e.v}
               onClick={() => trocarEscopo(e.v)}
@@ -395,6 +407,13 @@ export function TarefasListPage() {
         criar={criando}
         tipoProjeto={tipoAtivo || undefined}
         onClose={() => { setCriando(false); setSheetId(null); }}
+        onMudou={() => setRecarrega((n) => n + 1)}
+      />
+
+      <TarefaViewSheet
+        tarefaId={viewId}
+        aberto={viewId !== null}
+        onClose={() => setViewId(null)}
         onMudou={() => setRecarrega((n) => n + 1)}
       />
       </div>

@@ -22,7 +22,7 @@ import type { Cliente } from '@/clientes/types';
 import type { Contato } from '@/contatos/types';
 import type { Usuario } from '@/usuarios/types';
 import { useAuth } from '@/auth/useAuth';
-import { ehCliente } from '@/auth/perms';
+import { ehCliente, canGerirEquipe } from '@/auth/perms';
 import {
   Sheet, SheetContent, SheetTitle,
 } from '@/components/ui/sheet';
@@ -382,6 +382,8 @@ export function TarefaSheet({
   const history = useHistory();
   const { user } = useAuth();
   const souCliente = ehCliente(user?.role);
+  /** Membro/Visualizador: precisa ficar como responsável da tarefa que cria. */
+  const ehMembro = !souCliente && !canGerirEquipe(user?.role);
 
   /** true = painel em modo rascunho (criação); false = edição de tarefa existente. */
   const modoRascunho = !!criar;
@@ -584,6 +586,8 @@ export function TarefaSheet({
 
   function toggleResponsavel(uid: string) {
     const atuais = t?.responsaveis ?? [];
+    // Membro não pode se remover: tem que ser responsável da própria tarefa.
+    if (ehMembro && uid === user?.id && atuais.includes(uid)) return;
     const proximos = atuais.includes(uid)
       ? atuais.filter((x) => x !== uid)
       : [...atuais, uid];
@@ -980,14 +984,16 @@ export function TarefaSheet({
                           className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs"
                         >
                           {nomeUsuario(id)}
-                          <button
-                            type="button"
-                            onClick={() => toggleResponsavel(id)}
-                            aria-label={`Remover ${nomeUsuario(id)}`}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="size-3" />
-                          </button>
+                          {!(ehMembro && id === user?.id) && (
+                            <button
+                              type="button"
+                              onClick={() => toggleResponsavel(id)}
+                              aria-label={`Remover ${nomeUsuario(id)}`}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <X className="size-3" />
+                            </button>
+                          )}
                         </span>
                       ))}
                     </div>

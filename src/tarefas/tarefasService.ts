@@ -30,7 +30,7 @@ const EXPAND = 'projeto,cliente,responsaveis,contato';
 const CAMPOS_LISTA = [
   'id', 'collectionId', 'collectionName', 'nome', 'descricao', 'projeto',
   'cliente', 'lado', 'responsaveis', 'contato', 'status', 'aprovacao', 'prazo',
-  'etiquetas', 'ordem', 'created', 'updated', 'prioridade', 'checklist', 'recorrencia', 'concluida_em', 'etapas',
+  'etiquetas', 'ordem', 'created', 'updated', 'created_by', 'prioridade', 'checklist', 'recorrencia', 'concluida_em', 'etapas',
   'expand.projeto.id', 'expand.projeto.nome', 'expand.projeto.tipo',
   'expand.cliente.id', 'expand.cliente.collectionId', 'expand.cliente.collectionName',
   'expand.cliente.nome', 'expand.cliente.nome_fantasia', 'expand.cliente.logo',

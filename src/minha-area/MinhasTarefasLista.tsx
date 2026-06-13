@@ -8,7 +8,8 @@ import { statusTarefaClass, prazoVencido, prazoBR, tarefaConcluida, prazoLimite 
 import { temEtapas, progressoEtapas } from '@/tarefas/etapas';
 import { STATUS_TAREFA } from '@/tarefas/status';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
-import { dataBR } from '@/clientes/format';
+import { logoUrl } from '@/clientes/clientesService';
+import { dataBR, corAvatar, inicial } from '@/clientes/format';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
@@ -64,23 +65,21 @@ function salvarLarguras(l: Larguras) {
   try { localStorage.setItem(LARGURA_KEY, JSON.stringify(l)); } catch { /* */ }
 }
 
-type Ordem = 'prazo' | 'prioridade' | 'status' | 'nome';
+type Ordem = 'prazo' | 'prioridade' | 'nome';
 const ORDEM_KEY = 'wenox-minha-lista-ordem-v1';
 const ORDENS: { v: Ordem; label: string }[] = [
   { v: 'prazo', label: 'Prazo (mais próximo)' },
   { v: 'prioridade', label: 'Prioridade (alta → baixa)' },
-  { v: 'status', label: 'Status' },
   { v: 'nome', label: 'Nome (A→Z)' },
 ];
 function carregarOrdem(): Ordem {
-  try { const s = localStorage.getItem(ORDEM_KEY); if (s === 'prazo' || s === 'prioridade' || s === 'status' || s === 'nome') return s; } catch { /* */ }
+  try { const s = localStorage.getItem(ORDEM_KEY); if (s === 'prazo' || s === 'prioridade' || s === 'nome') return s; } catch { /* */ }
   return 'prazo';
 }
 
 /* --------------------------------- Helpers -------------------------------- */
 
 function pesoPrioridade(p?: string) { return p === 'alta' ? 0 : p === 'baixa' ? 2 : 1; }
-function posStatus(s?: string) { const i = (STATUS_TAREFA as readonly string[]).indexOf(s ?? ''); return i >= 0 ? i : 99; }
 function nomeCliente(t: Tarefa) {
   return t.expand?.cliente?.nome_fantasia ?? t.expand?.cliente?.nome ?? '—';
 }
@@ -167,10 +166,6 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
         const d = pesoPrioridade(a.prioridade) - pesoPrioridade(b.prioridade);
         if (d !== 0) return d;
       }
-      if (ordem === 'status') {
-        const d = posStatus(a.status) - posStatus(b.status);
-        if (d !== 0) return d;
-      }
       const pa = prazoLimite(a.prazo)?.getTime() ?? Infinity;
       const pb = prazoLimite(b.prazo)?.getTime() ?? Infinity;
       return pa - pb;
@@ -194,7 +189,15 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
   function celula(t: Tarefa, key: ColKey) {
     if (key === 'tarefa') return <span className="font-medium">{t.nome}</span>;
     if (key === 'projeto') return <span className="text-muted-foreground">{t.expand?.projeto?.nome ?? '—'}</span>;
-    if (key === 'cliente') return <span className="text-muted-foreground">{nomeCliente(t)}</span>;
+    if (key === 'cliente') {
+      const c = t.expand?.cliente;
+      if (!c) return <span className="text-muted-foreground">—</span>;
+      const nome = nomeCliente(t);
+      const logo = c.logo ? logoUrl(c as never, '100x100') : '';
+      return logo
+        ? <img src={logo} alt={nome} title={nome} loading="lazy" className="size-7 rounded-md object-cover" />
+        : <div title={nome} className={cn('grid size-7 place-items-center rounded-md text-[10px] font-bold text-white', corAvatar(nome))}>{inicial(nome)}</div>;
+    }
     if (key === 'status') return t.status
       ? <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>{t.status}</Badge>
       : <span className="text-muted-foreground">—</span>;

@@ -69,12 +69,13 @@ export function resumoDeAgencia(a: DesempenhoAgencia): ResumoDesempenho {
   };
 }
 
-function ItemLegenda({ cor, rotulo, valor }: { cor: string; rotulo: string; valor: number }) {
+function ItemLegenda({ cor, rotulo, valor, total }: { cor: string; rotulo: string; valor: number; total: number }) {
+  const pct = total > 0 ? Math.round((valor / total) * 100) : 0;
   return (
     <div className="flex items-center gap-1.5">
       <span className={cn('size-2.5 shrink-0 rounded-full', cor)} />
       <span className="text-xs text-muted-foreground">{rotulo}</span>
-      <span className="ml-auto text-xs font-semibold">{valor}</span>
+      <span className="ml-auto text-xs font-semibold">{pct}%</span>
     </div>
   );
 }
@@ -103,9 +104,9 @@ export function PainelDesempenho({ resumo }: { resumo: ResumoDesempenho }) {
             tamanho={110}
           />
           <div className="flex w-full flex-col gap-1">
-            <ItemLegenda cor="bg-emerald-500" rotulo="No prazo" valor={concl.noPrazo} />
-            <ItemLegenda cor="bg-destructive" rotulo="Atrasada" valor={concl.atrasada} />
-            <ItemLegenda cor="bg-muted-foreground" rotulo="Sem prazo" valor={concl.semPrazo} />
+            <ItemLegenda cor="bg-emerald-500" rotulo="No prazo" valor={concl.noPrazo} total={concl.total} />
+            <ItemLegenda cor="bg-destructive" rotulo="Atrasada" valor={concl.atrasada} total={concl.total} />
+            <ItemLegenda cor="bg-muted-foreground" rotulo="Sem prazo" valor={concl.semPrazo} total={concl.total} />
           </div>
         </div>
 
@@ -121,8 +122,8 @@ export function PainelDesempenho({ resumo }: { resumo: ResumoDesempenho }) {
             tamanho={110}
           />
           <div className="flex w-full flex-col gap-1">
-            <ItemLegenda cor="bg-destructive" rotulo="Atrasada" valor={abertas.atrasada} />
-            <ItemLegenda cor="bg-emerald-500" rotulo="No prazo" valor={abertas.noPrazo} />
+            <ItemLegenda cor="bg-destructive" rotulo="Atrasada" valor={abertas.atrasada} total={abertas.total} />
+            <ItemLegenda cor="bg-emerald-500" rotulo="No prazo" valor={abertas.noPrazo} total={abertas.total} />
           </div>
         </div>
       </div>

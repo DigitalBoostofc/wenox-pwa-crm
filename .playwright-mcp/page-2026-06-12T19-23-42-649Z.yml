@@ -1,0 +1,139 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img "Wenox" [ref=e6]
+    - navigation [ref=e7]:
+      - link "Dashboard" [ref=e8] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e9]
+        - generic [ref=e14]: Dashboard
+      - generic [ref=e15]:
+        - img [ref=e16]
+        - generic [ref=e20]: Minha Área
+        - img [ref=e21]
+      - link "Equipe" [ref=e24] [cursor=pointer]:
+        - /url: /equipe
+        - img [ref=e25]
+        - generic [ref=e30]: Equipe
+      - link "Clientes" [ref=e31] [cursor=pointer]:
+        - /url: /clientes
+        - img [ref=e32]
+        - generic [ref=e36]: Clientes
+      - link "Projetos" [ref=e37] [cursor=pointer]:
+        - /url: /projetos
+        - img [ref=e38]
+        - generic [ref=e40]: Projetos
+      - link "Tarefas" [ref=e41] [cursor=pointer]:
+        - /url: /tarefas
+        - img [ref=e42]
+        - generic [ref=e45]: Tarefas
+      - generic [ref=e46]:
+        - img [ref=e47]
+        - generic [ref=e50]: Financeiro
+        - img [ref=e51]
+      - generic [ref=e54]:
+        - img [ref=e55]
+        - generic [ref=e59]: Contratos & Propostas
+        - img [ref=e60]
+      - generic [ref=e63]:
+        - img [ref=e64]
+        - generic [ref=e66]: Agenda
+        - img [ref=e67]
+      - generic [ref=e70]:
+        - img [ref=e71]
+        - generic [ref=e74]: IA Wenox
+        - img [ref=e75]
+      - link "Configurações" [ref=e78] [cursor=pointer]:
+        - /url: /config
+        - img [ref=e79]
+        - generic [ref=e82]: Configurações
+    - generic [ref=e83]:
+      - generic [ref=e84]:
+        - generic [ref=e85]:
+          - img
+          - searchbox "Buscar" [ref=e86]
+        - generic [ref=e87]:
+          - button "Tema claro" [ref=e88]:
+            - img [ref=e89]
+          - button "Notificações" [ref=e95]:
+            - img [ref=e96]
+        - button "Menu do perfil" [ref=e99]:
+          - generic [ref=e100]: A
+          - generic [ref=e101]: adm@wenox.com.br
+      - button "Recolher menu" [ref=e102]:
+        - img [ref=e103]
+        - text: Recolher
+  - generic [ref=e106]:
+    - banner [ref=e107]:
+      - heading "Usuários" [level=1] [ref=e108]
+    - main [ref=e109]:
+      - generic [ref=e161]:
+        - generic [ref=e162]:
+          - heading "Novo usuário" [level=3] [ref=e164]
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - generic [ref=e168]: Foto de perfil
+              - generic [ref=e169]:
+                - generic "Selecionar foto" [ref=e170] [cursor=pointer]:
+                  - generic [ref=e171]:
+                    - img [ref=e172]
+                    - generic [ref=e175]:
+                      - text: Adicionar
+                      - text: foto
+                - generic [ref=e176]:
+                  - generic [ref=e178] [cursor=pointer]:
+                    - img [ref=e179]
+                    - text: Escolher foto
+                  - generic [ref=e183]: PNG, JPG ou WEBP
+            - generic [ref=e184]:
+              - generic [ref=e185]: Nome
+              - textbox "Nome" [ref=e186]
+            - generic [ref=e187]:
+              - generic [ref=e188]: E-mail
+              - textbox "E-mail" [ref=e189]
+            - generic [ref=e190]:
+              - generic [ref=e191]: Papel
+              - combobox "Papel" [ref=e192]:
+                - option "Owner"
+                - option "Admin"
+                - option "Gestor"
+                - option "Membro" [selected]
+                - option "Visualizador"
+            - generic [ref=e193]:
+              - generic [ref=e194]: Função
+              - combobox "Função" [ref=e195]:
+                - option "—" [selected]
+                - option "Design"
+                - option "Social Media"
+                - option "Web Design"
+                - option "Tráfego Pago"
+                - option "Dev"
+                - option "Outros"
+            - generic [ref=e196]:
+              - generic [ref=e197]: Senha inicial
+              - generic [ref=e198]:
+                - textbox "Senha inicial" [ref=e199]:
+                  - /placeholder: Mínimo 8 caracteres
+                - button "Gerar" [ref=e200]
+              - paragraph [ref=e201]: O usuário entra com esse e-mail e senha; depois pode trocá-la.
+            - button "Adicionar usuário" [ref=e202]
+        - generic [ref=e203]:
+          - button "D Dennis Fernandes adm@wenox.com.br Admin" [ref=e204]:
+            - generic [ref=e205]: D
+            - generic [ref=e206]:
+              - paragraph [ref=e207]: Dennis Fernandes
+              - paragraph [ref=e208]: adm@wenox.com.br
+            - generic [ref=e210]: Admin
+          - button "D Dennis Teste dennisxsf@gmail.com Outros Gestor" [ref=e211]:
+            - generic [ref=e212]: D
+            - generic [ref=e213]:
+              - paragraph [ref=e214]: Dennis Teste
+              - paragraph [ref=e215]: dennisxsf@gmail.com
+            - generic [ref=e216]:
+              - generic [ref=e217]: Outros
+              - generic [ref=e218]: Gestor
+          - button "Leonardo Groff Leonardo Groff leonardo@wenox.com.br Owner" [ref=e219]:
+            - img "Leonardo Groff" [ref=e220]
+            - generic [ref=e221]:
+              - paragraph [ref=e222]: Leonardo Groff
+              - paragraph [ref=e223]: leonardo@wenox.com.br
+            - generic [ref=e225]: Owner

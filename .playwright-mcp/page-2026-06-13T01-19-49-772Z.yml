@@ -1,0 +1,128 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - img
+        - navigation:
+          - link:
+            - /url: /dashboard
+            - img
+            - generic: Dashboard
+          - link:
+            - /url: /minha-area
+            - img
+            - generic: Minha Área
+          - link:
+            - /url: /equipe
+            - img
+            - generic: Equipe
+          - link:
+            - /url: /clientes
+            - img
+            - generic: Clientes
+          - link:
+            - /url: /projetos
+            - img
+            - generic: Projetos
+          - link:
+            - /url: /tarefas
+            - img
+            - generic: Tarefas
+          - generic:
+            - img
+            - generic: Financeiro
+            - img
+          - generic:
+            - img
+            - generic: Contratos & Propostas
+            - img
+          - generic:
+            - img
+            - generic: Agenda
+            - img
+          - generic:
+            - img
+            - generic: IA Wenox
+            - img
+          - link:
+            - /url: /config
+            - img
+            - generic: Configurações
+        - generic:
+          - generic:
+            - generic:
+              - img
+              - searchbox
+            - generic:
+              - button:
+                - img
+              - button:
+                - img
+                - generic: "2"
+            - button:
+              - img
+              - generic: leonardo@wenox.com.br
+          - button:
+            - img
+            - text: Recolher
+      - generic:
+        - banner:
+          - heading [level=1]: Minha Área
+        - main:
+          - generic:
+            - generic:
+              - img
+              - generic:
+                - heading [level=2]: Leonardo Groff
+                - generic: Owner
+            - generic:
+              - generic:
+                - heading [level=2]: Minha Produtividade
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                    - generic:
+                      - paragraph: "0"
+                      - paragraph: Concluídas na semana
+                  - generic:
+                    - generic:
+                      - img
+                    - generic:
+                      - paragraph: "0"
+                      - paragraph: Abertas
+                  - generic:
+                    - generic:
+                      - img
+                    - generic:
+                      - paragraph: "0"
+                      - paragraph: Atrasadas
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=2]: Meu Dia
+                  - generic:
+                    - textbox:
+                      - /placeholder: + Adicionar tarefa (Enter para criar)
+              - generic:
+                - generic:
+                  - heading [level=2]: Meus Projetos
+                  - generic:
+                    - button:
+                      - generic:
+                        - paragraph: AppexCRM - Desenvolvimento e Manutenção
+                        - paragraph: Nodex - AppexCRM
+  - dialog "Carregando…" [ref=e167]:
+    - generic [ref=e168]:
+      - heading "Carregando…" [level=2] [ref=e169]
+      - generic [ref=e170]:
+        - button "Abrir página completa" [active] [ref=e171]:
+          - img [ref=e172]
+          - text: Abrir página completa
+        - button "Apagar" [ref=e176]:
+          - img [ref=e177]
+          - text: Apagar
+    - button "Fechar" [ref=e188]:
+      - img [ref=e189]
+      - generic [ref=e192]: Fechar

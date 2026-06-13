@@ -1,0 +1,63 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img "Wenox" [ref=e6]
+    - navigation [ref=e7]:
+      - link "Meus Projetos" [ref=e8] [cursor=pointer]:
+        - /url: /projetos
+        - img [ref=e9]
+        - generic [ref=e11]: Meus Projetos
+      - link "Minhas Tarefas" [ref=e12] [cursor=pointer]:
+        - /url: /tarefas
+        - img [ref=e13]
+        - generic [ref=e16]: Minhas Tarefas
+      - link "Minha Empresa" [ref=e17] [cursor=pointer]:
+        - /url: /minha-empresa
+        - img [ref=e18]
+        - generic [ref=e21]: Minha Empresa
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - img
+          - searchbox "Buscar" [ref=e25]
+        - generic [ref=e26]:
+          - button "Tema claro" [ref=e27]:
+            - img [ref=e28]
+          - button "Notificações" [ref=e34]:
+            - img [ref=e35]
+        - button "Menu do perfil" [ref=e38]:
+          - generic [ref=e39]: C
+          - generic [ref=e40]: cliente-teste@wenox.com.br
+      - button "Recolher menu" [ref=e41]:
+        - img [ref=e42]
+        - text: Recolher
+  - generic [ref=e45]:
+    - banner [ref=e46]:
+      - heading "Tarefas" [level=1] [ref=e47]
+    - main [ref=e48]:
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - button "Aguardando sua aprovação 1" [ref=e53]:
+            - img [ref=e54]
+            - generic [ref=e56]: Aguardando sua aprovação
+            - generic [ref=e57]: "1"
+          - button "TESTE-PORTAL Post institucional — revisar e aprovar 15/06/2026 Aprovando… Pedir alteração" [ref=e85] [cursor=pointer]:
+            - generic [ref=e60]:
+              - paragraph [ref=e62]: TESTE-PORTAL Post institucional — revisar e aprovar
+              - generic [ref=e63]: 15/06/2026
+            - generic [ref=e64]:
+              - button "Aprovando…" [disabled]:
+                - img
+                - text: Aprovando…
+              - button "Pedir alteração" [disabled]:
+                - img
+                - text: Pedir alteração
+        - generic [ref=e73]:
+          - button "Suas pendências 1" [ref=e74]:
+            - img [ref=e75]
+            - generic [ref=e77]: Suas pendências
+            - generic [ref=e78]: "1"
+          - button "TESTE-PORTAL Enviar logotipo atualizado A fazer 18/06/2026" [ref=e80] [cursor=pointer]:
+            - generic [ref=e81]: TESTE-PORTAL Enviar logotipo atualizado
+            - generic [ref=e82]:
+              - generic [ref=e83]: A fazer
+              - generic [ref=e84]: 18/06/2026

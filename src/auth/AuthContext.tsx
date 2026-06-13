@@ -7,6 +7,8 @@ export interface AuthUser {
   email: string;
   role: string;
   nome?: string;
+  /** Função do membro (= um tipo de projeto). Restringe o que ele vê em Tarefas. */
+  area?: string;
   /** Preenchido só em contas do tipo Cliente — id do cliente vinculado. */
   cliente?: string;
   /** Foto de perfil (nome do arquivo no PocketBase) + dados p/ montar a URL. */

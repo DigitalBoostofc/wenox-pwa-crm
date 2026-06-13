@@ -1,0 +1,176 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - img
+        - navigation:
+          - link:
+            - /url: /dashboard
+            - img
+            - generic: Dashboard
+          - link:
+            - /url: /minha-area
+            - img
+            - generic: Minha Área
+          - link:
+            - /url: /clientes
+            - img
+            - generic: Clientes
+          - link:
+            - /url: /projetos
+            - img
+            - generic: Projetos
+          - link:
+            - /url: /tarefas
+            - img
+            - generic: Tarefas
+          - link:
+            - /url: /config
+            - img
+            - generic: Configurações
+        - generic:
+          - generic:
+            - generic:
+              - img
+              - searchbox
+            - generic:
+              - button:
+                - img
+              - button:
+                - img
+            - button:
+              - generic: M
+              - generic: membro-teste@wenox.com.br
+          - button:
+            - img
+            - text: Recolher
+      - generic:
+        - banner:
+          - heading [level=1]: Minha Área
+        - main:
+          - generic:
+            - generic:
+              - generic: M
+              - generic:
+                - heading [level=2]: Membro Teste
+                - paragraph: Analista · Social Media
+                - generic: Membro
+            - generic:
+              - generic:
+                - heading [level=2]: Minha Produtividade
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                    - generic:
+                      - paragraph: "0"
+                      - paragraph: Concluídas na semana
+                  - generic:
+                    - generic:
+                      - img
+                    - generic:
+                      - paragraph: "0"
+                      - paragraph: Abertas
+                  - generic:
+                    - generic:
+                      - img
+                    - generic:
+                      - paragraph: "0"
+                      - paragraph: Atrasadas
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=2]: Meu Dia
+                  - generic:
+                    - textbox:
+                      - /placeholder: + Adicionar tarefa (Enter para criar)
+                  - generic:
+                    - generic:
+                      - img
+                      - paragraph: Nenhuma tarefa neste filtro.
+              - generic:
+                - generic:
+                  - heading [level=2]: Meus Projetos
+                  - generic:
+                    - generic:
+                      - img
+                      - paragraph: Você não está em nenhum projeto.
+                - generic:
+                  - heading [level=2]: Meus Dados
+                  - generic:
+                    - generic:
+                      - generic: E-mail
+                      - generic: membro-teste@wenox.com.br
+                    - generic:
+                      - generic: Telefone
+                      - generic: —
+                    - generic:
+                      - generic: Chave Pix
+                      - generic: —
+                    - generic:
+                      - generic: Endereço
+                      - generic: —
+                    - button:
+                      - img
+                      - text: Editar meus dados
+  - dialog "Meus dados" [ref=e148]:
+    - heading "Meus dados" [level=2] [ref=e149]
+    - generic [ref=e150]:
+      - generic "Trocar foto" [ref=e151] [cursor=pointer]:
+        - img [ref=e152]
+      - generic [ref=e155]:
+        - paragraph [ref=e156]: Membro Teste
+        - paragraph [ref=e157]: membro-teste@wenox.com.br
+    - generic [ref=e158]:
+      - generic [ref=e159]:
+        - generic [ref=e160]:
+          - generic [ref=e161]: Papel
+          - generic [ref=e162]: Membro
+        - generic [ref=e163]:
+          - generic [ref=e164]: Área
+          - generic [ref=e165]: Social Media
+      - generic [ref=e166]:
+        - generic [ref=e167]: Admissão
+        - generic [ref=e168]: —
+      - paragraph [ref=e169]: Papel, área e admissão são alterados pela gestão.
+    - generic [ref=e170]:
+      - generic [ref=e171]:
+        - generic [ref=e172]: Nome
+        - textbox [ref=e173]: Membro Teste
+      - generic [ref=e174]:
+        - generic [ref=e175]: Nome completo
+        - textbox [ref=e176]
+      - generic [ref=e177]:
+        - generic [ref=e178]: Telefone
+        - textbox [ref=e179]
+      - generic [ref=e180]:
+        - generic [ref=e181]:
+          - generic [ref=e182]: CPF
+          - textbox [ref=e183]
+        - generic [ref=e184]:
+          - generic [ref=e185]: CNPJ
+          - textbox [ref=e186]
+      - generic [ref=e187]:
+        - generic [ref=e188]: Chave Pix
+        - textbox [ref=e189]
+      - generic [ref=e190]:
+        - generic [ref=e191]: Data de nascimento
+        - textbox [ref=e192]
+      - generic [ref=e193]:
+        - generic [ref=e194]: Endereço
+        - textbox "Rua, nº, bairro, cidade/UF" [ref=e195]
+      - button "Salvar alterações" [ref=e196]:
+        - img [ref=e197]
+        - text: Salvar alterações
+    - generic [ref=e201]:
+      - paragraph [ref=e202]:
+        - img [ref=e203]
+        - text: Trocar minha senha
+      - textbox "Senha atual" [ref=e206]
+      - textbox "Nova senha (mín. 8)" [ref=e207]
+      - textbox "Confirmar nova senha" [ref=e208]
+      - button "Alterar senha" [disabled]
+    - button "Fechar" [active] [ref=e209]:
+      - img [ref=e210]
+      - generic [ref=e213]: Fechar

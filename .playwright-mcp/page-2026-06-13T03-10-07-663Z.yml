@@ -1,0 +1,7 @@
+- generic [ref=e4]:
+  - banner [ref=e5]:
+    - button "Abrir menu" [ref=e6]:
+      - img [ref=e7]
+    - heading "Minha Empresa" [level=1] [ref=e8]
+  - main [ref=e9]:
+    - paragraph [ref=e10]: Carregando…

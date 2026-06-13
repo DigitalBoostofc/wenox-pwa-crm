@@ -1,0 +1,71 @@
+- generic [ref=e21]:
+  - complementary [ref=e22]:
+    - img "Wenox" [ref=e24]
+    - navigation [ref=e25]:
+      - link "Dashboard" [ref=e26] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e27]
+        - generic [ref=e32]: Dashboard
+      - generic [ref=e33]:
+        - img [ref=e34]
+        - generic [ref=e38]: Minha Área
+        - img [ref=e39]
+      - link "Equipe" [ref=e42] [cursor=pointer]:
+        - /url: /equipe
+        - img [ref=e43]
+        - generic [ref=e48]: Equipe
+      - link "Clientes" [ref=e49] [cursor=pointer]:
+        - /url: /clientes
+        - img [ref=e50]
+        - generic [ref=e54]: Clientes
+      - link "Projetos" [ref=e55] [cursor=pointer]:
+        - /url: /projetos
+        - img [ref=e56]
+        - generic [ref=e58]: Projetos
+      - link "Tarefas" [ref=e59] [cursor=pointer]:
+        - /url: /tarefas
+        - img [ref=e60]
+        - generic [ref=e63]: Tarefas
+      - generic [ref=e64]:
+        - img [ref=e65]
+        - generic [ref=e68]: Financeiro
+        - img [ref=e69]
+      - generic [ref=e72]:
+        - img [ref=e73]
+        - generic [ref=e77]: Contratos & Propostas
+        - img [ref=e78]
+      - generic [ref=e81]:
+        - img [ref=e82]
+        - generic [ref=e84]: Agenda
+        - img [ref=e85]
+      - generic [ref=e88]:
+        - img [ref=e89]
+        - generic [ref=e92]: IA Wenox
+        - img [ref=e93]
+      - link "Configurações" [ref=e96] [cursor=pointer]:
+        - /url: /config
+        - img [ref=e97]
+        - generic [ref=e100]: Configurações
+    - generic [ref=e101]:
+      - generic [ref=e102]:
+        - generic [ref=e103]:
+          - img
+          - searchbox "Buscar" [ref=e104]
+        - generic [ref=e105]:
+          - button "Tema claro" [ref=e106]:
+            - img [ref=e107]
+          - button "Notificações" [ref=e113]:
+            - img [ref=e114]
+        - button "Menu do perfil" [ref=e117]:
+          - generic [ref=e118]: A
+          - generic [ref=e119]: adm@wenox.com.br
+      - button "Recolher menu" [ref=e120]:
+        - img [ref=e121]
+        - text: Recolher
+  - generic [ref=e124]:
+    - banner [ref=e125]:
+      - heading "Dashboard" [level=1] [ref=e126]
+    - main [ref=e127]:
+      - generic [ref=e129]:
+        - heading "Boa tarde, Dennis 👋" [level=2] [ref=e130]
+        - paragraph [ref=e131]: Aqui está o resumo da agência hoje.

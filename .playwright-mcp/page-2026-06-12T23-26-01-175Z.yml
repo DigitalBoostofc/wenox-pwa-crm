@@ -1,0 +1,150 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img "Wenox" [ref=e6]
+    - navigation [ref=e7]:
+      - link "Dashboard" [ref=e8] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e9]
+        - generic [ref=e14]: Dashboard
+      - generic [ref=e15]:
+        - img [ref=e16]
+        - generic [ref=e20]: Minha Área
+        - img [ref=e21]
+      - link "Equipe" [ref=e24] [cursor=pointer]:
+        - /url: /equipe
+        - img [ref=e25]
+        - generic [ref=e30]: Equipe
+      - link "Clientes" [ref=e31] [cursor=pointer]:
+        - /url: /clientes
+        - img [ref=e32]
+        - generic [ref=e36]: Clientes
+      - link "Projetos" [ref=e37] [cursor=pointer]:
+        - /url: /projetos
+        - img [ref=e38]
+        - generic [ref=e40]: Projetos
+      - link "Tarefas" [ref=e41] [cursor=pointer]:
+        - /url: /tarefas
+        - img [ref=e42]
+        - generic [ref=e45]: Tarefas
+      - generic [ref=e46]:
+        - img [ref=e47]
+        - generic [ref=e50]: Financeiro
+        - img [ref=e51]
+      - generic [ref=e54]:
+        - img [ref=e55]
+        - generic [ref=e59]: Contratos & Propostas
+        - img [ref=e60]
+      - generic [ref=e63]:
+        - img [ref=e64]
+        - generic [ref=e66]: Agenda
+        - img [ref=e67]
+      - generic [ref=e70]:
+        - img [ref=e71]
+        - generic [ref=e74]: IA Wenox
+        - img [ref=e75]
+      - link "Configurações" [ref=e78] [cursor=pointer]:
+        - /url: /config
+        - img [ref=e79]
+        - generic [ref=e82]: Configurações
+    - generic [ref=e83]:
+      - generic [ref=e84]:
+        - generic [ref=e85]:
+          - img
+          - searchbox "Buscar" [ref=e86]
+        - generic [ref=e87]:
+          - button "Tema claro" [ref=e88]:
+            - img [ref=e89]
+          - button "Notificações" [ref=e95]:
+            - img [ref=e96]
+            - generic [ref=e111]: "2"
+        - button "Menu do perfil" [ref=e99]:
+          - img "Leonardo Groff" [ref=e100]
+          - generic [ref=e101]: leonardo@wenox.com.br
+      - button "Recolher menu" [ref=e102]:
+        - img [ref=e103]
+        - text: Recolher
+  - generic [ref=e106]:
+    - banner [ref=e107]:
+      - heading "Tarefas" [level=1] [ref=e108]
+      - generic [ref=e113]:
+        - generic [ref=e114]:
+          - img
+          - textbox "Buscar" [ref=e115]:
+            - /placeholder: Buscar tarefa ou projeto
+        - generic [ref=e116]:
+          - button "Lista" [pressed] [ref=e117]:
+            - img [ref=e118]
+            - generic [ref=e119]: Lista
+          - button "Kanban" [ref=e120]:
+            - img [ref=e121]
+            - generic [ref=e123]: Kanban
+        - button "Nova tarefa" [ref=e124]:
+          - img [ref=e125]
+          - text: Nova tarefa
+    - main [ref=e109]:
+      - generic [ref=e126]:
+        - generic [ref=e127]:
+          - generic [ref=e128]:
+            - button "Minhas" [ref=e129]
+            - button "Todas" [ref=e130]
+            - button "Internas (sem projeto)" [ref=e131]
+          - generic [ref=e132]:
+            - generic [ref=e133]: "Agrupar:"
+            - button "Prazo" [ref=e134]
+            - button "Responsável" [active] [ref=e135]
+            - button "Projeto" [ref=e136]
+            - button "Cliente" [ref=e137]
+            - button "Status" [ref=e138]
+        - generic [ref=e139]:
+          - textbox "Adicionar tarefa rápida" [ref=e141]:
+            - /placeholder: + Adicionar tarefa (Enter para criar)
+          - generic [ref=e142]:
+            - generic [ref=e208]:
+              - button "Dennis Fernandes 2" [ref=e209]:
+                - img [ref=e210]
+                - generic [ref=e212]: Dennis Fernandes
+                - generic [ref=e213]: "2"
+              - generic [ref=e214]:
+                - button "Concluir tarefa OXE Telecom - Desenvolvimento de Site Interna A fazer 12/06/2026 DF" [ref=e215] [cursor=pointer]:
+                  - button "Concluir tarefa" [ref=e216]
+                  - generic [ref=e217]:
+                    - generic [ref=e219]: OXE Telecom - Desenvolvimento de Site
+                    - generic [ref=e220]: Interna
+                  - generic [ref=e221]:
+                    - generic [ref=e222]: A fazer
+                    - generic [ref=e223]: 12/06/2026
+                    - generic "Dennis Fernandes" [ref=e225]: DF
+                - button "Concluir tarefa testar Interna A fazer 12/06/2026 DF" [ref=e226] [cursor=pointer]:
+                  - button "Concluir tarefa" [ref=e227]
+                  - generic [ref=e228]:
+                    - generic [ref=e230]: testar
+                    - generic [ref=e231]: Interna
+                  - generic [ref=e232]:
+                    - generic [ref=e233]: A fazer
+                    - generic [ref=e234]: 12/06/2026
+                    - generic "Dennis Fernandes" [ref=e236]: DF
+            - generic [ref=e237]:
+              - button "⚠ Sem responsável 2" [ref=e238]:
+                - img [ref=e239]
+                - generic [ref=e241]: ⚠ Sem responsável
+                - generic [ref=e242]: "2"
+              - generic [ref=e243]:
+                - button "Concluir tarefa TESTE-PORTAL Post institucional — revisar e aprovar Agência Wenox Aguardando aprovação 15/06/2026" [ref=e244] [cursor=pointer]:
+                  - button "Concluir tarefa" [ref=e245]
+                  - generic [ref=e246]:
+                    - generic [ref=e248]: TESTE-PORTAL Post institucional — revisar e aprovar
+                    - generic [ref=e249]: Agência Wenox
+                  - generic [ref=e250]:
+                    - generic [ref=e251]: Aguardando aprovação
+                    - generic [ref=e252]: 15/06/2026
+                    - img [ref=e255]
+                - button "Concluir tarefa TESTE-PORTAL Enviar logotipo atualizado Agência Wenox A fazer 18/06/2026" [ref=e258] [cursor=pointer]:
+                  - button "Concluir tarefa" [ref=e259]
+                  - generic [ref=e260]:
+                    - generic [ref=e262]: TESTE-PORTAL Enviar logotipo atualizado
+                    - generic [ref=e263]: Agência Wenox
+                  - generic [ref=e264]:
+                    - generic [ref=e265]: A fazer
+                    - generic [ref=e266]: 18/06/2026
+                    - img [ref=e269]
+        - paragraph [ref=e207]: 4 tarefas

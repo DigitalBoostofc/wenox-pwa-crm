@@ -1,0 +1,291 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e6]:
+          - generic [ref=e7]:
+            - link [ref=e352] [cursor=pointer]:
+              - /url: /
+              - img [ref=e353]
+            - generic [ref=e10]:
+              - generic [ref=e11]: Easypanel
+              - generic [ref=e12]:
+                - generic [ref=e13]: v2.31.0
+                - button [ref=e14] [cursor=pointer]:
+                  - img [ref=e15]
+                - combobox [ref=e20]
+          - generic [ref=e21]:
+            - link [ref=e354] [cursor=pointer]:
+              - /url: /
+              - img [ref=e23]
+              - generic [ref=e26]: Painel
+            - link [ref=e355] [cursor=pointer]:
+              - /url: /actions
+              - img [ref=e28]
+              - generic [ref=e30]: Ações
+            - link [ref=e356] [cursor=pointer]:
+              - /url: /monitor
+              - img [ref=e32]
+              - generic [ref=e34]: Monitorar
+            - link [ref=e357] [cursor=pointer]:
+              - /url: /domains
+              - img [ref=e36]
+              - generic [ref=e39]: Domínios
+            - link [ref=e358] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e41]
+              - generic [ref=e44]: Configurações
+          - generic [ref=e46]:
+            - link [ref=e359] [cursor=pointer]:
+              - /url: https://easypanel.io/docs
+              - img [ref=e48]
+              - generic [ref=e50]: Documentação
+              - img [ref=e52]
+            - link [ref=e360] [cursor=pointer]:
+              - /url: https://discord.gg/9bcDSXcZQ7
+              - img [ref=e361]
+              - generic [ref=e59]: Discord
+              - img [ref=e61]
+            - link [ref=e362] [cursor=pointer]:
+              - /url: https://my.easypanel.io/feedback
+              - img [ref=e66]
+              - generic [ref=e68]: Feedback
+              - img [ref=e70]
+            - link [ref=e363] [cursor=pointer]:
+              - /url: https://my.easypanel.io/changelog
+              - img [ref=e75]
+              - generic [ref=e78]: Histórico de Alterações
+              - img [ref=e80]
+          - link [ref=e364] [cursor=pointer]:
+            - /url: /buy-license
+            - img [ref=e86]
+            - generic [ref=e90]: Comprar Licença
+          - button [ref=e365] [cursor=pointer]:
+            - img [ref=e92]
+            - generic [ref=e95]: Busca Rápida
+            - generic [ref=e97]: ⌘ K
+          - generic [ref=e98]:
+            - heading [level=2] [ref=e366]: Command Palette
+            - paragraph [ref=e100]: Search for a command to run...
+          - button [ref=e367] [cursor=pointer]:
+            - img [ref=e102]
+            - generic [ref=e106]: 45.132.240.175
+            - img [ref=e108]
+          - generic [ref=e111]:
+            - img [ref=e112]
+            - generic [ref=e114]: Modo Escuro
+            - generic [ref=e115]:
+              - switch [ref=e368]
+              - checkbox [ref=e117]
+          - button [ref=e369] [cursor=pointer]:
+            - img [ref=e119]
+            - generic [ref=e122]: Sair
+        - generic [ref=e124]:
+          - generic [ref=e125]:
+            - button [ref=e370] [cursor=pointer]:
+              - img [ref=e128]
+              - generic [ref=e131]: wenox
+              - img [ref=e132]
+            - generic [ref=e135]:
+              - generic [ref=e136]: Serviços
+              - link [ref=e137] [cursor=pointer]:
+                - /url: /projects/wenox/create
+                - img [ref=e138]
+            - generic [ref=e142]:
+              - link [ref=e371] [cursor=pointer]:
+                - /url: /projects/wenox/app/pocketbase
+                - generic [ref=e147]: pocketbase
+              - link [ref=e372] [cursor=pointer]:
+                - /url: /projects/wenox/app/pwa
+                - generic [ref=e152]: pwa
+          - generic [ref=e158]:
+            - link [ref=e373] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa
+              - generic [ref=e161]:
+                - img [ref=e163]
+                - text: Visão Geral
+            - link [ref=e374] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/source
+              - generic [ref=e166]:
+                - img [ref=e168]
+                - text: Fonte
+            - link [ref=e375] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/deployments
+              - generic [ref=e173]:
+                - img [ref=e175]
+                - text: Implantações
+            - link [ref=e376] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/environment
+              - generic [ref=e182]:
+                - img [ref=e184]
+                - text: Ambiente
+            - link [ref=e377] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/domains
+              - generic [ref=e189]:
+                - img [ref=e191]
+                - text: Domínios
+            - link [ref=e378] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/redirects
+              - generic [ref=e196]:
+                - img [ref=e198]
+                - text: Redirecionamentos
+            - link [ref=e379] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/scripts
+              - generic [ref=e202]:
+                - img [ref=e204]
+                - text: Scripts
+            - link [ref=e380] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/security
+              - generic [ref=e209]:
+                - img [ref=e211]
+                - text: Segurança
+            - link [ref=e381] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/resources
+              - generic [ref=e217]:
+                - img [ref=e219]
+                - text: Recursos
+            - link [ref=e382] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/maintenance
+              - generic [ref=e224]:
+                - img [ref=e226]
+                - text: Manutenção
+            - link [ref=e383] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/storage
+              - generic [ref=e230]:
+                - img [ref=e232]
+                - text: Armazenamento
+            - link [ref=e384] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa/advanced
+              - generic [ref=e236]:
+                - img [ref=e238]
+                - text: Avançado
+      - generic [ref=e242]:
+        - generic [ref=e243]:
+          - generic [ref=e244]:
+            - link [ref=e385] [cursor=pointer]:
+              - /url: /projects/wenox
+              - text: wenox
+            - generic [ref=e246]: /
+            - generic [ref=e247]: pwa
+            - generic [ref=e248]: app
+            - button [ref=e386] [cursor=pointer]:
+              - img [ref=e251]
+          - generic [ref=e254]:
+            - link [ref=e387] [cursor=pointer]:
+              - /url: /projects/wenox/create
+              - img [ref=e257]
+              - text: Serviço
+            - link [ref=e388] [cursor=pointer]:
+              - /url: /projects/wenox/create?tab=templates
+              - img [ref=e260]
+              - text: Modelos
+            - link [ref=e389] [cursor=pointer]:
+              - /url: /projects/wenox/settings
+              - img [ref=e264]
+        - generic [ref=e270]:
+          - generic [ref=e272]:
+            - generic [ref=e273]:
+              - button [ref=e390] [cursor=pointer]: Implantar
+              - button [ref=e391] [cursor=pointer]:
+                - img [ref=e276]
+              - button [ref=e392] [cursor=pointer]:
+                - img [ref=e279]
+              - button [ref=e393] [cursor=pointer]:
+                - img [ref=e284]
+              - button [ref=e394] [cursor=pointer]:
+                - img [ref=e288]
+              - link [ref=e395] [cursor=pointer]:
+                - /url: https://wenox-pwa.lzivto.easypanel.host/
+                - img [ref=e292]
+              - button [ref=e396] [cursor=pointer]:
+                - img [ref=e297]
+              - button [ref=e397] [cursor=pointer]:
+                - img [ref=e301]
+              - button [ref=e398] [cursor=pointer]:
+                - img [ref=e306]
+            - generic [ref=e309]:
+              - generic [ref=e310]:
+                - text: CPU
+                - generic [ref=e311]: 0.0%
+              - generic [ref=e312]: Memória 16.9 MB
+              - generic [ref=e313]:
+                - text: I/O da Rede
+                - generic [ref=e314]: 214.8 KB / 378.0 B
+          - generic [ref=e315]:
+            - paragraph [ref=e317]: Domínios
+            - generic [ref=e319]:
+              - generic [ref=e320]:
+                - button [ref=e399] [cursor=pointer]:
+                  - generic [ref=e324]: https://wenox-pwa.lzivto.easypanel.host/
+                - img [ref=e326]
+                - button [ref=e400] [cursor=pointer]:
+                  - generic [ref=e331]: http://wenox_pwa:80/
+                - generic [ref=e332]:
+                  - button [ref=e401] [cursor=pointer]:
+                    - img [ref=e334]
+                  - link [ref=e402] [cursor=pointer]:
+                    - /url: https://wenox-pwa.lzivto.easypanel.host/
+                    - img [ref=e337]
+                  - button [ref=e403] [cursor=pointer]:
+                    - img [ref=e343]
+                  - button [ref=e404] [cursor=pointer]:
+                    - img [ref=e347]
+              - button [ref=e405] [cursor=pointer]: Adicionar Domínio
+    - region "Notifications alt+T"
+  - generic:
+    - region "Notifications-top"
+    - region "Notifications-top-left"
+    - region "Notifications-top-right"
+    - region "Notifications-bottom-left"
+    - region "Notifications-bottom"
+    - region "Notifications-bottom-right"
+  - dialog "Atualizar Domínio" [ref=e409]:
+    - generic [ref=e411]:
+      - heading "Atualizar Domínio" [level=2] [ref=e413]
+      - generic [ref=e414]:
+        - tablist [ref=e415]:
+          - tab "Detalhes" [active] [selected] [ref=e416] [cursor=pointer]
+          - tab "Middlewares" [ref=e417] [cursor=pointer]
+          - tab "SSL" [ref=e418] [cursor=pointer]
+        - tabpanel "Detalhes" [ref=e420]:
+          - generic [ref=e421]:
+            - generic [ref=e422]:
+              - group [ref=e424]:
+                - generic [ref=e425]: HTTPS
+                - checkbox "HTTPS" [checked] [ref=e427]
+              - group [ref=e431]:
+                - generic [ref=e432]: Host*
+                - textbox "Host" [ref=e434]: wenox-pwa.lzivto.easypanel.host
+              - group [ref=e436]:
+                - generic [ref=e437]: Caminho*
+                - textbox "Caminho" [ref=e439]: /
+            - separator
+            - generic [ref=e440]: Destino
+            - generic [ref=e441]:
+              - group [ref=e443]:
+                - generic [ref=e444]: Protocolo*
+                - generic [ref=e445]:
+                  - combobox "Protocolo" [ref=e446]:
+                    - option "HTTP" [selected]
+                    - option "HTTPS"
+                  - generic:
+                    - img
+              - group [ref=e448]:
+                - generic [ref=e449]:
+                  - text: Porta
+                  - img [ref=e450]
+                  - text: "*"
+                - generic [ref=e452]:
+                  - spinbutton "Porta" [ref=e453]: "80"
+                  - button "Select port" [ref=e455] [cursor=pointer]:
+                    - img [ref=e456]
+              - group [ref=e460]:
+                - generic [ref=e461]:
+                  - text: Caminho
+                  - img [ref=e462]
+                  - text: "*"
+                - textbox "Caminho" [ref=e465]: /
+      - button "Salvar" [ref=e467] [cursor=pointer]
+    - button "Close" [ref=e468] [cursor=pointer]:
+      - img
+      - generic [ref=e469]: Close

@@ -1,0 +1,15 @@
+- generic [ref=e158]:
+  - generic [ref=e159]:
+    - generic [ref=e161]: W
+    - generic [ref=e162]:
+      - heading "Wenox OS" [level=1] [ref=e163]
+      - paragraph [ref=e164]: Central de comando da agência
+  - generic [ref=e167]:
+    - generic [ref=e168]:
+      - generic [ref=e169]: Email
+      - textbox "Email" [ref=e170]: dennisxsf@gmail.com
+    - generic [ref=e171]:
+      - generic [ref=e172]: Senha
+      - textbox "Senha" [active] [ref=e173]: teste12345
+    - paragraph [ref=e175]: Esta conta está desativada. Fale com um administrador.
+    - button "Entrar" [ref=e174]

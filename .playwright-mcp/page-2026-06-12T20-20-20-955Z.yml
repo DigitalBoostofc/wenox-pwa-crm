@@ -1,0 +1,249 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img "Wenox" [ref=e6]
+    - navigation [ref=e7]:
+      - link "Dashboard" [ref=e8] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e9]
+        - generic [ref=e14]: Dashboard
+      - generic [ref=e15]:
+        - img [ref=e16]
+        - generic [ref=e20]: Minha Área
+        - img [ref=e21]
+      - link "Equipe" [ref=e24] [cursor=pointer]:
+        - /url: /equipe
+        - img [ref=e25]
+        - generic [ref=e30]: Equipe
+      - link "Clientes" [ref=e31] [cursor=pointer]:
+        - /url: /clientes
+        - img [ref=e32]
+        - generic [ref=e36]: Clientes
+      - link "Projetos" [ref=e37] [cursor=pointer]:
+        - /url: /projetos
+        - img [ref=e38]
+        - generic [ref=e40]: Projetos
+      - link "Tarefas" [ref=e41] [cursor=pointer]:
+        - /url: /tarefas
+        - img [ref=e42]
+        - generic [ref=e45]: Tarefas
+      - generic [ref=e46]:
+        - img [ref=e47]
+        - generic [ref=e50]: Financeiro
+        - img [ref=e51]
+      - generic [ref=e54]:
+        - img [ref=e55]
+        - generic [ref=e59]: Contratos & Propostas
+        - img [ref=e60]
+      - generic [ref=e63]:
+        - img [ref=e64]
+        - generic [ref=e66]: Agenda
+        - img [ref=e67]
+      - generic [ref=e70]:
+        - img [ref=e71]
+        - generic [ref=e74]: IA Wenox
+        - img [ref=e75]
+      - link "Configurações" [ref=e78] [cursor=pointer]:
+        - /url: /config
+        - img [ref=e79]
+        - generic [ref=e82]: Configurações
+    - generic [ref=e83]:
+      - generic [ref=e84]:
+        - generic [ref=e85]:
+          - img
+          - searchbox "Buscar" [ref=e86]
+        - generic [ref=e87]:
+          - button "Tema claro" [ref=e88]:
+            - img [ref=e89]
+          - button "Notificações" [ref=e95]:
+            - img [ref=e96]
+        - button "Menu do perfil" [ref=e99]:
+          - generic [ref=e100]: A
+          - generic [ref=e101]: adm@wenox.com.br
+      - button "Recolher menu" [ref=e102]:
+        - img [ref=e103]
+        - text: Recolher
+  - generic [ref=e106]:
+    - banner [ref=e107]:
+      - heading "Configurações" [level=1] [ref=e108]
+    - main [ref=e109]:
+      - generic [ref=e111]:
+        - generic [ref=e112]:
+          - button [ref=e113]:
+            - img [ref=e114]
+          - heading "Privacidade & Acessos" [level=2] [ref=e116]
+        - paragraph [ref=e117]:
+          - text: Defina quais módulos cada papel de usuário pode acessar. Vale para todos os dispositivos. O papel
+          - strong [ref=e118]: Owner
+          - text: sempre tem acesso total e não pode ser alterado.
+        - table [ref=e120]:
+          - rowgroup [ref=e121]:
+            - row "Módulo Owner Admin Gestor Membro Visualizador" [ref=e122]:
+              - columnheader "Módulo" [ref=e123]
+              - columnheader "Owner" [ref=e124]
+              - columnheader "Admin" [ref=e125]
+              - columnheader "Gestor" [ref=e126]
+              - columnheader "Membro" [ref=e127]
+              - columnheader "Visualizador" [ref=e128]
+          - rowgroup [ref=e129]:
+            - row "Dashboard Owner — Dashboard Admin — Dashboard Gestor — Dashboard Membro — Dashboard Visualizador — Dashboard" [ref=e130]:
+              - cell "Dashboard" [ref=e131]:
+                - generic [ref=e133]: Dashboard
+              - cell "Owner — Dashboard" [ref=e134]:
+                - checkbox "Owner — Dashboard" [checked] [disabled] [ref=e136]
+              - cell "Admin — Dashboard" [ref=e137]:
+                - checkbox "Admin — Dashboard" [checked] [ref=e139] [cursor=pointer]
+              - cell "Gestor — Dashboard" [ref=e140]:
+                - checkbox "Gestor — Dashboard" [checked] [ref=e142] [cursor=pointer]
+              - cell "Membro — Dashboard" [ref=e143]:
+                - checkbox "Membro — Dashboard" [checked] [ref=e145] [cursor=pointer]
+              - cell "Visualizador — Dashboard" [ref=e146]:
+                - checkbox "Visualizador — Dashboard" [checked] [ref=e148] [cursor=pointer]
+            - row "Minha Área em breve Owner — Minha Área Admin — Minha Área Gestor — Minha Área Membro — Minha Área Visualizador — Minha Área" [ref=e149]:
+              - cell "Minha Área em breve" [ref=e150]:
+                - generic [ref=e151]:
+                  - generic [ref=e152]: Minha Área
+                  - generic [ref=e153]: em breve
+              - cell "Owner — Minha Área" [ref=e154]:
+                - checkbox "Owner — Minha Área" [checked] [disabled] [ref=e156]
+              - cell "Admin — Minha Área" [ref=e157]:
+                - checkbox "Admin — Minha Área" [checked] [ref=e159] [cursor=pointer]
+              - cell "Gestor — Minha Área" [ref=e160]:
+                - checkbox "Gestor — Minha Área" [checked] [ref=e162] [cursor=pointer]
+              - cell "Membro — Minha Área" [ref=e163]:
+                - checkbox "Membro — Minha Área" [checked] [ref=e165] [cursor=pointer]
+              - cell "Visualizador — Minha Área" [ref=e166]:
+                - checkbox "Visualizador — Minha Área" [active] [ref=e168] [cursor=pointer]
+            - row "Equipe Owner — Equipe Admin — Equipe Gestor — Equipe Membro — Equipe Visualizador — Equipe" [ref=e169]:
+              - cell "Equipe" [ref=e170]:
+                - generic [ref=e172]: Equipe
+              - cell "Owner — Equipe" [ref=e173]:
+                - checkbox "Owner — Equipe" [checked] [disabled] [ref=e175]
+              - cell "Admin — Equipe" [ref=e176]:
+                - checkbox "Admin — Equipe" [checked] [ref=e178] [cursor=pointer]
+              - cell "Gestor — Equipe" [ref=e179]:
+                - checkbox "Gestor — Equipe" [checked] [ref=e181] [cursor=pointer]
+              - cell "Membro — Equipe" [ref=e182]:
+                - checkbox "Membro — Equipe" [ref=e184] [cursor=pointer]
+              - cell "Visualizador — Equipe" [ref=e185]:
+                - checkbox "Visualizador — Equipe" [ref=e187] [cursor=pointer]
+            - row "Clientes Owner — Clientes Admin — Clientes Gestor — Clientes Membro — Clientes Visualizador — Clientes" [ref=e188]:
+              - cell "Clientes" [ref=e189]:
+                - generic [ref=e191]: Clientes
+              - cell "Owner — Clientes" [ref=e192]:
+                - checkbox "Owner — Clientes" [checked] [disabled] [ref=e194]
+              - cell "Admin — Clientes" [ref=e195]:
+                - checkbox "Admin — Clientes" [checked] [ref=e197] [cursor=pointer]
+              - cell "Gestor — Clientes" [ref=e198]:
+                - checkbox "Gestor — Clientes" [checked] [ref=e200] [cursor=pointer]
+              - cell "Membro — Clientes" [ref=e201]:
+                - checkbox "Membro — Clientes" [checked] [ref=e203] [cursor=pointer]
+              - cell "Visualizador — Clientes" [ref=e204]:
+                - checkbox "Visualizador — Clientes" [checked] [ref=e206] [cursor=pointer]
+            - row "Projetos Owner — Projetos Admin — Projetos Gestor — Projetos Membro — Projetos Visualizador — Projetos" [ref=e207]:
+              - cell "Projetos" [ref=e208]:
+                - generic [ref=e210]: Projetos
+              - cell "Owner — Projetos" [ref=e211]:
+                - checkbox "Owner — Projetos" [checked] [disabled] [ref=e213]
+              - cell "Admin — Projetos" [ref=e214]:
+                - checkbox "Admin — Projetos" [checked] [ref=e216] [cursor=pointer]
+              - cell "Gestor — Projetos" [ref=e217]:
+                - checkbox "Gestor — Projetos" [checked] [ref=e219] [cursor=pointer]
+              - cell "Membro — Projetos" [ref=e220]:
+                - checkbox "Membro — Projetos" [checked] [ref=e222] [cursor=pointer]
+              - cell "Visualizador — Projetos" [ref=e223]:
+                - checkbox "Visualizador — Projetos" [checked] [ref=e225] [cursor=pointer]
+            - row "Tarefas em breve Owner — Tarefas Admin — Tarefas Gestor — Tarefas Membro — Tarefas Visualizador — Tarefas" [ref=e226]:
+              - cell "Tarefas em breve" [ref=e227]:
+                - generic [ref=e228]:
+                  - generic [ref=e229]: Tarefas
+                  - generic [ref=e230]: em breve
+              - cell "Owner — Tarefas" [ref=e231]:
+                - checkbox "Owner — Tarefas" [checked] [disabled] [ref=e233]
+              - cell "Admin — Tarefas" [ref=e234]:
+                - checkbox "Admin — Tarefas" [checked] [ref=e236] [cursor=pointer]
+              - cell "Gestor — Tarefas" [ref=e237]:
+                - checkbox "Gestor — Tarefas" [checked] [ref=e239] [cursor=pointer]
+              - cell "Membro — Tarefas" [ref=e240]:
+                - checkbox "Membro — Tarefas" [checked] [ref=e242] [cursor=pointer]
+              - cell "Visualizador — Tarefas" [ref=e243]:
+                - checkbox "Visualizador — Tarefas" [ref=e245] [cursor=pointer]
+            - row "Financeiro em breve Owner — Financeiro Admin — Financeiro Gestor — Financeiro Membro — Financeiro Visualizador — Financeiro" [ref=e246]:
+              - cell "Financeiro em breve" [ref=e247]:
+                - generic [ref=e248]:
+                  - generic [ref=e249]: Financeiro
+                  - generic [ref=e250]: em breve
+              - cell "Owner — Financeiro" [ref=e251]:
+                - checkbox "Owner — Financeiro" [checked] [disabled] [ref=e253]
+              - cell "Admin — Financeiro" [ref=e254]:
+                - checkbox "Admin — Financeiro" [checked] [ref=e256] [cursor=pointer]
+              - cell "Gestor — Financeiro" [ref=e257]:
+                - checkbox "Gestor — Financeiro" [ref=e259] [cursor=pointer]
+              - cell "Membro — Financeiro" [ref=e260]:
+                - checkbox "Membro — Financeiro" [ref=e262] [cursor=pointer]
+              - cell "Visualizador — Financeiro" [ref=e263]:
+                - checkbox "Visualizador — Financeiro" [ref=e265] [cursor=pointer]
+            - row "Contratos & Propostas em breve Owner — Contratos & Propostas Admin — Contratos & Propostas Gestor — Contratos & Propostas Membro — Contratos & Propostas Visualizador — Contratos & Propostas" [ref=e266]:
+              - cell "Contratos & Propostas em breve" [ref=e267]:
+                - generic [ref=e268]:
+                  - generic [ref=e269]: Contratos & Propostas
+                  - generic [ref=e270]: em breve
+              - cell "Owner — Contratos & Propostas" [ref=e271]:
+                - checkbox "Owner — Contratos & Propostas" [checked] [disabled] [ref=e273]
+              - cell "Admin — Contratos & Propostas" [ref=e274]:
+                - checkbox "Admin — Contratos & Propostas" [checked] [ref=e276] [cursor=pointer]
+              - cell "Gestor — Contratos & Propostas" [ref=e277]:
+                - checkbox "Gestor — Contratos & Propostas" [ref=e279] [cursor=pointer]
+              - cell "Membro — Contratos & Propostas" [ref=e280]:
+                - checkbox "Membro — Contratos & Propostas" [ref=e282] [cursor=pointer]
+              - cell "Visualizador — Contratos & Propostas" [ref=e283]:
+                - checkbox "Visualizador — Contratos & Propostas" [ref=e285] [cursor=pointer]
+            - row "Agenda em breve Owner — Agenda Admin — Agenda Gestor — Agenda Membro — Agenda Visualizador — Agenda" [ref=e286]:
+              - cell "Agenda em breve" [ref=e287]:
+                - generic [ref=e288]:
+                  - generic [ref=e289]: Agenda
+                  - generic [ref=e290]: em breve
+              - cell "Owner — Agenda" [ref=e291]:
+                - checkbox "Owner — Agenda" [checked] [disabled] [ref=e293]
+              - cell "Admin — Agenda" [ref=e294]:
+                - checkbox "Admin — Agenda" [checked] [ref=e296] [cursor=pointer]
+              - cell "Gestor — Agenda" [ref=e297]:
+                - checkbox "Gestor — Agenda" [checked] [ref=e299] [cursor=pointer]
+              - cell "Membro — Agenda" [ref=e300]:
+                - checkbox "Membro — Agenda" [ref=e302] [cursor=pointer]
+              - cell "Visualizador — Agenda" [ref=e303]:
+                - checkbox "Visualizador — Agenda" [ref=e305] [cursor=pointer]
+            - row "IA Wenox em breve Owner — IA Wenox Admin — IA Wenox Gestor — IA Wenox Membro — IA Wenox Visualizador — IA Wenox" [ref=e306]:
+              - cell "IA Wenox em breve" [ref=e307]:
+                - generic [ref=e308]:
+                  - generic [ref=e309]: IA Wenox
+                  - generic [ref=e310]: em breve
+              - cell "Owner — IA Wenox" [ref=e311]:
+                - checkbox "Owner — IA Wenox" [checked] [disabled] [ref=e313]
+              - cell "Admin — IA Wenox" [ref=e314]:
+                - checkbox "Admin — IA Wenox" [checked] [ref=e316] [cursor=pointer]
+              - cell "Gestor — IA Wenox" [ref=e317]:
+                - checkbox "Gestor — IA Wenox" [ref=e319] [cursor=pointer]
+              - cell "Membro — IA Wenox" [ref=e320]:
+                - checkbox "Membro — IA Wenox" [ref=e322] [cursor=pointer]
+              - cell "Visualizador — IA Wenox" [ref=e323]:
+                - checkbox "Visualizador — IA Wenox" [ref=e325] [cursor=pointer]
+            - row "Configurações Owner — Configurações Admin — Configurações Gestor — Configurações Membro — Configurações Visualizador — Configurações" [ref=e326]:
+              - cell "Configurações" [ref=e327]:
+                - generic [ref=e329]: Configurações
+              - cell "Owner — Configurações" [ref=e330]:
+                - checkbox "Owner — Configurações" [checked] [disabled] [ref=e332]
+              - cell "Admin — Configurações" [ref=e333]:
+                - checkbox "Admin — Configurações" [checked] [ref=e335] [cursor=pointer]
+              - cell "Gestor — Configurações" [ref=e336]:
+                - checkbox "Gestor — Configurações" [ref=e338] [cursor=pointer]
+              - cell "Membro — Configurações" [ref=e339]:
+                - checkbox "Membro — Configurações" [ref=e341] [cursor=pointer]
+              - cell "Visualizador — Configurações" [ref=e342]:
+                - checkbox "Visualizador — Configurações" [ref=e344] [cursor=pointer]
+        - generic [ref=e345]:
+          - button "Salvar alterações" [ref=e346]:
+            - img [ref=e347]
+            - text: Salvar alterações
+          - button "Restaurar padrões" [ref=e351]:
+            - img [ref=e352]
+            - text: Restaurar padrões

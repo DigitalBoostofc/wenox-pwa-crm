@@ -1,0 +1,160 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e37]:
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - link [ref=e276] [cursor=pointer]:
+            - /url: /
+            - img [ref=e277]
+          - generic [ref=e44]:
+            - generic [ref=e45]: Easypanel
+            - generic [ref=e46]:
+              - generic [ref=e47]: v2.31.0
+              - button [ref=e48] [cursor=pointer]:
+                - img [ref=e49]
+              - combobox [ref=e54]
+        - generic [ref=e55]:
+          - link [ref=e278] [cursor=pointer]:
+            - /url: /
+            - img [ref=e57]
+            - generic [ref=e60]: Painel
+          - link [ref=e279] [cursor=pointer]:
+            - /url: /actions
+            - img [ref=e62]
+            - generic [ref=e64]: Ações
+          - link [ref=e280] [cursor=pointer]:
+            - /url: /monitor
+            - img [ref=e66]
+            - generic [ref=e68]: Monitorar
+          - link [ref=e281] [cursor=pointer]:
+            - /url: /domains
+            - img [ref=e70]
+            - generic [ref=e73]: Domínios
+          - link [ref=e282] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e75]
+            - generic [ref=e78]: Configurações
+        - generic [ref=e80]:
+          - link [ref=e283] [cursor=pointer]:
+            - /url: https://easypanel.io/docs
+            - img [ref=e82]
+            - generic [ref=e84]: Documentação
+            - img [ref=e86]
+          - link [ref=e284] [cursor=pointer]:
+            - /url: https://discord.gg/9bcDSXcZQ7
+            - img [ref=e285]
+            - generic [ref=e93]: Discord
+            - img [ref=e95]
+          - link [ref=e286] [cursor=pointer]:
+            - /url: https://my.easypanel.io/feedback
+            - img [ref=e100]
+            - generic [ref=e102]: Feedback
+            - img [ref=e104]
+          - link [ref=e287] [cursor=pointer]:
+            - /url: https://my.easypanel.io/changelog
+            - img [ref=e109]
+            - generic [ref=e112]: Histórico de Alterações
+            - img [ref=e114]
+        - link [ref=e288] [cursor=pointer]:
+          - /url: /buy-license
+          - img [ref=e120]
+          - generic [ref=e124]: Comprar Licença
+        - button [ref=e289] [cursor=pointer]:
+          - img [ref=e126]
+          - generic [ref=e129]: Busca Rápida
+          - generic [ref=e131]: ⌘ K
+        - generic [ref=e132]:
+          - heading [level=2] [ref=e290]: Command Palette
+          - paragraph [ref=e134]: Search for a command to run...
+        - button [ref=e291] [cursor=pointer]:
+          - img [ref=e136]
+          - generic [ref=e140]: 45.132.240.175
+          - img [ref=e142]
+        - generic [ref=e145]:
+          - img [ref=e146]
+          - generic [ref=e148]: Modo Escuro
+          - generic [ref=e149]:
+            - switch [ref=e292]
+            - checkbox [ref=e151]
+        - button [ref=e293] [cursor=pointer]:
+          - img [ref=e153]
+          - generic [ref=e156]: Sair
+      - generic [ref=e159]:
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - generic [ref=e194]:
+              - button [ref=e294] [cursor=pointer]:
+                - img [ref=e197]
+              - generic [ref=e200]:
+                - text: CPU
+                - generic [ref=e201]: 0.0%
+                - generic [ref=e202]: 1 cores — Carregar 0.00, 0.02, 0.00
+              - application [ref=e207]
+            - generic [ref=e215]:
+              - button [ref=e298] [cursor=pointer]:
+                - img [ref=e218]
+              - generic [ref=e221]:
+                - text: Memória
+                - generic [ref=e222]: 19.8%
+                - generic [ref=e223]: 775.3 MB / 3.8 GB
+              - application [ref=e228]
+            - generic [ref=e236]:
+              - button [ref=e302] [cursor=pointer]:
+                - img [ref=e239]
+              - generic [ref=e242]:
+                - text: Disco
+                - generic [ref=e243]: 24.0%
+                - generic [ref=e244]: 11.4 GB / 47.4 GB
+              - application [ref=e249]
+            - generic [ref=e257]:
+              - button [ref=e306] [cursor=pointer]:
+                - img [ref=e260]
+              - generic [ref=e263]:
+                - text: Rede
+                - generic [ref=e264]: 0 B/s
+              - application [ref=e269]
+          - alert [ref=e270]:
+            - img [ref=e272]
+            - generic [ref=e274]:
+              - text: Monitoramento avançado está disponível apenas se você tiver uma licença.
+              - link [ref=e307] [cursor=pointer]:
+                - /url: /buy-license
+                - text: Comprar Licença
+        - generic [ref=e160]:
+          - paragraph [ref=e161]: Projetos
+          - button [ref=e308] [cursor=pointer]:
+            - img [ref=e165]
+            - text: Novo
+        - group [ref=e167]:
+          - button [ref=e309] [cursor=pointer]:
+            - img [ref=e170]
+            - text: Nome
+          - button [ref=e310] [cursor=pointer]:
+            - img [ref=e176]
+            - text: Tempo
+        - group [ref=e181]:
+          - button [ref=e311] [cursor=pointer]:
+            - img [ref=e184]
+            - text: Expandido
+          - button [ref=e312] [cursor=pointer]:
+            - img [ref=e188]
+            - text: Recolhido
+        - button [ref=e313] [cursor=pointer]: Criar Projeto
+    - region "Notifications alt+T"
+  - generic:
+    - region "Notifications-top"
+    - region "Notifications-top-left"
+    - region "Notifications-top-right"
+    - region "Notifications-bottom-left"
+    - region "Notifications-bottom"
+    - region "Notifications-bottom-right"
+  - dialog "Criar Projeto" [ref=e317]:
+    - heading "Criar Projeto" [level=2] [ref=e319]
+    - generic [ref=e321]:
+      - group [ref=e322]:
+        - generic [ref=e323]: Nome
+        - textbox "Nome" [active] [ref=e325]
+      - button "Criar" [ref=e327] [cursor=pointer]
+    - button "Close" [ref=e328] [cursor=pointer]:
+      - img
+      - generic [ref=e329]: Close

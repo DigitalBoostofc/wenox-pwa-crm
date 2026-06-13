@@ -1,0 +1,72 @@
+- generic [ref=e22]:
+  - complementary [ref=e23]:
+    - img "Wenox" [ref=e25]
+    - navigation [ref=e26]:
+      - link "Meus Projetos" [ref=e27] [cursor=pointer]:
+        - /url: /projetos
+        - img [ref=e28]
+        - generic [ref=e30]: Meus Projetos
+      - link "Minhas Tarefas" [ref=e31] [cursor=pointer]:
+        - /url: /tarefas
+        - img [ref=e32]
+        - generic [ref=e35]: Minhas Tarefas
+      - link "Minha Empresa" [ref=e36] [cursor=pointer]:
+        - /url: /minha-empresa
+        - img [ref=e37]
+        - generic [ref=e40]: Minha Empresa
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - img
+          - searchbox "Buscar" [ref=e44]
+        - generic [ref=e45]:
+          - button "Tema claro" [ref=e46]:
+            - img [ref=e47]
+          - button "Notificações" [ref=e53]:
+            - img [ref=e54]
+        - button "Menu do perfil" [ref=e57]:
+          - generic [ref=e58]: C
+          - generic [ref=e59]: cliente-teste@wenox.com.br
+      - button "Recolher menu" [ref=e60]:
+        - img [ref=e61]
+        - text: Recolher
+  - generic [ref=e64]:
+    - banner [ref=e65]:
+      - heading "Projetos" [level=1] [ref=e66]
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - img
+          - textbox "Buscar" [ref=e70]:
+            - /placeholder: Buscar projeto ou cliente
+        - combobox "Ordenar" [ref=e71]:
+          - option "Prazo (mais próximo)" [selected]
+          - option "Cliente (A→Z)"
+          - option "Etapa (1ª → última)"
+          - option "Status (Desenv. → Inativo)"
+        - button "Colunas" [ref=e72]:
+          - img [ref=e73]
+          - text: Colunas
+        - generic [ref=e74]:
+          - button "Lista" [pressed] [ref=e75]:
+            - img [ref=e76]
+            - generic [ref=e77]: Lista
+          - button "Kanban" [ref=e78]:
+            - img [ref=e79]
+            - generic [ref=e81]: Kanban
+          - button "Cards" [ref=e82]:
+            - img [ref=e83]
+            - generic [ref=e88]: Cards
+    - main [ref=e89]:
+      - generic [ref=e90]:
+        - complementary
+        - generic [ref=e92]:
+          - button "Ativo" [ref=e93]
+          - button "Desenvolvimento" [ref=e94]
+          - button "Manutenção" [ref=e95]
+          - button "Inativo" [ref=e96]
+          - button "Todos" [ref=e97]
+          - combobox "Filtro extra" [ref=e98]:
+            - 'option "Filtro: nenhum" [selected]'
+            - option "Em execução"
+            - option "Todos (exceto Inativos)"
+            - option "Concluídos"

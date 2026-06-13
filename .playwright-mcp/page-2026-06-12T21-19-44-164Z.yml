@@ -1,0 +1,14 @@
+- generic [ref=e68]:
+  - generic [ref=e69]:
+    - generic [ref=e71]: W
+    - generic [ref=e72]:
+      - heading "Wenox OS" [level=1] [ref=e73]
+      - paragraph [ref=e74]: Central de comando da agência
+  - generic [ref=e77]:
+    - generic [ref=e78]:
+      - generic [ref=e79]: Email
+      - textbox "Email" [ref=e80]: adm@wenox.com.br
+    - generic [ref=e81]:
+      - generic [ref=e82]: Senha
+      - textbox "Senha" [ref=e83]: dev123dennis
+    - button "Entrar" [ref=e84]

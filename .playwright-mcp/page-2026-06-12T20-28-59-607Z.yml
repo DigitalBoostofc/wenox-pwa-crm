@@ -1,0 +1,45 @@
+- generic [ref=e118]:
+  - complementary [ref=e119]:
+    - img "Wenox" [ref=e121]
+    - navigation [ref=e122]:
+      - link "Dashboard" [ref=e123] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e124]
+        - generic [ref=e129]: Dashboard
+      - generic [ref=e130]:
+        - img [ref=e131]
+        - generic [ref=e135]: Minha Área
+        - img [ref=e136]
+      - link "Clientes" [ref=e139] [cursor=pointer]:
+        - /url: /clientes
+        - img [ref=e140]
+        - generic [ref=e144]: Clientes
+      - link "Projetos" [ref=e145] [cursor=pointer]:
+        - /url: /projetos
+        - img [ref=e146]
+        - generic [ref=e148]: Projetos
+      - link "Configurações" [ref=e149] [cursor=pointer]:
+        - /url: /config
+        - img [ref=e150]
+        - generic [ref=e153]: Configurações
+    - generic [ref=e154]:
+      - generic [ref=e155]:
+        - generic [ref=e156]:
+          - img
+          - searchbox "Buscar" [ref=e157]
+        - generic [ref=e158]:
+          - button "Tema claro" [ref=e159]:
+            - img [ref=e160]
+          - button "Notificações" [ref=e166]:
+            - img [ref=e167]
+        - button "Menu do perfil" [ref=e170]:
+          - generic [ref=e171]: T
+          - generic [ref=e172]: teste.perm@wenox.com.br
+      - button "Recolher menu" [ref=e173]:
+        - img [ref=e174]
+        - text: Recolher
+  - generic [ref=e177]:
+    - banner [ref=e178]:
+      - heading "Dashboard" [level=1] [ref=e179]
+    - main [ref=e180]:
+      - paragraph [ref=e181]: Carregando…

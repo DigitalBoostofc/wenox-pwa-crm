@@ -1,0 +1,57 @@
+- generic [ref=e22]:
+  - complementary [ref=e23]:
+    - img "Wenox" [ref=e25]
+    - navigation [ref=e26]:
+      - link "Dashboard" [ref=e27] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e28]
+        - generic [ref=e33]: Dashboard
+      - link "Minha Área" [ref=e34] [cursor=pointer]:
+        - /url: /minha-area
+        - img [ref=e35]
+        - generic [ref=e39]: Minha Área
+      - link "Equipe" [ref=e40] [cursor=pointer]:
+        - /url: /equipe
+        - img [ref=e41]
+        - generic [ref=e46]: Equipe
+      - link "Clientes" [ref=e47] [cursor=pointer]:
+        - /url: /clientes
+        - img [ref=e48]
+        - generic [ref=e52]: Clientes
+      - link "Projetos" [ref=e53] [cursor=pointer]:
+        - /url: /projetos
+        - img [ref=e54]
+        - generic [ref=e56]: Projetos
+      - link "Tarefas" [ref=e57] [cursor=pointer]:
+        - /url: /tarefas
+        - img [ref=e58]
+        - generic [ref=e61]: Tarefas
+      - generic [ref=e62]:
+        - img [ref=e63]
+        - generic [ref=e65]: Agenda
+        - img [ref=e66]
+      - link "Configurações" [ref=e69] [cursor=pointer]:
+        - /url: /config
+        - img [ref=e70]
+        - generic [ref=e73]: Configurações
+    - generic [ref=e74]:
+      - generic [ref=e75]:
+        - generic [ref=e76]:
+          - img
+          - searchbox "Buscar" [ref=e77]
+        - generic [ref=e78]:
+          - button "Tema claro" [ref=e79]:
+            - img [ref=e80]
+          - button "Notificações" [ref=e86]:
+            - img [ref=e87]
+        - button "Menu do perfil" [ref=e90]:
+          - generic [ref=e91]: G
+          - generic [ref=e92]: gestor-teste@wenox.com.br
+      - button "Recolher menu" [ref=e93]:
+        - img [ref=e94]
+        - text: Recolher
+  - generic [ref=e97]:
+    - banner [ref=e98]:
+      - heading "Dashboard" [level=1] [ref=e99]
+    - main [ref=e100]:
+      - paragraph [ref=e101]: Carregando…

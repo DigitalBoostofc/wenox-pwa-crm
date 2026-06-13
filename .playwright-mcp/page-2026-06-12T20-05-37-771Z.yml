@@ -1,0 +1,39 @@
+- generic [ref=e129]:
+  - complementary [ref=e130]:
+    - img "Wenox" [ref=e132]
+    - navigation [ref=e133]:
+      - link "Dashboard" [ref=e134] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e135]
+        - generic [ref=e140]: Dashboard
+      - link "Clientes" [ref=e141] [cursor=pointer]:
+        - /url: /clientes
+        - img [ref=e142]
+        - generic [ref=e146]: Clientes
+      - link "Configurações" [ref=e147] [cursor=pointer]:
+        - /url: /config
+        - img [ref=e148]
+        - generic [ref=e151]: Configurações
+    - generic [ref=e152]:
+      - generic [ref=e153]:
+        - generic [ref=e154]:
+          - img
+          - searchbox "Buscar" [ref=e155]
+        - generic [ref=e156]:
+          - button "Tema claro" [ref=e157]:
+            - img [ref=e158]
+          - button "Notificações" [ref=e164]:
+            - img [ref=e165]
+        - button "Menu do perfil" [ref=e168]:
+          - generic [ref=e169]: T
+          - generic [ref=e170]: teste.perm@wenox.com.br
+      - button "Recolher menu" [ref=e171]:
+        - img [ref=e172]
+        - text: Recolher
+  - generic [ref=e175]:
+    - banner [ref=e176]:
+      - heading "Dashboard" [level=1] [ref=e177]
+    - main [ref=e178]:
+      - generic [ref=e180]:
+        - heading "Boa tarde, Teste 👋" [level=2] [ref=e181]
+        - paragraph [ref=e182]: Aqui está o resumo da agência hoje.

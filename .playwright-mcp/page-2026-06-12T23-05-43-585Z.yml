@@ -1,0 +1,330 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - img
+        - navigation:
+          - link:
+            - /url: /dashboard
+            - img
+            - generic: Dashboard
+          - generic:
+            - img
+            - generic: Minha Área
+            - img
+          - link:
+            - /url: /equipe
+            - img
+            - generic: Equipe
+          - link:
+            - /url: /clientes
+            - img
+            - generic: Clientes
+          - link:
+            - /url: /projetos
+            - img
+            - generic: Projetos
+          - link:
+            - /url: /tarefas
+            - img
+            - generic: Tarefas
+          - generic:
+            - img
+            - generic: Financeiro
+            - img
+          - generic:
+            - img
+            - generic: Contratos & Propostas
+            - img
+          - generic:
+            - img
+            - generic: Agenda
+            - img
+          - generic:
+            - img
+            - generic: IA Wenox
+            - img
+          - link:
+            - /url: /config
+            - img
+            - generic: Configurações
+        - generic:
+          - generic:
+            - generic:
+              - img
+              - searchbox
+            - generic:
+              - button:
+                - img
+              - button:
+                - img
+                - generic: "2"
+            - button:
+              - img
+              - generic: leonardo@wenox.com.br
+          - button:
+            - img
+            - text: Recolher
+      - generic:
+        - banner:
+          - heading [level=1]: Tarefas
+          - generic:
+            - generic:
+              - generic:
+                - img
+                - textbox:
+                  - /placeholder: Buscar tarefa ou projeto
+              - generic:
+                - button [pressed]:
+                  - img
+                  - generic: Lista
+                - button:
+                  - img
+                  - generic: Kanban
+              - button:
+                - img
+                - text: Nova tarefa
+        - main:
+          - generic:
+            - generic:
+              - button: Minhas
+              - button: Todas
+              - button: Internas (sem projeto)
+            - generic:
+              - generic:
+                - textbox:
+                  - /placeholder: + Adicionar tarefa (Enter para criar)
+              - generic:
+                - generic:
+                  - button:
+                    - img
+                    - generic: Hoje
+                    - generic: "1"
+                  - generic:
+                    - button:
+                      - button
+                      - generic:
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Validação Fase 2 — prioridade e checklist
+                        - generic: Interna
+                      - generic:
+                        - generic: A fazer
+                        - generic: ✓ 1/2
+                        - generic: 12/06/2026
+                        - generic:
+                          - generic: LG
+            - paragraph: 1 tarefa
+  - dialog "Validação Fase 2 — prioridade e checklist" [ref=e163]:
+    - generic [ref=e164]:
+      - heading "Validação Fase 2 — prioridade e checklist" [level=2]
+      - generic [ref=e165]:
+        - button "Abrir página completa" [ref=e166]:
+          - img [ref=e167]
+          - text: Abrir página completa
+        - button "Apagar" [ref=e171]:
+          - img [ref=e172]
+          - text: Apagar
+    - generic [ref=e175]:
+      - textbox "Nome da tarefa" [ref=e177]: Validação Fase 2 — prioridade e checklist
+      - generic [ref=e178]:
+        - generic [ref=e179]:
+          - generic [ref=e180]: Status
+          - combobox [ref=e181]:
+            - option "—"
+            - option "A fazer" [selected]
+            - option "Fazendo"
+            - option "Aguardando aprovação"
+            - option "Concluído"
+            - option "Em alteração"
+          - generic [ref=e182]: A fazer
+        - generic [ref=e183]:
+          - generic [ref=e184]: Prazo
+          - textbox [ref=e185]: 2026-06-12
+      - generic [ref=e186]:
+        - generic [ref=e187]: Prioridade
+        - generic [ref=e188]:
+          - button "Alta" [ref=e189]
+          - button "Média" [ref=e190]
+          - button "Baixa" [ref=e191]
+      - generic [ref=e192]:
+        - generic [ref=e193]: Projeto
+        - combobox [ref=e194]:
+          - option "Sem projeto" [selected]
+          - option "Social Media — Agência Wenox"
+          - option "Site + E-mail Corporativo — Agência Wenox"
+          - option "Social Media — AppexCRM (Nodex Labs)"
+          - option "AppexCRM - Desenvolvimento e Manutenção — AppexCRM (Nodex Labs)"
+          - option "Site + E-mail Corporativo — Apta Contabilidade"
+          - option "Gestão de Site — Aspectu Tecnologia"
+          - option "Gestão de Site — Centro Avançado de Oftalmologia"
+          - option "Social Media — CIDI Tecnologia"
+          - option "Social Media — Cleanox"
+          - option "Site + E-mail Corporativo — Cleanox"
+          - option "Social Media — Click Vistoria"
+          - option "Site + E-mail Corporativo — Click Vistoria"
+          - option "Site + E-mail Corporativo — Comexjus"
+          - option "Site + E-mail Corporativo — Danilo Barata Advocacia"
+          - option "Social Media — Depósito Padre Antônio Tomás"
+          - option "Site + E-mail Corporativo — Fábio Monteiro Advocacia"
+          - option "Social Media — Fibra Telecom"
+          - option "Site + E-mail Corporativo — Fibra Telecom"
+          - option "Site + E-mail Corporativo — FNI Condomínios"
+          - option "Site + E-mail Corporativo — Gaudenio Santiago Advogados"
+          - option "Site + E-mail Corporativo — GBAM Law"
+          - option "Site + E-mail Corporativo — GivaNuvem"
+          - option "Social Media — GoldTech Impressoras"
+          - option "Site + E-mail Corporativo — GoldTech Impressoras"
+          - option "Site + E-mail Corporativo — IBB Life"
+          - option "Site + E-mail Corporativo — Multiservice Eventos"
+          - option "Social Media — Nodex Labs"
+          - option "Social Media — Nordestia Engenharia"
+          - option "Site + E-mail Corporativo — Óticas Olhar 360"
+          - option "Site + E-mail Corporativo — Óticas Olhar 360"
+          - option "Social Media — Oxe Telecom"
+          - option "Site + E-mail Corporativo — Oxe Telecom"
+          - option "Social Media — Pinheiro Melo Advocacia"
+          - option "Site + E-mail Corporativo — Pinheiro Melo Advocacia"
+          - option "Social Media — Porto Prime"
+          - option "Site + E-mail Corporativo — Porto Prime"
+          - option "Site + E-mail Corporativo — Rede Integrada"
+          - option "Desenvolvimento de E-commerce — Sambá Biquínis"
+          - option "Gestão de Site — Sindiodonto"
+          - option "Site + E-mail Corporativo — Sinfrece"
+          - option "Social Media — Sotec Refrigeração"
+          - option "Site + E-mail Corporativo — Sotec Refrigeração"
+          - option "Gestão de Site — Studart Corrêa Advogados"
+          - option "Social Media — Ultrasyst Tecnologia"
+          - option "Site + E-mail Corporativo — Ultrasyst Tecnologia"
+          - option "Social Media — Via Luxo"
+          - option "Site + E-mail Corporativo — Via Luxo"
+          - option "Gestão de Site — Viajando com Lary"
+        - generic [ref=e195]:
+          - generic [ref=e196]: Cliente (opcional)
+          - combobox [ref=e197]:
+            - option "Sem cliente" [selected]
+            - option "Cartório 15"
+            - option "Sambá Biquínis"
+            - option "AppexCRM (Nodex Labs)"
+            - option "Nodex Labs"
+            - option "CIDI Tecnologia"
+            - option "Rodrigo Castelo Nutricionista"
+            - option "Atos Vida"
+            - option "PR Assessoria Empresarial"
+            - option "Instituto Reviva"
+            - option "HGL Comex"
+            - option "Nutrabase"
+            - option "Dr. Norivan Linhares"
+            - option "Gestão 5x"
+            - option "Classy Tricot"
+            - option "CT Atos"
+            - option "Danilo Barata Advocacia"
+            - option "Dra. Suziane Pedriatra"
+            - option "ICY Serviços"
+            - option "Igreja Atos"
+            - option "Renovo Rent A Car"
+            - option "Superzon Industrial"
+            - option "Tamarindo Restaurante"
+            - option "Tops Incorporações"
+            - option "Wex Coworking"
+            - option "Grupo NF"
+            - option "Lets Fitness"
+            - option "Cetro Arquitetura"
+            - option "Noble Lions"
+            - option "Dr. Lucas Almeida"
+            - option "Dra. Rosa Bogêa"
+            - option "Santerra"
+            - option "Lomba Bomfim"
+            - option "Black Nutri Suplementos"
+            - option "Centro Avançado de Oftalmologia"
+            - option "Aspectu Tecnologia"
+            - option "JL Sabor Raiz"
+            - option "Lomba Bomfim Advocacia"
+            - option "GivaNuvem"
+            - option "Studart Corrêa Advogados"
+            - option "Multiservice Eventos"
+            - option "Óticas Olhar 360"
+            - option "Oxe Telecom"
+            - option "Pinheiro Melo Advocacia"
+            - option "Porto Prime"
+            - option "Rede Integrada"
+            - option "Sindiodonto"
+            - option "Sinfrece"
+            - option "Sotec Refrigeração"
+            - option "Ultra Film"
+            - option "Ultrasyst Tecnologia"
+            - option "Viajando com Lary"
+            - option "Via Luxo"
+            - option "IBB Life"
+            - option "GoldTech Impressoras"
+            - option "GBAM Law"
+            - option "Gaudenio Santiago Advogados"
+            - option "FNI Condomínios"
+            - option "Fábio Monteiro Advocacia"
+            - option "DMQ Contabilidade"
+            - option "Depósito Padre Antônio Tomás"
+            - option "Comexjus"
+            - option "Click Vistoria"
+            - option "Fibra Telecom"
+            - option "Apta Contabilidade"
+            - option "Agência Wenox"
+            - option "Cleanox"
+            - option "Nordestia Engenharia"
+      - generic [ref=e198]:
+        - generic [ref=e199]: Responsáveis
+        - button "1 selecionado(s)" [ref=e200]
+        - generic [ref=e202]:
+          - text: Leonardo Groff
+          - button "Remover Leonardo Groff" [ref=e203]:
+            - img [ref=e204]
+      - generic [ref=e207]:
+        - generic [ref=e208]:
+          - text: Checklist
+          - generic [ref=e245]: 1/2
+        - list [ref=e246]:
+          - listitem [ref=e247]:
+            - button "Desmarcar" [active] [ref=e261]:
+              - img [ref=e262]
+            - generic [ref=e249]: Primeiro item do checklist
+            - button "Remover \"Primeiro item do checklist\"" [ref=e250]:
+              - img [ref=e251]
+          - listitem [ref=e254]:
+            - button "Marcar como feito" [ref=e255]
+            - generic [ref=e256]: Segundo item do checklist
+            - button "Remover \"Segundo item do checklist\"" [ref=e257]:
+              - img [ref=e258]
+        - generic [ref=e209]:
+          - textbox "Adicionar item…" [ref=e210]
+          - button [ref=e211]:
+            - img [ref=e212]
+      - generic [ref=e213]:
+        - generic [ref=e214]: Etiquetas
+        - generic [ref=e215]:
+          - textbox "Nova etiqueta…" [ref=e216]
+          - button [ref=e217]:
+            - img [ref=e218]
+      - generic [ref=e219]:
+        - generic [ref=e220]: Descrição
+        - textbox "Detalhes da tarefa…" [ref=e221]
+      - generic [ref=e222]:
+        - heading "Comentários & Histórico" [level=3] [ref=e224]:
+          - img [ref=e225]
+          - text: Comentários & Histórico
+        - generic [ref=e227]:
+          - generic [ref=e228]:
+            - textbox "Novo comentário" [ref=e229]:
+              - /placeholder: "Escreva um comentário (ex: troquei a senha do Drive porque…)"
+            - button "Comentar" [disabled]:
+              - img
+              - text: Comentar
+          - list [ref=e230]:
+            - listitem [ref=e231]:
+              - img [ref=e233]
+              - generic [ref=e237]:
+                - paragraph [ref=e238]: Tarefa criada
+                - paragraph [ref=e239]: Leonardo Groff · 12/06/2026 às 20:04
+    - button "Fechar" [ref=e240]:
+      - img [ref=e241]
+      - generic [ref=e244]: Fechar

@@ -1,0 +1,291 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - img
+        - navigation:
+          - link:
+            - /url: /dashboard
+            - img
+            - generic: Dashboard
+          - generic:
+            - img
+            - generic: Minha Área
+            - img
+          - link:
+            - /url: /equipe
+            - img
+            - generic: Equipe
+          - link:
+            - /url: /clientes
+            - img
+            - generic: Clientes
+          - link:
+            - /url: /projetos
+            - img
+            - generic: Projetos
+          - link:
+            - /url: /tarefas
+            - img
+            - generic: Tarefas
+          - generic:
+            - img
+            - generic: Financeiro
+            - img
+          - generic:
+            - img
+            - generic: Contratos & Propostas
+            - img
+          - generic:
+            - img
+            - generic: Agenda
+            - img
+          - generic:
+            - img
+            - generic: IA Wenox
+            - img
+          - link:
+            - /url: /config
+            - img
+            - generic: Configurações
+        - generic:
+          - generic:
+            - generic:
+              - img
+              - searchbox
+            - generic:
+              - button:
+                - img
+              - button:
+                - img
+                - generic: "2"
+            - button:
+              - img
+              - generic: leonardo@wenox.com.br
+          - button:
+            - img
+            - text: Recolher
+      - generic:
+        - banner:
+          - heading [level=1]: Tarefas
+          - generic:
+            - generic:
+              - generic:
+                - img
+                - textbox:
+                  - /placeholder: Buscar tarefa ou projeto
+              - generic:
+                - button [pressed]:
+                  - img
+                  - generic: Lista
+                - button:
+                  - img
+                  - generic: Kanban
+              - button:
+                - img
+                - text: Nova tarefa
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - button: Minhas
+                - button: Todas
+                - button: Internas (sem projeto)
+              - generic:
+                - generic: "Agrupar:"
+                - button: Prazo
+                - button: Responsável
+                - button: Projeto
+                - button: Cliente
+                - button: Status
+            - generic:
+              - generic:
+                - textbox:
+                  - /placeholder: + Adicionar tarefa (Enter para criar)
+              - generic:
+                - generic:
+                  - img
+                  - paragraph: Nenhuma tarefa neste filtro.
+  - dialog "Nova tarefa" [ref=e112]:
+    - heading "Nova tarefa" [level=2] [ref=e114]
+    - generic [ref=e115]:
+      - textbox "Nome da tarefa" [ref=e117]: TESTE-CRIAR Painel completo
+      - generic [ref=e118]:
+        - generic [ref=e119]:
+          - generic [ref=e120]: Status
+          - combobox [ref=e121]:
+            - option "—"
+            - option "A fazer" [selected]
+            - option "Fazendo"
+            - option "Aguardando aprovação"
+            - option "Em alteração"
+            - option "Concluído"
+          - generic [ref=e122]: A fazer
+        - generic [ref=e123]:
+          - generic [ref=e124]: Prazo
+          - textbox [ref=e125]: 2026-06-12
+      - generic [ref=e126]:
+        - generic [ref=e127]: Prioridade
+        - generic [ref=e128]:
+          - button "Alta" [active] [ref=e129]
+          - button "Média" [ref=e130]
+          - button "Baixa" [ref=e131]
+      - generic [ref=e132]:
+        - generic [ref=e133]: Repetir
+        - generic [ref=e134]:
+          - button "Não" [ref=e135]
+          - button "Semanal" [ref=e136]
+          - button "Quinzenal" [ref=e137]
+          - button "Mensal" [ref=e138]
+      - generic [ref=e139]:
+        - generic [ref=e140]: Projeto
+        - combobox [ref=e141]:
+          - option "Sem projeto" [selected]
+          - option "Social Media — Agência Wenox"
+          - option "Site + E-mail Corporativo — Agência Wenox"
+          - option "Social Media — AppexCRM (Nodex Labs)"
+          - option "AppexCRM - Desenvolvimento e Manutenção — AppexCRM (Nodex Labs)"
+          - option "Site + E-mail Corporativo — Apta Contabilidade"
+          - option "Gestão de Site — Aspectu Tecnologia"
+          - option "Gestão de Site — Centro Avançado de Oftalmologia"
+          - option "Social Media — CIDI Tecnologia"
+          - option "Social Media — Cleanox"
+          - option "Site + E-mail Corporativo — Cleanox"
+          - option "Social Media — Click Vistoria"
+          - option "Site + E-mail Corporativo — Click Vistoria"
+          - option "Site + E-mail Corporativo — Comexjus"
+          - option "Site + E-mail Corporativo — Danilo Barata Advocacia"
+          - option "Social Media — Depósito Padre Antônio Tomás"
+          - option "Site + E-mail Corporativo — Fábio Monteiro Advocacia"
+          - option "Social Media — Fibra Telecom"
+          - option "Site + E-mail Corporativo — Fibra Telecom"
+          - option "Site + E-mail Corporativo — FNI Condomínios"
+          - option "Site + E-mail Corporativo — Gaudenio Santiago Advogados"
+          - option "Site + E-mail Corporativo — GBAM Law"
+          - option "Site + E-mail Corporativo — GivaNuvem"
+          - option "Social Media — GoldTech Impressoras"
+          - option "Site + E-mail Corporativo — GoldTech Impressoras"
+          - option "Site + E-mail Corporativo — IBB Life"
+          - option "Site + E-mail Corporativo — Multiservice Eventos"
+          - option "Social Media — Nodex Labs"
+          - option "Social Media — Nordestia Engenharia"
+          - option "Site + E-mail Corporativo — Óticas Olhar 360"
+          - option "Site + E-mail Corporativo — Óticas Olhar 360"
+          - option "Social Media — Oxe Telecom"
+          - option "Site + E-mail Corporativo — Oxe Telecom"
+          - option "Social Media — Pinheiro Melo Advocacia"
+          - option "Site + E-mail Corporativo — Pinheiro Melo Advocacia"
+          - option "Social Media — Porto Prime"
+          - option "Site + E-mail Corporativo — Porto Prime"
+          - option "Site + E-mail Corporativo — Rede Integrada"
+          - option "Desenvolvimento de E-commerce — Sambá Biquínis"
+          - option "Gestão de Site — Sindiodonto"
+          - option "Site + E-mail Corporativo — Sinfrece"
+          - option "Social Media — Sotec Refrigeração"
+          - option "Site + E-mail Corporativo — Sotec Refrigeração"
+          - option "Gestão de Site — Studart Corrêa Advogados"
+          - option "Social Media — Ultrasyst Tecnologia"
+          - option "Site + E-mail Corporativo — Ultrasyst Tecnologia"
+          - option "Social Media — Via Luxo"
+          - option "Site + E-mail Corporativo — Via Luxo"
+          - option "Gestão de Site — Viajando com Lary"
+        - generic [ref=e142]:
+          - generic [ref=e143]: Cliente (opcional)
+          - combobox [ref=e144]:
+            - option "Sem cliente" [selected]
+            - option "Cartório 15"
+            - option "Sambá Biquínis"
+            - option "AppexCRM (Nodex Labs)"
+            - option "Nodex Labs"
+            - option "CIDI Tecnologia"
+            - option "Rodrigo Castelo Nutricionista"
+            - option "Atos Vida"
+            - option "PR Assessoria Empresarial"
+            - option "Instituto Reviva"
+            - option "HGL Comex"
+            - option "Nutrabase"
+            - option "Dr. Norivan Linhares"
+            - option "Gestão 5x"
+            - option "Classy Tricot"
+            - option "CT Atos"
+            - option "Danilo Barata Advocacia"
+            - option "Dra. Suziane Pedriatra"
+            - option "ICY Serviços"
+            - option "Igreja Atos"
+            - option "Renovo Rent A Car"
+            - option "Superzon Industrial"
+            - option "Tamarindo Restaurante"
+            - option "Tops Incorporações"
+            - option "Wex Coworking"
+            - option "Grupo NF"
+            - option "Lets Fitness"
+            - option "Cetro Arquitetura"
+            - option "Noble Lions"
+            - option "Dr. Lucas Almeida"
+            - option "Dra. Rosa Bogêa"
+            - option "Santerra"
+            - option "Lomba Bomfim"
+            - option "Black Nutri Suplementos"
+            - option "Centro Avançado de Oftalmologia"
+            - option "Aspectu Tecnologia"
+            - option "JL Sabor Raiz"
+            - option "Lomba Bomfim Advocacia"
+            - option "GivaNuvem"
+            - option "Studart Corrêa Advogados"
+            - option "Multiservice Eventos"
+            - option "Óticas Olhar 360"
+            - option "Oxe Telecom"
+            - option "Pinheiro Melo Advocacia"
+            - option "Porto Prime"
+            - option "Rede Integrada"
+            - option "Sindiodonto"
+            - option "Sinfrece"
+            - option "Sotec Refrigeração"
+            - option "Ultra Film"
+            - option "Ultrasyst Tecnologia"
+            - option "Viajando com Lary"
+            - option "Via Luxo"
+            - option "IBB Life"
+            - option "GoldTech Impressoras"
+            - option "GBAM Law"
+            - option "Gaudenio Santiago Advogados"
+            - option "FNI Condomínios"
+            - option "Fábio Monteiro Advocacia"
+            - option "DMQ Contabilidade"
+            - option "Depósito Padre Antônio Tomás"
+            - option "Comexjus"
+            - option "Click Vistoria"
+            - option "Fibra Telecom"
+            - option "Apta Contabilidade"
+            - option "Agência Wenox"
+            - option "Cleanox"
+            - option "Nordestia Engenharia"
+      - generic [ref=e145]:
+        - generic [ref=e146]: Responsáveis
+        - button "1 selecionado(s)" [ref=e147]
+        - generic [ref=e149]:
+          - text: Leonardo Groff
+          - button "Remover Leonardo Groff" [ref=e150]:
+            - img [ref=e151]
+      - generic [ref=e154]:
+        - generic [ref=e155]: Checklist
+        - generic [ref=e156]:
+          - textbox "Adicionar item…" [ref=e157]
+          - button [ref=e158]:
+            - img [ref=e159]
+      - generic [ref=e160]:
+        - generic [ref=e161]: Etiquetas
+        - generic [ref=e162]:
+          - textbox "Nova etiqueta…" [ref=e163]
+          - button [ref=e164]:
+            - img [ref=e165]
+      - generic [ref=e166]:
+        - generic [ref=e167]: Descrição
+        - textbox "Detalhes da tarefa…" [ref=e168]
+      - generic [ref=e169]:
+        - button "Criar tarefa" [ref=e176]
+        - button "Cancelar" [ref=e170]
+    - button "Fechar" [ref=e171]:
+      - img [ref=e172]
+      - generic [ref=e175]: Fechar

@@ -1,0 +1,186 @@
+- generic [active]:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - img
+        - navigation:
+          - link:
+            - /url: /dashboard
+            - img
+            - generic: Dashboard
+          - generic:
+            - img
+            - generic: Minha Área
+            - img
+          - link:
+            - /url: /equipe
+            - img
+            - generic: Equipe
+          - link:
+            - /url: /clientes
+            - img
+            - generic: Clientes
+          - link:
+            - /url: /projetos
+            - img
+            - generic: Projetos
+          - link:
+            - /url: /tarefas
+            - img
+            - generic: Tarefas
+          - generic:
+            - img
+            - generic: Financeiro
+            - img
+          - generic:
+            - img
+            - generic: Contratos & Propostas
+            - img
+          - generic:
+            - img
+            - generic: Agenda
+            - img
+          - generic:
+            - img
+            - generic: IA Wenox
+            - img
+          - link:
+            - /url: /config
+            - img
+            - generic: Configurações
+        - generic:
+          - generic:
+            - generic:
+              - img
+              - searchbox
+            - generic:
+              - button:
+                - img
+              - button:
+                - img
+            - button:
+              - generic: A
+              - generic: adm@wenox.com.br
+          - button:
+            - img
+            - text: Recolher
+      - generic:
+        - banner:
+          - heading [level=1]: Usuários
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=3]: Novo usuário
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: Foto de perfil
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: Adicionar foto
+                      - generic:
+                        - generic:
+                          - generic:
+                            - img
+                            - text: Escolher foto
+                        - generic: PNG, JPG ou WEBP
+                  - generic:
+                    - generic: Nome
+                    - textbox
+                  - generic:
+                    - generic: E-mail
+                    - textbox
+                  - generic:
+                    - generic: Papel
+                    - combobox
+                  - generic:
+                    - generic: Função
+                    - combobox
+                  - generic:
+                    - generic: Senha inicial
+                    - generic:
+                      - textbox:
+                        - /placeholder: Mínimo 8 caracteres
+                      - button: Gerar
+                    - paragraph: O usuário entra com esse e-mail e senha; depois pode trocá-la.
+                  - button: Adicionar usuário
+            - generic:
+              - button:
+                - generic: D
+                - generic:
+                  - paragraph: Dennis Fernandes
+                  - paragraph: adm@wenox.com.br
+                - generic:
+                  - generic: Admin
+              - button:
+                - generic: D
+                - generic:
+                  - paragraph: Dennis Teste
+                  - paragraph: dennisxsf@gmail.com
+                - generic:
+                  - generic: Outros
+                  - generic: Gestor
+              - button:
+                - img
+                - generic:
+                  - paragraph: Leonardo Groff
+                  - paragraph: leonardo@wenox.com.br
+                - generic:
+                  - generic: Owner
+  - dialog "Editar usuário" [ref=e176]:
+    - heading "Editar usuário" [level=2] [ref=e177]
+    - generic [ref=e178]:
+      - generic "Trocar foto" [ref=e179] [cursor=pointer]:
+        - img [ref=e180]
+      - generic [ref=e183]:
+        - paragraph [ref=e184]: Dennis Teste
+        - generic [ref=e185]: Ativo
+    - generic [ref=e186]:
+      - generic [ref=e187]:
+        - generic [ref=e188]: Nome
+        - textbox [ref=e189]: Dennis Teste
+      - generic [ref=e190]:
+        - generic [ref=e191]: E-mail
+        - textbox [ref=e192]: dennisxsf@gmail.com
+      - generic [ref=e193]:
+        - generic [ref=e194]: Telefone
+        - textbox [ref=e195]
+      - generic [ref=e196]:
+        - generic [ref=e197]: Papel
+        - combobox [ref=e198]:
+          - option "Admin"
+          - option "Gestor" [selected]
+          - option "Membro"
+          - option "Visualizador"
+      - generic [ref=e199]:
+        - generic [ref=e200]: Função
+        - combobox [ref=e201]:
+          - option "—"
+          - option "Design"
+          - option "Social Media"
+          - option "Web Design"
+          - option "Tráfego Pago"
+          - option "Dev"
+          - option "Outros" [selected]
+      - button "Salvar alterações" [ref=e202]:
+        - img [ref=e203]
+        - text: Salvar alterações
+    - generic [ref=e207]:
+      - paragraph [ref=e208]:
+        - img [ref=e209]
+        - text: Redefinir senha
+      - paragraph [ref=e212]: Define uma nova senha sem precisar da atual. Repasse ao usuário.
+      - textbox "Nova senha (mín. 8)" [ref=e213]
+      - textbox "Confirmar nova senha" [ref=e214]
+      - button "Redefinir senha" [disabled]
+    - button "Desativar conta" [ref=e215]:
+      - img [ref=e216]
+      - text: Desativar conta
+    - paragraph [ref=e224]: Senha redefinida. Repasse a nova senha ao usuário.
+    - button "Fechar" [ref=e218]:
+      - img [ref=e219]
+      - generic [ref=e222]: Fechar

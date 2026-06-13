@@ -1,0 +1,148 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - link [ref=e504] [cursor=pointer]:
+              - /url: /
+              - img [ref=e505]
+            - generic [ref=e44]:
+              - generic [ref=e45]: Easypanel
+              - generic [ref=e46]:
+                - generic [ref=e47]: v2.31.0
+                - button [ref=e48] [cursor=pointer]:
+                  - img [ref=e49]
+                - combobox [ref=e54]
+          - generic [ref=e55]:
+            - link [ref=e506] [cursor=pointer]:
+              - /url: /
+              - img [ref=e343]
+              - generic [ref=e346]: Painel
+            - link [ref=e507] [cursor=pointer]:
+              - /url: /actions
+              - img [ref=e348]
+              - generic [ref=e350]: Ações
+            - link [ref=e508] [cursor=pointer]:
+              - /url: /monitor
+              - img [ref=e352]
+              - generic [ref=e354]: Monitorar
+            - link [ref=e509] [cursor=pointer]:
+              - /url: /domains
+              - img [ref=e356]
+              - generic [ref=e359]: Domínios
+            - link [ref=e510] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e361]
+              - generic [ref=e364]: Configurações
+          - generic [ref=e80]:
+            - link [ref=e511] [cursor=pointer]:
+              - /url: https://easypanel.io/docs
+              - img [ref=e366]
+              - generic [ref=e368]: Documentação
+              - img [ref=e370]
+            - link [ref=e512] [cursor=pointer]:
+              - /url: https://discord.gg/9bcDSXcZQ7
+              - img [ref=e513]
+              - generic [ref=e377]: Discord
+              - img [ref=e379]
+            - link [ref=e514] [cursor=pointer]:
+              - /url: https://my.easypanel.io/feedback
+              - img [ref=e384]
+              - generic [ref=e386]: Feedback
+              - img [ref=e388]
+            - link [ref=e515] [cursor=pointer]:
+              - /url: https://my.easypanel.io/changelog
+              - img [ref=e393]
+              - generic [ref=e396]: Histórico de Alterações
+              - img [ref=e398]
+          - link [ref=e516] [cursor=pointer]:
+            - /url: /buy-license
+            - img [ref=e403]
+            - generic [ref=e407]: Comprar Licença
+          - button [ref=e517] [cursor=pointer]:
+            - img [ref=e409]
+            - generic [ref=e412]: Busca Rápida
+            - generic [ref=e414]: ⌘ K
+          - generic [ref=e132]:
+            - heading [level=2] [ref=e518]: Command Palette
+            - paragraph [ref=e134]: Search for a command to run...
+          - button [ref=e519] [cursor=pointer]:
+            - img [ref=e417]
+            - generic [ref=e421]: 45.132.240.175
+            - img [ref=e423]
+          - generic [ref=e426]:
+            - img [ref=e427]
+            - generic [ref=e429]: Modo Escuro
+            - generic [ref=e430]:
+              - switch [ref=e520]
+              - checkbox [ref=e432]
+          - button [ref=e521] [cursor=pointer]:
+            - img [ref=e434]
+            - generic [ref=e437]: Sair
+        - generic [ref=e440]:
+          - button [ref=e522] [cursor=pointer]:
+            - img [ref=e443]
+            - generic [ref=e446]: wenox
+            - img [ref=e447]
+          - generic [ref=e450]:
+            - generic [ref=e451]: Serviços
+            - link [ref=e452] [cursor=pointer]:
+              - /url: /projects/wenox/create
+              - img [ref=e453]
+      - generic [ref=e158]:
+        - generic [ref=e458]:
+          - link [ref=e523] [cursor=pointer]:
+            - /url: /projects/wenox
+            - text: wenox
+          - generic [ref=e461]:
+            - link [ref=e524] [cursor=pointer]:
+              - /url: /projects/wenox/create
+              - img [ref=e464]
+              - text: Serviço
+            - link [ref=e525] [cursor=pointer]:
+              - /url: /projects/wenox/create?tab=templates
+              - img [ref=e467]
+              - text: Modelos
+            - link [ref=e526] [cursor=pointer]:
+              - /url: /projects/wenox/settings
+              - img [ref=e471]
+        - generic [ref=e481]:
+          - group [ref=e483]:
+            - button [ref=e527] [cursor=pointer]: Serviços
+            - button [ref=e528] [cursor=pointer]: Modelos
+            - button [ref=e529] [cursor=pointer]: Personalizado
+          - generic [ref=e488]:
+            - button [ref=e530] [cursor=pointer]: Aplicativo
+            - button [ref=e531] [cursor=pointer]: MySQL
+            - button [ref=e532] [cursor=pointer]: MariaDB
+            - button [ref=e533] [cursor=pointer]: Postgres
+            - button [ref=e534] [cursor=pointer]: Mongo
+            - button [ref=e535] [cursor=pointer]: Redis
+            - button [ref=e536] [cursor=pointer]: Caixa
+            - button [ref=e537] [cursor=pointer]:
+              - generic [ref=e497]:
+                - generic [ref=e498]: Compose
+                - generic [ref=e499]: Beta
+            - button [ref=e538] [cursor=pointer]:
+              - generic [ref=e501]:
+                - generic [ref=e502]: Wordpress
+                - generic [ref=e503]: Alfa
+    - region "Notifications alt+T"
+  - generic:
+    - region "Notifications-top"
+    - region "Notifications-top-left"
+    - region "Notifications-top-right"
+    - region "Notifications-bottom-left"
+    - region "Notifications-bottom"
+    - region "Notifications-bottom-right"
+  - dialog "Criar Serviço de Aplicativo" [ref=e542]:
+    - generic [ref=e544]:
+      - heading "Criar Serviço de Aplicativo" [level=2] [ref=e546]
+      - group [ref=e547]:
+        - generic [ref=e548]: Nome do Serviço
+        - textbox "Nome do Serviço" [active] [ref=e550]
+      - button "Criar" [ref=e552] [cursor=pointer]
+    - button "Close" [ref=e553] [cursor=pointer]:
+      - img
+      - generic [ref=e554]: Close

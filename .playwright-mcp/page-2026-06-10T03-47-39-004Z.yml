@@ -1,0 +1,198 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e6]:
+          - generic [ref=e7]:
+            - link "Home" [ref=e8] [cursor=pointer]:
+              - /url: /
+              - img "Home" [ref=e9]
+            - generic [ref=e10]:
+              - generic [ref=e11]: Easypanel
+              - generic [ref=e12]:
+                - generic [ref=e13]: v2.31.0
+                - button [ref=e14] [cursor=pointer]:
+                  - img [ref=e15]
+                - combobox [ref=e20]:
+                  - option "BR"
+                  - option "DA"
+                  - option "DE"
+                  - option "EN"
+                  - option "ES"
+                  - option "FA"
+                  - option "FR"
+                  - option "HI"
+                  - option "ID"
+                  - option "IT"
+                  - option "JA"
+                  - option "KA"
+                  - option "NL"
+                  - option "PL"
+                  - option "PT" [selected]
+                  - option "RO"
+                  - option "RU"
+                  - option "TH"
+                  - option "TR"
+                  - option "VI"
+                  - option "CN"
+          - generic [ref=e21]:
+            - link "Painel" [ref=e22] [cursor=pointer]:
+              - /url: /
+              - img [ref=e23]
+              - generic [ref=e26]: Painel
+            - link "Ações" [ref=e27] [cursor=pointer]:
+              - /url: /actions
+              - img [ref=e28]
+              - generic [ref=e30]: Ações
+            - link "Monitorar" [ref=e31] [cursor=pointer]:
+              - /url: /monitor
+              - img [ref=e32]
+              - generic [ref=e34]: Monitorar
+            - link "Domínios" [ref=e35] [cursor=pointer]:
+              - /url: /domains
+              - img [ref=e36]
+              - generic [ref=e39]: Domínios
+            - link "Configurações" [ref=e40] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e41]
+              - generic [ref=e44]: Configurações
+          - generic [ref=e46]:
+            - link "Documentação" [ref=e47] [cursor=pointer]:
+              - /url: https://easypanel.io/docs
+              - img [ref=e48]
+              - generic [ref=e50]: Documentação
+              - img [ref=e52]
+            - link "Discord Discord" [ref=e56] [cursor=pointer]:
+              - /url: https://discord.gg/9bcDSXcZQ7
+              - img "Discord" [ref=e57]
+              - generic [ref=e59]: Discord
+              - img [ref=e61]
+            - link "Feedback" [ref=e65] [cursor=pointer]:
+              - /url: https://my.easypanel.io/feedback
+              - img [ref=e66]
+              - generic [ref=e68]: Feedback
+              - img [ref=e70]
+            - link "Histórico de Alterações" [ref=e74] [cursor=pointer]:
+              - /url: https://my.easypanel.io/changelog
+              - img [ref=e75]
+              - generic [ref=e78]: Histórico de Alterações
+              - img [ref=e80]
+          - link "Comprar Licença" [ref=e85] [cursor=pointer]:
+            - /url: /buy-license
+            - img [ref=e86]
+            - generic [ref=e90]: Comprar Licença
+          - button "Busca Rápida ⌘ K" [ref=e91] [cursor=pointer]:
+            - img [ref=e92]
+            - generic [ref=e95]: Busca Rápida
+            - generic [ref=e97]: ⌘ K
+          - generic [ref=e98]:
+            - heading "Command Palette" [level=2] [ref=e99]
+            - paragraph [ref=e100]: Search for a command to run...
+          - button "45.132.240.175" [ref=e101] [cursor=pointer]:
+            - img [ref=e102]
+            - generic [ref=e106]: 45.132.240.175
+            - img [ref=e108]
+          - generic [ref=e111]:
+            - img [ref=e112]
+            - generic [ref=e114]: Modo Escuro
+            - generic [ref=e115]:
+              - switch "Modo Escuro" [ref=e116]
+              - checkbox [ref=e117]
+          - button "Sair" [ref=e118] [cursor=pointer]:
+            - img [ref=e119]
+            - generic [ref=e122]: Sair
+        - generic [ref=e125]:
+          - button "wenox" [ref=e127] [cursor=pointer]:
+            - img [ref=e128]
+            - generic [ref=e131]: wenox
+            - img [ref=e132]
+          - generic [ref=e135]:
+            - generic [ref=e136]: Serviços
+            - link [ref=e137] [cursor=pointer]:
+              - /url: /projects/wenox/create
+              - img [ref=e138]
+          - generic [ref=e142]:
+            - link "pocketbase" [ref=e144] [cursor=pointer]:
+              - /url: /projects/wenox/app/pocketbase
+              - generic [ref=e147]: pocketbase
+            - link "pwa" [ref=e149] [cursor=pointer]:
+              - /url: /projects/wenox/app/pwa
+              - generic [ref=e152]: pwa
+      - generic [ref=e242]:
+        - generic [ref=e243]:
+          - generic [ref=e244]:
+            - link "wenox" [ref=e245] [cursor=pointer]:
+              - /url: /projects/wenox
+            - generic [ref=e246]: /
+            - generic [ref=e247]: pwa
+            - generic [ref=e248]: app
+            - button "Rename" [ref=e250] [cursor=pointer]:
+              - img [ref=e251]
+          - generic [ref=e254]:
+            - link "Serviço" [ref=e255] [cursor=pointer]:
+              - /url: /projects/wenox/create
+              - img [ref=e257]
+              - text: Serviço
+            - link "Modelos" [ref=e258] [cursor=pointer]:
+              - /url: /projects/wenox/create?tab=templates
+              - img [ref=e260]
+              - text: Modelos
+            - link "Project Settings" [ref=e263] [cursor=pointer]:
+              - /url: /projects/wenox/settings
+              - img [ref=e264]
+        - generic [ref=e404]:
+          - generic [ref=e405]:
+            - generic [ref=e406]:
+              - paragraph [ref=e407]: Construção
+              - button "Pular" [ref=e408] [cursor=pointer]
+            - generic [ref=e410]:
+              - radiogroup [ref=e411]:
+                - generic [ref=e412]:
+                  - generic [ref=e413] [cursor=pointer]:
+                    - radio "Dockerfile Usa o comando \"docker build\" (docs)" [checked] [active] [ref=e414]
+                    - generic [ref=e417]:
+                      - paragraph [ref=e418]: Dockerfile
+                      - paragraph [ref=e419]:
+                        - text: Usa o comando "docker build" (
+                        - link "docs" [ref=e420]:
+                          - /url: https://easypanel.io/docs/builders#dockerfile
+                        - text: )
+                  - generic [ref=e421] [cursor=pointer]:
+                    - radio "Buildpacks Escolha os buildpacks desejados" [ref=e422]
+                    - generic [ref=e425]:
+                      - paragraph [ref=e426]: Buildpacks
+                      - paragraph [ref=e427]: Escolha os buildpacks desejados
+                  - generic [ref=e428] [cursor=pointer]:
+                    - radio "Nixpacks Nova forma de construir aplicativos com Railway (docs)" [ref=e429]
+                    - generic [ref=e432]:
+                      - paragraph [ref=e433]: Nixpacks
+                      - paragraph [ref=e434]:
+                        - text: Nova forma de construir aplicativos com Railway (
+                        - link "docs" [ref=e435]:
+                          - /url: https://easypanel.io/docs/builders#nixpacks
+                        - text: )
+                  - generic [ref=e436] [cursor=pointer]:
+                    - radio "Railpack Nova forma de construir aplicativos com Railway (docs)" [ref=e437]
+                    - generic [ref=e440]:
+                      - paragraph [ref=e441]: Railpack
+                      - paragraph [ref=e442]:
+                        - text: Nova forma de construir aplicativos com Railway (
+                        - link "docs" [ref=e443]:
+                          - /url: https://easypanel.io/docs/builders#railpack
+                        - text: )
+              - generic [ref=e455]:
+                - group [ref=e456]:
+                  - generic [ref=e457]: Arquivo
+                  - textbox "Arquivo" [ref=e459]:
+                    - /placeholder: Dockerfile
+                  - generic [ref=e460]: O nome e caminho do seu Dockerfile
+                - button "Salvar" [ref=e462] [cursor=pointer]
+          - button "Destruir Serviço" [ref=e445] [cursor=pointer]
+    - region "Notifications alt+T"
+  - generic:
+    - region "Notifications-top"
+    - region "Notifications-top-left"
+    - region "Notifications-top-right"
+    - region "Notifications-bottom-left"
+    - region "Notifications-bottom"
+    - region "Notifications-bottom-right"

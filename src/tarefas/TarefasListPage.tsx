@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Plus, Search, ListChecks, List, Columns3, X } from 'lucide-react';
 import { listTarefas, moverTarefaStatus, concluirTarefa, reabrirTarefa } from './tarefasService';
@@ -10,7 +10,9 @@ import type { TipoAgrupamento } from './MinhaSemanaList';
 import { QuickAddTarefa } from './QuickAddTarefa';
 import { STATUS_TAREFA, STATUS_CONCLUIDO, STATUS_INICIAL } from './status';
 import { useAuth } from '@/auth/useAuth';
-import { ehCliente } from '@/auth/perms';
+import { ehCliente, canGerirEquipe } from '@/auth/perms';
+import { listOpcoes } from '@/opcoes/opcoesService';
+import { BarraTipos, PillsTipos } from '@/components/BarraTipos';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,6 +44,12 @@ function carregarAgrupar(): TipoAgrupamento {
     if (s && AGRUPAMENTOS_VALIDOS.includes(s as TipoAgrupamento)) return s as TipoAgrupamento;
   } catch { /* */ }
   return 'prazo';
+}
+
+/** Último tipo de projeto selecionado na barra (Owner/Admin/Gestor). */
+const TIPO_KEY = 'wenox-tarefas-tipo-v1';
+function carregarTipo(): string {
+  try { return localStorage.getItem(TIPO_KEY) ?? ''; } catch { return ''; }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -109,8 +117,28 @@ export function TarefasListPage() {
   // Filtro por responsável vindo do Dashboard (Pulso da Equipe) via querystring.
   const [respFiltro, setRespFiltro] = useState<{ id: string; nome: string } | null>(null);
   const [soAbertas, setSoAbertas] = useState(false);
+  // Barra de tipos (= tipo de projeto). Filtra a lista e prepara o dropdown ao criar.
+  const [tipos, setTipos] = useState<string[]>([]);
+  const [tipoAtivo, setTipoAtivo] = useState<string>(carregarTipo);
 
   const isCliente = ehCliente(user?.role);
+  const gerencia = canGerirEquipe(user?.role);
+
+  // Carrega os tipos visíveis: gestão vê todos; membro vê só a função dele (user.area).
+  useEffect(() => {
+    if (isCliente) return;
+    listOpcoes('tipo_projeto').then((ts) => {
+      const todos = ts.map((t) => t.valor);
+      const visiveis = gerencia ? todos : todos.filter((t) => t === user?.area);
+      setTipos(visiveis);
+      setTipoAtivo((cur) => (cur && visiveis.includes(cur) ? cur : (visiveis[0] ?? '')));
+    });
+  }, [isCliente, gerencia, user?.area]);
+
+  function trocarTipo(t: string) {
+    setTipoAtivo(t);
+    try { localStorage.setItem(TIPO_KEY, t); } catch { /* */ }
+  }
 
   // Sincroniza o filtro de responsável a partir da URL (?responsavel=&nome=&abertas=1).
   useEffect(() => {
@@ -156,10 +184,14 @@ export function TarefasListPage() {
     return () => clearTimeout(timer);
   }, [busca, escopo, user?.id, recarrega, isCliente, respFiltro]);
 
-  // Quando filtrado por "só abertas" (vindo do Pulso da Equipe), esconde concluídas.
-  const tarefasExibidas = soAbertas
-    ? tarefas.filter((t) => !tarefaConcluida(t.status))
-    : tarefas;
+  // Filtros client-side: "só abertas" (vindo do Pulso) + tipo de projeto (barra).
+  // Tarefas avulsas (sem projeto) não pertencem a um tipo → sempre aparecem.
+  const tarefasExibidas = useMemo(() => {
+    let arr = tarefas;
+    if (soAbertas) arr = arr.filter((t) => !tarefaConcluida(t.status));
+    if (tipoAtivo) arr = arr.filter((t) => !t.projeto || t.expand?.projeto?.tipo === tipoAtivo);
+    return arr;
+  }, [tarefas, soAbertas, tipoAtivo]);
 
   const trocarView = (v: ViewMode) => {
     setView(v);
@@ -228,7 +260,9 @@ export function TarefasListPage() {
 
   /* ---- Interface interna (equipe Wenox) ---- */
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-5">
+    <div className="flex gap-4">
+      <BarraTipos tipos={tipos} ativo={tipoAtivo} onChange={trocarTipo} />
+      <div className="flex min-w-0 flex-1 flex-col gap-5">
       <HeaderSlot>
         <div className="flex flex-1 flex-wrap items-center gap-2">
           <div className="relative min-w-40 flex-1">
@@ -250,6 +284,9 @@ export function TarefasListPage() {
           </Button>
         </div>
       </HeaderSlot>
+
+      {/* Pills de tipo — mobile apenas (espelha a BarraTipos do desktop) */}
+      <PillsTipos tipos={tipos} ativo={tipoAtivo} onChange={trocarTipo} />
 
       {/* Pills de escopo + seletor de agrupamento (só na lista) */}
       <div className="flex flex-wrap gap-3">
@@ -356,9 +393,11 @@ export function TarefasListPage() {
         tarefaId={criando ? null : sheetId}
         aberto={criando || sheetId !== null}
         criar={criando}
+        tipoProjeto={tipoAtivo || undefined}
         onClose={() => { setCriando(false); setSheetId(null); }}
         onMudou={() => setRecarrega((n) => n + 1)}
       />
+      </div>
     </div>
   );
 }

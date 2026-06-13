@@ -1,0 +1,142 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - link "Home" [ref=e340] [cursor=pointer]:
+              - /url: /
+              - img "Home" [ref=e341]
+            - generic [ref=e44]:
+              - generic [ref=e45]: Easypanel
+              - generic [ref=e46]:
+                - generic [ref=e47]: v2.31.0
+                - button [ref=e48] [cursor=pointer]:
+                  - img [ref=e49]
+                - combobox [ref=e54]:
+                  - option "BR"
+                  - option "DA"
+                  - option "DE"
+                  - option "EN"
+                  - option "ES"
+                  - option "FA"
+                  - option "FR"
+                  - option "HI"
+                  - option "ID"
+                  - option "IT"
+                  - option "JA"
+                  - option "KA"
+                  - option "NL"
+                  - option "PL"
+                  - option "PT" [selected]
+                  - option "RO"
+                  - option "RU"
+                  - option "TH"
+                  - option "TR"
+                  - option "VI"
+                  - option "CN"
+          - generic [ref=e55]:
+            - link "Painel" [ref=e342] [cursor=pointer]:
+              - /url: /
+              - img [ref=e343]
+              - generic [ref=e346]: Painel
+            - link "Ações" [ref=e347] [cursor=pointer]:
+              - /url: /actions
+              - img [ref=e348]
+              - generic [ref=e350]: Ações
+            - link "Monitorar" [ref=e351] [cursor=pointer]:
+              - /url: /monitor
+              - img [ref=e352]
+              - generic [ref=e354]: Monitorar
+            - link "Domínios" [ref=e355] [cursor=pointer]:
+              - /url: /domains
+              - img [ref=e356]
+              - generic [ref=e359]: Domínios
+            - link "Configurações" [ref=e360] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e361]
+              - generic [ref=e364]: Configurações
+          - generic [ref=e80]:
+            - link "Documentação" [ref=e365] [cursor=pointer]:
+              - /url: https://easypanel.io/docs
+              - img [ref=e366]
+              - generic [ref=e368]: Documentação
+              - img [ref=e370]
+            - link "Discord Discord" [ref=e374] [cursor=pointer]:
+              - /url: https://discord.gg/9bcDSXcZQ7
+              - img "Discord" [ref=e375]
+              - generic [ref=e377]: Discord
+              - img [ref=e379]
+            - link "Feedback" [ref=e383] [cursor=pointer]:
+              - /url: https://my.easypanel.io/feedback
+              - img [ref=e384]
+              - generic [ref=e386]: Feedback
+              - img [ref=e388]
+            - link "Histórico de Alterações" [ref=e392] [cursor=pointer]:
+              - /url: https://my.easypanel.io/changelog
+              - img [ref=e393]
+              - generic [ref=e396]: Histórico de Alterações
+              - img [ref=e398]
+          - link "Comprar Licença" [ref=e402] [cursor=pointer]:
+            - /url: /buy-license
+            - img [ref=e403]
+            - generic [ref=e407]: Comprar Licença
+          - button "Busca Rápida ⌘ K" [ref=e408] [cursor=pointer]:
+            - img [ref=e409]
+            - generic [ref=e412]: Busca Rápida
+            - generic [ref=e414]: ⌘ K
+          - generic [ref=e132]:
+            - heading "Command Palette" [level=2] [ref=e415]
+            - paragraph [ref=e134]: Search for a command to run...
+          - button "45.132.240.175" [ref=e416] [cursor=pointer]:
+            - img [ref=e417]
+            - generic [ref=e421]: 45.132.240.175
+            - img [ref=e423]
+          - generic [ref=e426]:
+            - img [ref=e427]
+            - generic [ref=e429]: Modo Escuro
+            - generic [ref=e430]:
+              - switch "Modo Escuro" [ref=e431]
+              - checkbox [ref=e432]
+          - button "Sair" [ref=e433] [cursor=pointer]:
+            - img [ref=e434]
+            - generic [ref=e437]: Sair
+        - generic [ref=e440]:
+          - button "wenox" [ref=e442] [cursor=pointer]:
+            - img [ref=e443]
+            - generic [ref=e446]: wenox
+            - img [ref=e447]
+          - generic [ref=e450]:
+            - generic [ref=e451]: Serviços
+            - link [ref=e452] [cursor=pointer]:
+              - /url: /projects/wenox/create
+              - img [ref=e453]
+      - generic [ref=e158]:
+        - generic [ref=e458]:
+          - link "wenox" [ref=e460] [cursor=pointer]:
+            - /url: /projects/wenox
+          - generic [ref=e461]:
+            - link "Serviço" [active] [ref=e462] [cursor=pointer]:
+              - /url: /projects/wenox/create
+              - img [ref=e464]
+              - text: Serviço
+            - link "Modelos" [ref=e465] [cursor=pointer]:
+              - /url: /projects/wenox/create?tab=templates
+              - img [ref=e467]
+              - text: Modelos
+            - link "Project Settings" [ref=e470] [cursor=pointer]:
+              - /url: /projects/wenox/settings
+              - img [ref=e471]
+        - generic [ref=e475]:
+          - img [ref=e476]:
+            - img [ref=e477]
+          - paragraph [ref=e479]: Seu projeto está vazio
+          - paragraph [ref=e480]: Comece criando alguns serviços
+    - region "Notifications alt+T"
+  - generic:
+    - region "Notifications-top"
+    - region "Notifications-top-left"
+    - region "Notifications-top-right"
+    - region "Notifications-bottom-left"
+    - region "Notifications-bottom"
+    - region "Notifications-bottom-right"

@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { ListChecks, FolderKanban, CheckCircle2, AlarmClock, ClipboardList, Pencil } from 'lucide-react';
+import { FolderKanban, CheckCircle2, AlarmClock, ClipboardList, Pencil } from 'lucide-react';
 import { useAuth } from '@/auth/useAuth';
 import { pb } from '@/lib/pocketbase';
-import { listTarefas, concluirTarefa, reabrirTarefa } from '@/tarefas/tarefasService';
-import { listProjetos } from '@/projetos/projetosService';
-import type { Tarefa } from '@/tarefas/types';
-import type { Projeto } from '@/projetos/types';
+import { concluirTarefa, reabrirTarefa } from '@/tarefas/tarefasService';
 import type { Usuario } from '@/usuarios/types';
 import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
 import { STATUS_CONCLUIDO, STATUS_INICIAL } from '@/tarefas/status';
@@ -18,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useDadosAgencia } from '@/dashboard/useDadosAgencia';
 import { MeusDadosSheet } from './MeusDadosSheet';
 
 /* -------------------------------------------------------------------------- */
@@ -27,7 +25,7 @@ import { MeusDadosSheet } from './MeusDadosSheet';
 function inicioSemana(): Date {
   const hoje = new Date();
   const dia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  const dow = dia.getDay(); // 0=dom, 1=seg, ...
+  const dow = dia.getDay();
   const offsetSegunda = dow === 0 ? -6 : 1 - dow;
   dia.setDate(dia.getDate() + offsetSegunda);
   return dia;
@@ -41,7 +39,6 @@ function fimSemana(): Date {
 
 function dentroSemana(dataStr?: string): boolean {
   if (!dataStr) return false;
-  // updated vem como datetime ISO do PocketBase
   const d = new Date(dataStr);
   const local = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   return local >= inicioSemana() && local <= fimSemana();
@@ -53,58 +50,49 @@ function dentroSemana(dataStr?: string): boolean {
 
 export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
   const { user } = useAuth();
-  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [recarrega, setRecarrega] = useState(0);
+  const { tarefas: todasTarefas, carregando, erro: erroGlobal, refresh } = useDadosAgencia();
   const [erro, setErro] = useState('');
   const [sheetId, setSheetId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    setCarregando(true);
-    listTarefas({ responsavelId: user.id })
-      .then((res) => { setTarefas(res); setErro(''); })
-      .catch(() => setErro('Não foi possível carregar as tarefas.'))
-      .finally(() => setCarregando(false));
-  }, [user?.id, recarrega]);
+  const minhasTarefas = todasTarefas.filter(
+    (t) => (t.responsaveis ?? []).includes(user?.id ?? ''),
+  );
 
   async function handleConcluir(id: string) {
     if (somenteLeitura) return;
-    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: STATUS_CONCLUIDO } : t)));
     try {
       await concluirTarefa(id, STATUS_CONCLUIDO);
-      setRecarrega((n) => n + 1);
+      refresh();
     } catch {
       setErro('Não foi possível concluir a tarefa.');
-      setRecarrega((n) => n + 1);
     }
   }
 
   async function handleReabrir(id: string) {
     if (somenteLeitura) return;
-    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: STATUS_INICIAL } : t)));
     try {
       await reabrirTarefa(id, STATUS_INICIAL);
-      setRecarrega((n) => n + 1);
+      refresh();
     } catch {
       setErro('Não foi possível reabrir a tarefa.');
-      setRecarrega((n) => n + 1);
     }
   }
+
+  const erroExibido = erro || erroGlobal;
 
   return (
     <div className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold">Meu Dia</h2>
 
-      {erro && (
+      {erroExibido && (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
-          {erro}
+          {erroExibido}
         </p>
       )}
 
       {!somenteLeitura && (
         <QuickAddTarefa
-          onCriada={(id) => { setRecarrega((n) => n + 1); setSheetId(id); }}
+          onCriada={(id) => { refresh(); setSheetId(id); }}
         />
       )}
 
@@ -116,7 +104,7 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
         </div>
       ) : (
         <MinhaSemanaList
-          tarefas={tarefas}
+          tarefas={minhasTarefas}
           onAbrir={(id) => setSheetId(id)}
           onConcluir={handleConcluir}
           onReabrir={handleReabrir}
@@ -128,7 +116,7 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
         tarefaId={sheetId}
         aberto={sheetId !== null}
         onClose={() => setSheetId(null)}
-        onMudou={() => setRecarrega((n) => n + 1)}
+        onMudou={() => refresh()}
       />
     </div>
   );
@@ -141,20 +129,11 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
 export function MeusProjetosBloco() {
   const { user } = useAuth();
   const history = useHistory();
-  const [projetos, setProjetos] = useState<Projeto[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState('');
+  const { projetos: todosProjetos, carregando, erro } = useDadosAgencia();
 
-  useEffect(() => {
-    setCarregando(true);
-    listProjetos()
-      .then((res) => {
-        setProjetos(res.filter((p) => (p.responsaveis ?? []).includes(user?.id ?? '')));
-        setErro('');
-      })
-      .catch(() => setErro('Não foi possível carregar os projetos.'))
-      .finally(() => setCarregando(false));
-  }, [user?.id]);
+  const projetos = todosProjetos.filter(
+    (p) => (p.responsaveis ?? []).includes(user?.id ?? ''),
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -222,7 +201,7 @@ function StatCard({
   cor,
   alerta,
 }: {
-  icone: typeof ListChecks;
+  icone: typeof CheckCircle2;
   rotulo: string;
   valor: number;
   cor: string;
@@ -239,6 +218,65 @@ function StatCard({
         </p>
         <p className="truncate text-xs text-muted-foreground">{rotulo}</p>
       </div>
+    </div>
+  );
+}
+
+export function MinhaProdutividadeBloco() {
+  const { user } = useAuth();
+  const { tarefas: todasTarefas, carregando, erro } = useDadosAgencia();
+
+  const minhasTarefas = todasTarefas.filter(
+    (t) => (t.responsaveis ?? []).includes(user?.id ?? ''),
+  );
+
+  const concluidas = minhasTarefas.filter(
+    (t) => tarefaConcluida(t.status) && dentroSemana(t.updated),
+  ).length;
+
+  const abertas = minhasTarefas.filter((t) => !tarefaConcluida(t.status)).length;
+
+  const atrasadas = minhasTarefas.filter((t) => prazoVencido(t.prazo, t.status)).length;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold">Minha Produtividade</h2>
+
+      {erro && (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
+          {erro}
+        </p>
+      )}
+
+      {carregando ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <StatCard
+            icone={CheckCircle2}
+            rotulo="Concluídas na semana"
+            valor={concluidas}
+            cor="bg-emerald-500/15 text-emerald-400"
+          />
+          <StatCard
+            icone={ClipboardList}
+            rotulo="Abertas"
+            valor={abertas}
+            cor="bg-cyan-500/15 text-cyan-400"
+          />
+          <StatCard
+            icone={AlarmClock}
+            rotulo="Atrasadas"
+            valor={atrasadas}
+            cor="bg-destructive/15 text-destructive"
+            alerta
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -307,72 +345,6 @@ export function MeusDadosBloco() {
         onClose={() => setAberto(false)}
         onSalvo={() => { setRecarrega((n) => n + 1); setAberto(false); }}
       />
-    </div>
-  );
-}
-
-export function MinhaProdutividadeBloco() {
-  const { user } = useAuth();
-  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState('');
-
-  useEffect(() => {
-    if (!user?.id) return;
-    setCarregando(true);
-    listTarefas({ responsavelId: user.id })
-      .then((res) => { setTarefas(res); setErro(''); })
-      .catch(() => setErro('Não foi possível carregar as estatísticas.'))
-      .finally(() => setCarregando(false));
-  }, [user?.id]);
-
-  const concluidas = tarefas.filter(
-    (t) => tarefaConcluida(t.status) && dentroSemana(t.updated),
-  ).length;
-
-  const abertas = tarefas.filter((t) => !tarefaConcluida(t.status)).length;
-
-  const atrasadas = tarefas.filter((t) => prazoVencido(t.prazo, t.status)).length;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Minha Produtividade</h2>
-
-      {erro && (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
-          {erro}
-        </p>
-      )}
-
-      {carregando ? (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Skeleton className="h-20 w-full rounded-xl" />
-          <Skeleton className="h-20 w-full rounded-xl" />
-          <Skeleton className="h-20 w-full rounded-xl" />
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <StatCard
-            icone={CheckCircle2}
-            rotulo="Concluídas na semana"
-            valor={concluidas}
-            cor="bg-emerald-500/15 text-emerald-400"
-          />
-          <StatCard
-            icone={ClipboardList}
-            rotulo="Abertas"
-            valor={abertas}
-            cor="bg-cyan-500/15 text-cyan-400"
-          />
-          <StatCard
-            icone={AlarmClock}
-            rotulo="Atrasadas"
-            valor={atrasadas}
-            cor="bg-destructive/15 text-destructive"
-            alerta
-          />
-        </div>
-      )}
     </div>
   );
 }

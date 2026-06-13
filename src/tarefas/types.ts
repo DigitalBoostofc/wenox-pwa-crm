@@ -14,6 +14,7 @@ export interface EtapaTarefa {
   texto: string;         // o que fazer / o que aprovar
   responsavel?: string;  // id do usuário (vazio = qualquer um); ignorado em aprovacao_cliente
   tipo: TipoEtapa;
+  prazo?: string;        // data limite da etapa "YYYY-MM-DD" (opcional)
   feito: boolean;
   feito_por?: string;    // id do usuário que concluiu, ou 'cliente'
   feito_em?: string;     // carimbo wall-clock "YYYY-MM-DD HH:MM:SS"

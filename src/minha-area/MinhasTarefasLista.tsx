@@ -4,7 +4,8 @@ import { useDadosAgencia } from '@/dashboard/useDadosAgencia';
 import { useAuth } from '@/auth/useAuth';
 import type { Tarefa } from '@/tarefas/types';
 import { TarefaViewSheet } from '@/tarefas/TarefaViewSheet';
-import { statusTarefaClass, prazoVencido, prazoBR, tarefaConcluida, prazoLimite } from '@/tarefas/format';
+import { statusTarefaClass, prazoBR, tarefaConcluida, prazoLimite } from '@/tarefas/format';
+import { temEtapas, etapaAtual, ehVezDoUsuario, aguardandoAprovacaoCliente } from '@/tarefas/etapas';
 import { STATUS_TAREFA } from '@/tarefas/status';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { logoUrl } from '@/clientes/clientesService';
@@ -80,17 +81,20 @@ function pesoPrioridade(p?: string) { return p === 'alta' ? 0 : p === 'baixa' ? 
 
 /** Categoria do prazo da tarefa: vencida / hoje / amanhã / futuro / '' (sem prazo). */
 type CatPrazo = '' | 'vencida' | 'hoje' | 'amanha' | 'futuro';
-function catPrazo(t: Tarefa): CatPrazo {
-  if (!t.prazo) return '';
-  if (prazoVencido(t.prazo, t.status)) return 'vencida';
-  const lim = prazoLimite(t.prazo);
+function catPrazoData(prazo?: string, feito?: boolean): CatPrazo {
+  if (!prazo) return '';
+  const lim = prazoLimite(prazo);
   if (!lim) return '';
+  if (!feito && lim.getTime() < Date.now()) return 'vencida';
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const d = new Date(lim); d.setHours(0, 0, 0, 0);
   const diff = Math.round((d.getTime() - hoje.getTime()) / 86400000);
   if (diff === 0) return 'hoje';
   if (diff === 1) return 'amanha';
   return 'futuro';
+}
+function catPrazo(t: Tarefa): CatPrazo {
+  return catPrazoData(t.prazo, tarefaConcluida(t.status));
 }
 /** Cor da data por categoria de prazo. */
 function corPrazo(cat: CatPrazo): string {
@@ -244,6 +248,28 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
   const abertas = filtradas.filter((t) => !tarefaConcluida(t.status));
   const concluidas = filtradas.filter((t) => tarefaConcluida(t.status));
 
+  // Etapas pendentes: a etapa atual de cada tarefa em andamento (com etapas) do usuário.
+  const etapasPendentes = minhas
+    .filter((t) => temEtapas(t) && !tarefaConcluida(t.status))
+    .map((t) => ({ t, etapa: etapaAtual(t.etapas ?? []) }))
+    .filter((r): r is { t: Tarefa; etapa: NonNullable<typeof r.etapa> } => !!r.etapa)
+    .sort((a, b) => (prazoLimite(a.etapa.prazo)?.getTime() ?? Infinity) - (prazoLimite(b.etapa.prazo)?.getTime() ?? Infinity));
+
+  function badgeEtapa(t: Tarefa) {
+    if (ehVezDoUsuario(t, uid)) return <Badge className="border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">Concluir Etapa</Badge>;
+    if (aguardandoAprovacaoCliente(t)) return <Badge className="border border-yellow-500/50 bg-yellow-500/15 text-[10px] text-yellow-500">Aguardando Cliente</Badge>;
+    return <Badge className="border border-amber-700/50 bg-amber-700/15 text-[10px] text-amber-600">Aguardando Equipe</Badge>;
+  }
+  function clienteCell(t: Tarefa) {
+    const c = t.expand?.cliente;
+    if (!c) return <span className="text-muted-foreground">—</span>;
+    const nome = nomeCliente(t);
+    const logo = c.logo ? logoUrl(c as never, '100x100') : '';
+    return logo
+      ? <img src={logo} alt={nome} title={nome} loading="lazy" className="size-7 rounded-md object-cover" />
+      : <div title={nome} className={cn('grid size-7 place-items-center rounded-md text-[10px] font-bold text-white', corAvatar(nome))}>{inicial(nome)}</div>;
+  }
+
   function tabela(linhas: Tarefa[], vazio: string) {
     return (
       <Card className="overflow-hidden">
@@ -335,6 +361,61 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
             <ChevronDown className={cn('size-4 text-muted-foreground transition-transform', concluidasAbertas && 'rotate-180')} />
           </button>
           {concluidasAbertas && <div className="mt-2">{tabela(concluidas, 'Nenhuma tarefa concluída.')}</div>}
+        </div>
+      )}
+
+      {/* Etapas Pendentes */}
+      {etapasPendentes.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">Etapas Pendentes</h3>
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="px-4 py-3 font-medium" style={{ width: 72 }}>Cliente</th>
+                    <th className="px-4 py-3 font-medium">Projeto</th>
+                    <th className="px-4 py-3 font-medium">Tarefa / Etapa</th>
+                    <th className="px-4 py-3 font-medium" style={{ width: 170 }}>Status</th>
+                    <th className="px-4 py-3 font-medium" style={{ width: 130 }}>Prazo</th>
+                    <th className="px-4 py-3 font-medium" style={{ width: 110 }}>Responsável</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {etapasPendentes.map(({ t, etapa }) => {
+                    const resp = etapa.tipo === 'aprovacao_cliente'
+                      ? null
+                      : (t.expand?.responsaveis ?? []).find((r) => r.id === etapa.responsavel);
+                    const cat = catPrazoData(etapa.prazo, false);
+                    return (
+                      <tr key={t.id} onClick={() => setViewId(t.id)}
+                        className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50">
+                        <td className="overflow-hidden px-4 py-3">{clienteCell(t)}</td>
+                        <td className="overflow-hidden px-4 py-3 text-muted-foreground">{t.expand?.projeto?.nome ?? '—'}</td>
+                        <td className="overflow-hidden px-4 py-3">
+                          <span className="font-medium">{t.nome}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{etapa.texto}</span>
+                        </td>
+                        <td className="overflow-hidden px-4 py-3">{badgeEtapa(t)}</td>
+                        <td className="overflow-hidden px-4 py-3">
+                          {etapa.prazo
+                            ? <span className={cn('text-xs', corPrazo(cat))}>{prazoBR(etapa.prazo)}</span>
+                            : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="overflow-hidden px-4 py-3">
+                          {etapa.tipo === 'aprovacao_cliente'
+                            ? <span className="text-xs text-amber-500">Cliente</span>
+                            : resp
+                              ? <AvatarMembro membro={resp} className="size-7 text-[10px]" />
+                              : <span className="text-muted-foreground">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
       )}
 

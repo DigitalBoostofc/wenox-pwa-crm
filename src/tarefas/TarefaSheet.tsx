@@ -140,6 +140,10 @@ function EtapasFluxoEditor({
     } : e));
   }
 
+  function editarPrazo(id: string, prazo: string) {
+    persistirEtapas(etapas.map((e) => e.id === id ? { ...e, prazo: prazo || undefined } : e));
+  }
+
   async function handleConcluir(etapaId: string) {
     setErro('');
     try {
@@ -269,6 +273,14 @@ function EtapasFluxoEditor({
                     <option value="interna">Interna</option>
                     <option value="aprovacao_cliente">Aprovação do cliente</option>
                   </select>
+
+                  <input
+                    type="date"
+                    value={(e.prazo ?? '').slice(0, 10)}
+                    onChange={(ev) => editarPrazo(e.id, ev.target.value)}
+                    title="Prazo da etapa"
+                    className="h-7 rounded border border-input bg-background/40 px-2 text-xs text-muted-foreground"
+                  />
 
                   {/* Estado */}
                   {e.feito ? (

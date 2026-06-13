@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mascararTelefone, apenasDigitos } from '@/lib/telefone';
 
 const selectClass =
   'h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
@@ -86,7 +87,7 @@ export function UsuariosPage() {
         {
           nome,
           email,
-          telefone: novo.telefone.trim() || undefined,
+          telefone: apenasDigitos(novo.telefone) || undefined,
           role: novo.role as Usuario['role'],
           area: novo.area || undefined,
           status: 'Ativo',
@@ -265,7 +266,7 @@ export function UsuariosPage() {
                 inputMode="tel"
                 placeholder="(00) 00000-0000"
                 value={novo.telefone}
-                onChange={(e) => setNovo({ ...novo, telefone: e.target.value })}
+                onChange={(e) => setNovo({ ...novo, telefone: mascararTelefone(e.target.value) })}
               />
             </div>
             <div className="flex flex-col gap-1.5">

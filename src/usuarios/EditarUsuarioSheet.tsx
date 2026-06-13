@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { mascararTelefone, apenasDigitos } from '@/lib/telefone';
 import {
   atualizarUsuario,
   definirSenhaUsuario,
@@ -43,7 +44,7 @@ export function EditarUsuarioSheet({
   const [email, setEmail] = useState(usuario.email ?? '');
   const [role, setRole] = useState<string>(usuario.role);
   const [area, setArea] = useState(usuario.area ?? '');
-  const [telefone, setTelefone] = useState(usuario.telefone ?? '');
+  const [telefone, setTelefone] = useState(mascararTelefone(usuario.telefone ?? ''));
   const [foto, setFoto] = useState<File | null>(null);
 
   // Dados cadastrais completos.
@@ -100,7 +101,7 @@ export function EditarUsuarioSheet({
           email: email.trim(),
           role: role as Usuario['role'],
           area: area || undefined,
-          telefone: telefone.trim() || undefined,
+          telefone: apenasDigitos(telefone) || undefined,
           nome_completo: extra.nome_completo.trim(),
           cpf: extra.cpf.trim(),
           cnpj: extra.cnpj.trim(),
@@ -215,8 +216,8 @@ export function EditarUsuarioSheet({
               onChange={(e) => setEmail(e.target.value)} />
           </Campo>
           <Campo label="Telefone">
-            <Input value={telefone}
-              onChange={(e) => setTelefone(e.target.value)} />
+            <Input value={telefone} placeholder="(85) 99770-3416" inputMode="tel"
+              onChange={(e) => setTelefone(mascararTelefone(e.target.value))} />
           </Campo>
           <div className="grid grid-cols-2 gap-3">
             <Campo label="CPF">

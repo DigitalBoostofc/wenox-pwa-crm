@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { MessageSquare, History, Send, ImagePlus, X, CornerDownRight, AtSign } from 'lucide-react';
+import { MessageSquare, History, Send, ImagePlus, X, CornerDownRight, AtSign, Trash2 } from 'lucide-react';
 import {
-  listAtividade, addComentario, anexoUrl, candidatosMencao,
+  listAtividade, addComentario, removerComentario, anexoUrl, candidatosMencao,
   type Entidade, type ItemAtividade, type Comentario, type MencaoUsuario,
 } from '@/atividade/atividadeService';
 import { dataBR } from '@/clientes/format';
+import { useAuth } from '@/auth/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -195,12 +196,27 @@ export function AtividadeFeed({
   entidade: Entidade;
   refId: string;
 }) {
+  const { user } = useAuth();
+  const uid = user?.id ?? '';
+  const ehGestaoTotal = user?.role === 'Owner' || user?.role === 'Admin';
   const [itens, setItens] = useState<ItemAtividade[]>([]);
   const [candidatos, setCandidatos] = useState<Candidatos>({ colaboradores: [], clientes: [] });
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [respondendo, setRespondendo] = useState<string | null>(null);
   const [erro, setErro] = useState('');
+
+  const podeExcluir = (c: Comentario) => c.autor === uid || ehGestaoTotal;
+  async function excluir(id: string) {
+    if (!window.confirm('Excluir este comentário? Esta ação não pode ser desfeita.')) return;
+    setErro('');
+    try {
+      await removerComentario(id);
+      await carregar();
+    } catch {
+      setErro('Não foi possível excluir o comentário.');
+    }
+  }
 
   const carregar = useCallback(async () => {
     try {
@@ -294,13 +310,24 @@ export function AtividadeFeed({
 
                     {it.tipo === 'comentario' && (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => setRespondendo(respondendo === it.id ? null : it.id)}
-                          className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary"
-                        >
-                          <CornerDownRight className="size-3" /> Responder
-                        </button>
+                        <div className="mt-1 flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setRespondendo(respondendo === it.id ? null : it.id)}
+                            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary"
+                          >
+                            <CornerDownRight className="size-3" /> Responder
+                          </button>
+                          {podeExcluir(it) && (
+                            <button
+                              type="button"
+                              onClick={() => excluir(it.id)}
+                              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="size-3" /> Excluir
+                            </button>
+                          )}
+                        </div>
 
                         {/* Respostas */}
                         {reps.length > 0 && (
@@ -308,8 +335,17 @@ export function AtividadeFeed({
                             {reps.map((r) => (
                               <li key={r.id}>
                                 <ComentarioBody c={r} />
-                                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                  {r.autorNome} · {quando(r.created)}
+                                <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                                  <span>{r.autorNome} · {quando(r.created)}</span>
+                                  {podeExcluir(r) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => excluir(r.id)}
+                                      className="inline-flex items-center gap-1 hover:text-destructive"
+                                    >
+                                      <Trash2 className="size-3" /> Excluir
+                                    </button>
+                                  )}
                                 </p>
                               </li>
                             ))}

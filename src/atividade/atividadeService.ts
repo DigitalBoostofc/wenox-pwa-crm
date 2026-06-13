@@ -216,6 +216,12 @@ export async function candidatosMencao(
   }
 }
 
+/** Exclui um comentário (e suas respostas, via cascadeDelete do campo parent).
+ *  A deleteRule do PB garante: autor do comentário ou Owner/Admin. */
+export async function removerComentario(id: string): Promise<void> {
+  await pb.collection('comentarios').delete(id);
+}
+
 export async function listHistorico(
   entidade: Entidade,
   refId: string,

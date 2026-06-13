@@ -47,6 +47,10 @@ export function TarefaViewSheet({
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
 
+  // Status editável localmente — só persiste ao clicar "Salvar".
+  const [statusEdit, setStatusEdit] = useState('');
+  const [salvandoStatus, setSalvandoStatus] = useState(false);
+
   // Estado do formulário de conclusão de etapa
   const [concluindoId, setConcluindoId] = useState<string | null>(null);
   const [comentEtapa, setComentEtapa] = useState('');
@@ -59,22 +63,23 @@ export function TarefaViewSheet({
     setErro('');
     setConcluindoId(null);
     getTarefa(tarefaId)
-      .then((rec) => { setT(rec as Tarefa); setCarregando(false); })
+      .then((rec) => { setT(rec as Tarefa); setStatusEdit((rec as Tarefa).status ?? ''); setCarregando(false); })
       .catch(() => { setErro('Não foi possível carregar a tarefa.'); setCarregando(false); });
   }, [aberto, tarefaId]);
 
-  async function mudarStatus(novo: string) {
-    if (!t || somenteLeitura) return;
-    const anterior = t;
-    setT({ ...t, status: novo });
+  async function salvarStatus() {
+    if (!t || somenteLeitura || statusEdit === t.status) return;
+    setSalvandoStatus(true);
     setErro('');
     try {
-      const at = await atualizarTarefa(t.id, { status: novo });
+      const at = await atualizarTarefa(t.id, { status: statusEdit });
       setT(at as Tarefa);
+      setStatusEdit((at as Tarefa).status ?? '');
       onMudou();
     } catch {
-      setErro('Não foi possível alterar o status.');
-      setT(anterior);
+      setErro('Não foi possível salvar o status.');
+    } finally {
+      setSalvandoStatus(false);
     }
   }
 
@@ -172,10 +177,17 @@ export function TarefaViewSheet({
                       <Badge className={cn('border text-[11px]', statusTarefaClass(t.status))}>{t.status}</Badge>
                     ) : <span className="text-sm text-muted-foreground">—</span>
                   ) : (
-                    <select value={t.status ?? ''} onChange={(e) => mudarStatus(e.target.value)} className={selectCls}>
-                      <option value="">—</option>
-                      {STATUS_TAREFA.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <select value={statusEdit} onChange={(e) => setStatusEdit(e.target.value)} className={selectCls}>
+                        <option value="">—</option>
+                        {STATUS_TAREFA.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {statusEdit !== (t.status ?? '') && (
+                        <Button size="sm" onClick={salvarStatus} disabled={salvandoStatus} className="shrink-0">
+                          {salvandoStatus ? 'Salvando…' : 'Salvar'}
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
                 {t.prazo && (

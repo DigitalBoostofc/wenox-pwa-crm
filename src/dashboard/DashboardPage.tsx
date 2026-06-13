@@ -4,7 +4,7 @@ import {
   Building2, FolderKanban, ListChecks, AlarmClock, ArrowRight,
 } from 'lucide-react';
 import { DadosAgenciaProvider, useDadosAgencia } from './useDadosAgencia';
-import { SaudeProjetosBloco, PulsoEquipeBloco, AprovacoesPendentesBloco } from './blocosNegocio';
+import { PulsoEquipeBloco, AprovacoesPendentesBloco } from './blocosNegocio';
 import { SeletorMeses } from './SeletorMeses';
 import { VisaoGeralDesempenho, RankingMembros } from './blocosDesempenho';
 import { mesesRecentes } from './relatoriosService';
@@ -131,11 +131,8 @@ function CockpitNegocio() {
             <PulsoEquipeBloco />
           </div>
 
-          {/* Saúde dos Projetos | Aprovações Pendentes */}
-          <div className="grid gap-5 lg:grid-cols-2">
-            <SaudeProjetosBloco />
-            <AprovacoesPendentesBloco />
-          </div>
+          {/* Aprovações Pendentes */}
+          <AprovacoesPendentesBloco />
         </>
       )}
     </div>

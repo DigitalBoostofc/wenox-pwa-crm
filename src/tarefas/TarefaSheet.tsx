@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { Trash2, ExternalLink, Check, X, Plus } from 'lucide-react';
+import { Trash2, ExternalLink, Check, X, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import {
   getTarefa, atualizarTarefa, removerTarefa, criarTarefa,
+  salvarEtapas, concluirEtapa, reabrirEtapa, reenviarAprovacao,
 } from './tarefasService';
-import type { Tarefa, TarefaInput } from './types';
+import type { Tarefa, TarefaInput, EtapaTarefa, TipoEtapa } from './types';
 import { RECORRENCIA_LABEL } from './types';
+import { etapaAtualIndex, progressoEtapas, novaEtapaId } from './etapas';
 import { statusTarefaClass, temHoraPrazo } from './format';
 import { STATUS_TAREFA, STATUS_INICIAL } from './status';
 import { AprovacaoTarefa } from './TarefaDetailPage';
@@ -52,6 +54,306 @@ function hojeLocal(): string {
     String(d.getMonth() + 1).padStart(2, '0'),
     String(d.getDate()).padStart(2, '0'),
   ].join('-');
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Etapas do fluxo                                                           */
+/* -------------------------------------------------------------------------- */
+
+function EtapasFluxoEditor({
+  tarefa: t,
+  setTarefa: setT,
+  modoRascunho,
+  nomeUsuario,
+  usuarios,
+  onMudou,
+  setErro,
+}: {
+  tarefa: Tarefa;
+  setTarefa: (t: Tarefa) => void;
+  modoRascunho: boolean;
+  nomeUsuario: (id: string) => string;
+  usuarios: Usuario[];
+  onMudou: () => void;
+  setErro: (e: string) => void;
+}) {
+  const [novoTexto, setNovoTexto] = useState('');
+  const [novoTipo, setNovoTipo] = useState<TipoEtapa>('interna');
+  const [novoResp, setNovoResp] = useState('');
+
+  const etapas = t.etapas ?? [];
+  const { feitas, total } = progressoEtapas(etapas);
+  const idxAtual = etapaAtualIndex(etapas);
+
+  async function persistirEtapas(novas: EtapaTarefa[]) {
+    if (modoRascunho) {
+      setT({ ...t, etapas: novas });
+      return;
+    }
+    setErro('');
+    try {
+      const atualizada = await salvarEtapas(t, novas);
+      setT(atualizada);
+      onMudou();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao salvar etapas');
+    }
+  }
+
+  function adicionar() {
+    const texto = novoTexto.trim();
+    if (!texto) return;
+    const nova: EtapaTarefa = {
+      id: novaEtapaId(),
+      texto,
+      tipo: novoTipo,
+      responsavel: novoTipo === 'interna' ? novoResp : undefined,
+      feito: false,
+    };
+    persistirEtapas([...etapas, nova]);
+    setNovoTexto('');
+    setNovoTipo('interna');
+    setNovoResp('');
+  }
+
+  function remover(id: string) {
+    persistirEtapas(etapas.filter((e) => e.id !== id));
+  }
+
+  function mover(idx: number, dir: -1 | 1) {
+    const alvo = idx + dir;
+    if (alvo < 0 || alvo >= etapas.length) return;
+    const copia = [...etapas];
+    [copia[idx], copia[alvo]] = [copia[alvo], copia[idx]];
+    persistirEtapas(copia);
+  }
+
+  function editarTexto(id: string, texto: string) {
+    persistirEtapas(etapas.map((e) => e.id === id ? { ...e, texto } : e));
+  }
+
+  function editarResp(id: string, responsavel: string) {
+    persistirEtapas(etapas.map((e) => e.id === id ? { ...e, responsavel } : e));
+  }
+
+  function editarTipo(id: string, tipo: TipoEtapa) {
+    persistirEtapas(etapas.map((e) => e.id === id ? {
+      ...e, tipo, responsavel: tipo === 'aprovacao_cliente' ? undefined : e.responsavel,
+    } : e));
+  }
+
+  async function handleConcluir(etapaId: string) {
+    setErro('');
+    try {
+      const atualizada = await concluirEtapa(t, etapaId);
+      setT(atualizada);
+      onMudou();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao concluir etapa');
+    }
+  }
+
+  async function handleReabrir(etapaId: string) {
+    setErro('');
+    try {
+      const atualizada = await reabrirEtapa(t, etapaId);
+      setT(atualizada);
+      onMudou();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao reabrir etapa');
+    }
+  }
+
+  async function handleReenviar() {
+    setErro('');
+    try {
+      const atualizada = await reenviarAprovacao(t);
+      setT(atualizada);
+      onMudou();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao reenviar aprovação');
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <RotuloCampo>
+        Etapas do fluxo{total > 0 && (
+          <span className="ml-1.5 font-normal text-muted-foreground/70">
+            {feitas}/{total}
+          </span>
+        )}
+      </RotuloCampo>
+
+      {etapas.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {etapas.map((e, idx) => {
+            const ehAtual = idx === idxAtual;
+            const ehFutura = idxAtual >= 0 && idx > idxAtual;
+
+            return (
+              <li
+                key={e.id}
+                className={cn(
+                  'flex flex-col gap-1.5 rounded-md border px-3 py-2',
+                  ehAtual ? 'border-primary/50 bg-primary/5' : 'border-border',
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-muted-foreground">
+                    {e.feito ? '✓' : idx + 1}
+                  </span>
+
+                  <input
+                    defaultValue={e.texto}
+                    onBlur={(ev) => {
+                      const v = ev.target.value.trim();
+                      if (v && v !== e.texto) editarTexto(e.id, v);
+                    }}
+                    className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none"
+                  />
+
+                  <Badge
+                    className={cn(
+                      'shrink-0 border text-[10px]',
+                      e.tipo === 'aprovacao_cliente'
+                        ? 'border-amber-500/50 bg-amber-500/15 text-amber-400'
+                        : 'border-border bg-secondary text-muted-foreground',
+                    )}
+                  >
+                    {e.tipo === 'aprovacao_cliente' ? 'Aprovação' : 'Interna'}
+                  </Badge>
+
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <button type="button" onClick={() => mover(idx, -1)} disabled={idx === 0}
+                      className="text-muted-foreground/50 hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronUp className="size-3.5" />
+                    </button>
+                    <button type="button" onClick={() => mover(idx, 1)} disabled={idx === etapas.length - 1}
+                      className="text-muted-foreground/50 hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronDown className="size-3.5" />
+                    </button>
+                    <button type="button" onClick={() => remover(e.id)}
+                      className="ml-1 text-muted-foreground/50 hover:text-destructive"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Linha de meta: responsável + select tipo + estado */}
+                <div className="flex flex-wrap items-center gap-2 pl-7 text-xs">
+                  {e.tipo === 'interna' && (
+                    <select
+                      value={e.responsavel ?? ''}
+                      onChange={(ev) => editarResp(e.id, ev.target.value)}
+                      className="h-7 rounded border border-input bg-background/40 px-2 text-xs"
+                    >
+                      <option value="">Sem responsável</option>
+                      {usuarios.map((u) => (
+                        <option key={u.id} value={u.id}>{u.nome || u.email}</option>
+                      ))}
+                    </select>
+                  )}
+                  <select
+                    value={e.tipo}
+                    onChange={(ev) => editarTipo(e.id, ev.target.value as TipoEtapa)}
+                    className="h-7 rounded border border-input bg-background/40 px-2 text-xs"
+                  >
+                    <option value="interna">Interna</option>
+                    <option value="aprovacao_cliente">Aprovação do cliente</option>
+                  </select>
+
+                  {/* Estado */}
+                  {e.feito ? (
+                    <span className="text-emerald-500">
+                      ✓ {e.feito_por ? (e.feito_por === 'cliente' ? 'Cliente' : nomeUsuario(e.feito_por)) : 'concluída'}
+                    </span>
+                  ) : ehAtual ? (
+                    <span className="font-medium text-primary">Etapa atual</span>
+                  ) : ehFutura ? (
+                    <span className="text-muted-foreground">Aguardando</span>
+                  ) : null}
+                </div>
+
+                {/* Ações da etapa atual (só modo edição) */}
+                {!modoRascunho && ehAtual && e.tipo === 'interna' && (
+                  <div className="flex gap-2 pl-7">
+                    <Button type="button" size="sm" className="h-7 text-xs" onClick={() => handleConcluir(e.id)}>
+                      Concluir etapa
+                    </Button>
+                  </div>
+                )}
+                {!modoRascunho && ehAtual && e.tipo === 'aprovacao_cliente' && (
+                  <div className="pl-7">
+                    {t.aprovacao === 'alteracao' ? (
+                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={handleReenviar}>
+                        Reenviar para aprovação
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-amber-400">Aguardando aprovação do cliente</span>
+                    )}
+                  </div>
+                )}
+                {/* Reabrir etapa feita (só modo edição) */}
+                {!modoRascunho && e.feito && (
+                  <div className="flex gap-2 pl-7">
+                    <button
+                      type="button"
+                      onClick={() => handleReabrir(e.id)}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Reabrir
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* Adicionar etapa */}
+      <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-2">
+        <div className="flex gap-2">
+          <input
+            value={novoTexto}
+            onChange={(ev) => setNovoTexto(ev.target.value)}
+            onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); adicionar(); } }}
+            placeholder="Nova etapa…"
+            className={cn(inputCls, 'flex-1')}
+          />
+          <Button type="button" variant="outline" size="sm" onClick={adicionar} disabled={!novoTexto.trim()}>
+            <Plus className="size-3.5" />
+          </Button>
+        </div>
+        <div className="flex gap-2">
+          <select
+            value={novoTipo}
+            onChange={(ev) => setNovoTipo(ev.target.value as TipoEtapa)}
+            className="h-7 rounded border border-input bg-background/40 px-2 text-xs"
+          >
+            <option value="interna">Interna</option>
+            <option value="aprovacao_cliente">Aprovação do cliente</option>
+          </select>
+          {novoTipo === 'interna' && (
+            <select
+              value={novoResp}
+              onChange={(ev) => setNovoResp(ev.target.value)}
+              className="h-7 flex-1 rounded border border-input bg-background/40 px-2 text-xs"
+            >
+              <option value="">Sem responsável</option>
+              {usuarios.map((u) => (
+                <option key={u.id} value={u.id}>{u.nome || u.email}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function TarefaSheet({
@@ -761,6 +1063,17 @@ export function TarefaSheet({
                   </Button>
                 </div>
               </div>
+
+              {/* 5c. Etapas do fluxo */}
+              <EtapasFluxoEditor
+                tarefa={t}
+                setTarefa={setT}
+                modoRascunho={modoRascunho}
+                nomeUsuario={nomeUsuario}
+                usuarios={usuarios}
+                onMudou={onMudou}
+                setErro={setErroSalvo}
+              />
 
               {/* 6. Etiquetas */}
               <div>

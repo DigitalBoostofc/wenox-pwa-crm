@@ -3,9 +3,12 @@ import {
   registrarHistorico, diffCampos, addComentario,
 } from '@/atividade/atividadeService';
 import { notificar, idsGestao } from '@/notificacoes/notificacoesService';
-import type { Tarefa, TarefaInput } from './types';
+import type { Tarefa, TarefaInput, EtapaTarefa } from './types';
 import { tarefaConcluida } from './format';
 import { STATUS_INICIAL } from './status';
+import {
+  temEtapas, etapaAtual, etapaAtualIndex, aguardandoAprovacaoCliente, statusDerivado,
+} from './etapas';
 
 const col = () => pb.collection('tarefas');
 
@@ -26,7 +29,7 @@ const EXPAND = 'projeto,cliente,responsaveis,contato';
 const CAMPOS_LISTA = [
   'id', 'collectionId', 'collectionName', 'nome', 'descricao', 'projeto',
   'cliente', 'lado', 'responsaveis', 'contato', 'status', 'aprovacao', 'prazo',
-  'etiquetas', 'ordem', 'created', 'updated', 'prioridade', 'checklist', 'recorrencia', 'concluida_em',
+  'etiquetas', 'ordem', 'created', 'updated', 'prioridade', 'checklist', 'recorrencia', 'concluida_em', 'etapas',
   'expand.projeto.id', 'expand.projeto.nome', 'expand.projeto.tipo',
   'expand.cliente.id', 'expand.cliente.collectionId', 'expand.cliente.collectionName',
   'expand.cliente.nome', 'expand.cliente.nome_fantasia', 'expand.cliente.logo',
@@ -129,7 +132,11 @@ export async function getTarefa(id: string): Promise<Tarefa> {
 
 export async function criarTarefa(input: TarefaInput): Promise<Tarefa> {
   const uid = pb.authStore?.record?.id;
-  const dados = { ...input, ...(uid ? { created_by: uid, updated_by: uid } : {}) };
+  // Se já nasce com etapas, o status é derivado do fluxo.
+  const statusDerivadoInput = (input.etapas?.length ?? 0) > 0
+    ? { status: statusDerivado(input.etapas!, input.aprovacao) }
+    : {};
+  const dados = { ...input, ...statusDerivadoInput, ...(uid ? { created_by: uid, updated_by: uid } : {}) };
   const rec = (await col().create(dados)) as unknown as Tarefa;
   await registrarHistorico('tarefa', rec.id, 'Tarefa criada');
   await notificar(input.responsaveis ?? [], {
@@ -243,17 +250,116 @@ async function alvosAprovacao(rec: Tarefa): Promise<string[]> {
   return [...(rec.responsaveis ?? []), ...(await idsGestao())];
 }
 
-/** Cliente aprova a tarefa — registra veredito + comentário no feed. */
+/* -------------------------------------------------------------------------- */
+/*  Fluxo de etapas (Fase 2)                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** Notifica o responsável da etapa atual (handoff "sua vez"). */
+async function notificarVezDaEtapa(rec: Tarefa): Promise<void> {
+  const atual = etapaAtual(rec.etapas);
+  if (!atual || atual.tipo === 'aprovacao_cliente' || !atual.responsavel) return;
+  try {
+    await notificar([atual.responsavel], {
+      tipo: 'atribuicao',
+      titulo: `Sua vez na tarefa: ${rec.nome}`,
+      mensagem: atual.texto,
+      link: `/tarefas/${rec.id}`,
+    });
+  } catch { /* notificação é best-effort */ }
+}
+
+/**
+ * Persiste as etapas derivando status + concluida_em, e faz o handoff
+ * (notifica o novo responsável quando a etapa atual muda). `extra` permite
+ * gravar campos adicionais (ex.: aprovacao) — usado no fluxo do cliente.
+ */
+export async function salvarEtapas(
+  rec: Tarefa,
+  etapas: EtapaTarefa[],
+  extra: Record<string, unknown> = {},
+): Promise<Tarefa> {
+  const antesAtual = etapaAtual(rec.etapas);
+  const aprovacao = ('aprovacao' in extra ? extra.aprovacao : rec.aprovacao) as string | undefined;
+  const tudoFeito = etapas.length > 0 && etapaAtualIndex(etapas) === -1;
+  const dados: Record<string, unknown> = {
+    etapas,
+    status: statusDerivado(etapas, aprovacao),
+    concluida_em: tudoFeito ? carimboConclusao() : '',
+    ...extra,
+    ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
+  };
+  const atualizado = (await col().update(rec.id, dados)) as unknown as Tarefa;
+  const depoisAtual = etapaAtual(etapas);
+  if (depoisAtual && depoisAtual.id !== antesAtual?.id) {
+    await notificarVezDaEtapa(atualizado);
+  }
+  if (tudoFeito && !tarefaConcluida(rec.status)) {
+    await criarProximaOcorrencia(rec);
+  }
+  return atualizado;
+}
+
+/** Conclui uma etapa (pelo responsável/gestor) e avança o fluxo. */
+export async function concluirEtapa(rec: Tarefa, etapaId: string): Promise<Tarefa> {
+  const uid = pb.authStore?.record?.id ?? '';
+  const alvo = rec.etapas?.find((e) => e.id === etapaId);
+  const etapas = (rec.etapas ?? []).map((e) =>
+    e.id === etapaId ? { ...e, feito: true, feito_por: uid, feito_em: carimboConclusao() } : e,
+  );
+  // Concluir uma etapa interna limpa eventual flag de alteração.
+  const r = await salvarEtapas(rec, etapas, { aprovacao: '' });
+  await registrarHistorico('tarefa', rec.id, `Concluiu a etapa: ${alvo?.texto ?? ''}`);
+  return r;
+}
+
+/** Reabre (desmarca) uma etapa concluída. */
+export async function reabrirEtapa(rec: Tarefa, etapaId: string): Promise<Tarefa> {
+  const etapas = (rec.etapas ?? []).map((e) =>
+    e.id === etapaId ? { ...e, feito: false, feito_por: '', feito_em: '' } : e,
+  );
+  return salvarEtapas(rec, etapas);
+}
+
+/** Responsável reenvia a etapa de aprovação para o cliente (após alteração). */
+export async function reenviarAprovacao(rec: Tarefa): Promise<Tarefa> {
+  const r = await salvarEtapas(rec, rec.etapas ?? [], { aprovacao: '' });
+  await registrarHistorico('tarefa', rec.id, 'Reenviou para aprovação do cliente');
+  return r;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Veredito do cliente (com ou sem etapas)                                    */
+/* -------------------------------------------------------------------------- */
+
+/** Cliente aprova — avança a etapa de aprovação (se houver) ou a tarefa toda. */
 export async function aprovarTarefa(id: string): Promise<Tarefa> {
-  const rec = (await col().update(id, { aprovacao: 'aprovada' })) as unknown as Tarefa;
+  const rec = (await col().getOne(id)) as unknown as Tarefa;
+
+  if (temEtapas(rec) && aguardandoAprovacaoCliente(rec)) {
+    const atual = etapaAtual(rec.etapas)!;
+    const etapas = rec.etapas!.map((e) =>
+      e.id === atual.id ? { ...e, feito: true, feito_por: 'cliente', feito_em: carimboConclusao() } : e,
+    );
+    const r = await salvarEtapas(rec, etapas, { aprovacao: '' });
+    await registrarHistorico('tarefa', id, `Cliente aprovou a etapa: ${atual.texto}`);
+    try { await addComentario('tarefa', id, `✅ Cliente aprovou: ${atual.texto}`, false); } catch { /* */ }
+    await notificar(await alvosAprovacao(r), {
+      tipo: 'aprovacao',
+      titulo: `Cliente aprovou: ${r.nome}`,
+      link: `/tarefas/${id}`,
+    });
+    return r;
+  }
+
+  const rec2 = (await col().update(id, { aprovacao: 'aprovada' })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, 'Cliente aprovou a tarefa');
   try { await addComentario('tarefa', id, '✅ Cliente aprovou a tarefa.', false); } catch { /* */ }
-  await notificar(await alvosAprovacao(rec), {
+  await notificar(await alvosAprovacao(rec2), {
     tipo: 'aprovacao',
-    titulo: `Cliente aprovou: ${rec.nome}`,
+    titulo: `Cliente aprovou: ${rec2.nome}`,
     link: `/tarefas/${id}`,
   });
-  return rec;
+  return rec2;
 }
 
 /** Cliente pede alteração — exige um texto explicando o que mudar. */
@@ -263,17 +369,33 @@ export async function pedirAlteracaoTarefa(
 ): Promise<Tarefa> {
   const t = texto.trim();
   if (!t) throw new Error('Explique o que precisa ser alterado');
-  const rec = (await col().update(id, {
+  const rec = (await col().getOne(id)) as unknown as Tarefa;
+
+  if (temEtapas(rec) && aguardandoAprovacaoCliente(rec)) {
+    // Mantém a etapa de aprovação como atual; marca alteração (status "Em alteração").
+    const r = await salvarEtapas(rec, rec.etapas!, { aprovacao: 'alteracao' });
+    await registrarHistorico('tarefa', id, 'Cliente pediu alteração');
+    try { await addComentario('tarefa', id, `🔁 Alteração solicitada: ${t}`, false); } catch { /* */ }
+    await notificar(await alvosAprovacao(r), {
+      tipo: 'alteracao',
+      titulo: `Cliente pediu alteração: ${r.nome}`,
+      mensagem: t,
+      link: `/tarefas/${id}`,
+    });
+    return r;
+  }
+
+  const rec2 = (await col().update(id, {
     aprovacao: 'alteracao',
     status: 'Em alteração',
   })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, 'Cliente pediu alteração');
   try { await addComentario('tarefa', id, `🔁 Alteração solicitada: ${t}`, false); } catch { /* */ }
-  await notificar(await alvosAprovacao(rec), {
+  await notificar(await alvosAprovacao(rec2), {
     tipo: 'alteracao',
-    titulo: `Cliente pediu alteração: ${rec.nome}`,
+    titulo: `Cliente pediu alteração: ${rec2.nome}`,
     mensagem: t,
     link: `/tarefas/${id}`,
   });
-  return rec;
+  return rec2;
 }

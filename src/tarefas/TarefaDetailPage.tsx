@@ -9,6 +9,7 @@ import {
 } from './tarefasService';
 import type { Tarefa } from './types';
 import { statusTarefaClass, prazoVencido, LADO_LABEL } from './format';
+import { temEtapas, etapaAtual, progressoEtapas, aguardandoAprovacaoCliente } from './etapas';
 import { responsaveisTarefa } from './TarefaCard';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { Button } from '@/components/ui/button';
@@ -184,10 +185,13 @@ export function AprovacaoTarefa({
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
 
-  const aguardando = (t.status ?? '').toLowerCase().includes('aprova');
+  const aguardando = (t.status ?? '').toLowerCase().includes('aprova') || aguardandoAprovacaoCliente(t);
   const podeAgir = souCliente && aguardando;
   // Nada a mostrar pra equipe se ainda não há veredito nem está aguardando.
   if (!podeAgir && !t.aprovacao && !aguardando) return null;
+
+  const etapa = temEtapas(t) ? etapaAtual(t.etapas) : null;
+  const progresso = temEtapas(t) ? progressoEtapas(t.etapas) : null;
 
   async function aprovar() {
     setSalvando(true);
@@ -223,11 +227,19 @@ export function AprovacaoTarefa({
           </Badge>
         )}
         {!t.aprovacao && aguardando && (
-          <p className="text-sm text-muted-foreground">
-            {souCliente
-              ? 'Esta tarefa está aguardando sua aprovação.'
-              : 'Aguardando o cliente aprovar.'}
-          </p>
+          <div className="flex flex-col gap-1">
+            {etapa && (
+              <p className="text-sm font-medium text-primary">
+                Aprovar: {etapa.texto}
+                {progresso && ` · Etapa ${progresso.feitas + 1} de ${progresso.total}`}
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              {souCliente
+                ? etapa ? 'Avalie a etapa acima e aprove ou peça alteração.' : 'Esta tarefa está aguardando sua aprovação.'
+                : 'Aguardando o cliente aprovar.'}
+            </p>
+          </div>
         )}
 
         {podeAgir && !pedindo && (

@@ -5,6 +5,7 @@ import {
 } from './tarefasService';
 import type { Tarefa } from './types';
 import { statusTarefaClass, tarefaConcluida, prazoVencido } from './format';
+import { temEtapas, etapaAtual, progressoEtapas, aguardandoAprovacaoCliente } from './etapas';
 import { dataBR } from '@/clientes/format';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -110,6 +111,12 @@ function CardAprovacao({
           <p className="font-medium leading-snug">{t.nome}</p>
           {t.expand?.projeto?.nome && (
             <p className="mt-0.5 text-xs text-muted-foreground">{t.expand.projeto.nome}</p>
+          )}
+          {temEtapas(t) && etapaAtual(t.etapas) && (
+            <p className="mt-1 text-xs font-medium text-primary">
+              Aprovar: {etapaAtual(t.etapas)!.texto}
+              {(() => { const p = progressoEtapas(t.etapas); return ` · Etapa ${p.feitas + 1} de ${p.total}`; })()}
+            </p>
           )}
         </div>
         {t.prazo && (
@@ -332,10 +339,10 @@ export function PortalClienteTarefas({
 
   // ---------- agrupamento ----------
 
-  /** Seção 1: não concluídas, status contém 'aprova', sem veredito ainda. */
+  /** Seção 1: não concluídas, aguardando aprovação, sem veredito ainda. */
   const aguardandoAprovacao = tarefas.filter(
     (t) => !tarefaConcluida(t.status)
-      && (t.status ?? '').toLowerCase().includes('aprova')
+      && ((t.status ?? '').toLowerCase().includes('aprova') || aguardandoAprovacaoCliente(t))
       && !t.aprovacao,
   );
 

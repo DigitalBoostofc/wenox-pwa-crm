@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { useDadosAgencia } from './useDadosAgencia';
 import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
+import { temEtapas, aguardandoAprovacaoCliente } from '@/tarefas/etapas';
+import type { Tarefa } from '@/tarefas/types';
 import { dataBR, corAvatar } from '@/clientes/format';
 import { TarefaSheet } from '@/tarefas/TarefaSheet';
 import { Card } from '@/components/ui/card';
@@ -251,17 +253,17 @@ export function PulsoEquipeBloco() {
 /*  Aprovações Pendentes                                                      */
 /* -------------------------------------------------------------------------- */
 
+function aguardandoCliente(t: Tarefa): boolean {
+  if (temEtapas(t)) return aguardandoAprovacaoCliente(t) && t.aprovacao !== 'alteracao';
+  return (t.status ?? '').toLowerCase().includes('aprova') && t.aprovacao !== 'aprovada' && !tarefaConcluida(t.status);
+}
+
 export function AprovacoesPendentesBloco() {
   const { tarefas, carregando, refresh } = useDadosAgencia();
   const [sheetId, setSheetId] = useState<string | null>(null);
 
   const pendentes = tarefas
-    .filter(
-      (t) =>
-        (t.status ?? '').toLowerCase().includes('aprova') &&
-        t.aprovacao !== 'aprovada' &&
-        !tarefaConcluida(t.status),
-    )
+    .filter((t) => aguardandoCliente(t))
     .sort((a, b) => {
       if (!a.prazo && !b.prazo) return 0;
       if (!a.prazo) return 1;

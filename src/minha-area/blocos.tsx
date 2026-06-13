@@ -6,6 +6,8 @@ import { pb } from '@/lib/pocketbase';
 import { concluirTarefa, reabrirTarefa } from '@/tarefas/tarefasService';
 import type { Usuario } from '@/usuarios/types';
 import { tarefaConcluida, prazoVencido, prazoBR } from '@/tarefas/format';
+import { temEtapas, aguardandoAprovacaoCliente } from '@/tarefas/etapas';
+import type { Tarefa } from '@/tarefas/types';
 import { STATUS_CONCLUIDO, STATUS_INICIAL } from '@/tarefas/status';
 import { MinhaSemanaList } from '@/tarefas/MinhaSemanaList';
 import { QuickAddTarefa } from '@/tarefas/QuickAddTarefa';
@@ -367,6 +369,11 @@ export function MeusDadosBloco() {
 /*  5. MinhasAprovacoesBloco — tarefas MINHAS aguardando aprovação do cliente  */
 /* -------------------------------------------------------------------------- */
 
+function aguardandoCliente(t: Tarefa): boolean {
+  if (temEtapas(t)) return aguardandoAprovacaoCliente(t) && t.aprovacao !== 'alteracao';
+  return (t.status ?? '').toLowerCase().includes('aprova') && t.aprovacao !== 'aprovada' && !tarefaConcluida(t.status);
+}
+
 export function MinhasAprovacoesBloco() {
   const { user } = useAuth();
   const { tarefas, carregando, refresh } = useDadosAgencia();
@@ -376,9 +383,7 @@ export function MinhasAprovacoesBloco() {
     .filter(
       (t) =>
         (t.responsaveis ?? []).includes(user?.id ?? '') &&
-        (t.status ?? '').toLowerCase().includes('aprova') &&
-        t.aprovacao !== 'aprovada' &&
-        !tarefaConcluida(t.status),
+        aguardandoCliente(t),
     )
     .sort((a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999'));
 

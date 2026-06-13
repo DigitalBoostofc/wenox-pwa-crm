@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ListChecks, Repeat, UserRound } from 'lucide-react';
 import type { Tarefa } from './types';
 import { statusTarefaClass, tarefaConcluida, prazoVencido, prazoBR } from './format';
+import { temEtapas, progressoEtapas, etapaAtual } from './etapas';
 import { corAvatar } from '@/clientes/format';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -417,6 +418,18 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
             ✓ {checkFeitos}/{checkTotal}
           </span>
         )}
+        {temEtapas(t) && (() => {
+          const { feitas, total } = progressoEtapas(t.etapas);
+          const atual = etapaAtual(t.etapas);
+          return (
+            <span className="text-[11px] text-muted-foreground" title={atual?.texto}>
+              Etapa {feitas}/{total}
+              {atual?.tipo === 'interna' && atual.responsavel && t.expand?.responsaveis
+                ? ` · ${t.expand.responsaveis.find((r) => r.id === atual.responsavel)?.nome ?? ''}`
+                : ''}
+            </span>
+          );
+        })()}
         {t.prazo && (
           <span className={cn('text-[11px]', vencida ? 'font-medium text-destructive' : 'text-muted-foreground')}>
             {prazoBR(t.prazo)}

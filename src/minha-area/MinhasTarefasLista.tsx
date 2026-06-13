@@ -18,6 +18,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
+const filtroCls =
+  'h-9 rounded-md border border-input bg-background/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+
 /* --------------------------------- Colunas -------------------------------- */
 
 type ColKey = 'tarefa' | 'projeto' | 'cliente' | 'status' | 'prazo' | 'prioridade' | 'responsaveis' | 'etapa' | 'criada';
@@ -134,8 +137,8 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
   const [colDefs, setColDefs] = useState<ColDef[]>(carregarColunas);
   const [larguras, setLarguras] = useState<Larguras>(carregarLarguras);
   const [ordem, setOrdem] = useState<Ordem>(carregarOrdem);
-  const [fStatus, setFStatus] = useState<string>('Todos');
-  const [fPrioridade, setFPrioridade] = useState<string>('Todas');
+  const [fStatus, setFStatus] = useState('');       // '' = todos
+  const [fPrioridade, setFPrioridade] = useState(''); // '' = todas
 
   function toggleCol(k: ColKey) {
     setColDefs((cs) => { const n = cs.map((c) => c.key === k ? { ...c, visivel: !c.visivel } : c); salvarColunas(n); return n; });
@@ -155,8 +158,8 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
 
   const filtradas = useMemo(() => {
     let arr = minhas;
-    if (fStatus !== 'Todos') arr = arr.filter((t) => (t.status ?? '') === fStatus);
-    if (fPrioridade !== 'Todas') arr = arr.filter((t) => (t.prioridade ?? 'media') === fPrioridade);
+    if (fStatus) arr = arr.filter((t) => (t.status ?? '') === fStatus);
+    if (fPrioridade) arr = arr.filter((t) => (t.prioridade ?? 'media') === fPrioridade);
     return [...arr].sort((a, b) => {
       if (ordem === 'nome') return (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR', { sensitivity: 'base' });
       if (ordem === 'prioridade') {
@@ -223,29 +226,23 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Controles: filtros + ordenar + colunas */}
+      {/* Controles: filtros (dropdown) + ordenar + colunas */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden">
-          {['Todos', ...STATUS_TAREFA].map((s) => (
-            <button key={s} onClick={() => setFStatus(s)}
-              className={cn('shrink-0 rounded-full border px-3 py-0.5 text-xs transition-colors',
-                fStatus === s ? 'border-primary/50 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:bg-secondary')}>
-              {s}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1.5">
-          {['Todas', 'alta', 'media', 'baixa'].map((p) => (
-            <button key={p} onClick={() => setFPrioridade(p)}
-              className={cn('shrink-0 rounded-full border px-3 py-0.5 text-xs capitalize transition-colors',
-                fPrioridade === p ? 'border-primary/50 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:bg-secondary')}>
-              {p === 'Todas' ? 'Todas' : p === 'media' ? 'Média' : p === 'alta' ? 'Alta' : 'Baixa'}
-            </button>
-          ))}
-        </div>
+        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label="Filtrar por status"
+          className={cn(filtroCls, fStatus ? 'text-foreground' : 'text-muted-foreground')}>
+          <option value="">Status</option>
+          {STATUS_TAREFA.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={fPrioridade} onChange={(e) => setFPrioridade(e.target.value)} aria-label="Filtrar por prioridade"
+          className={cn(filtroCls, fPrioridade ? 'text-foreground' : 'text-muted-foreground')}>
+          <option value="">Prioridade</option>
+          <option value="alta">Alta</option>
+          <option value="media">Média</option>
+          <option value="baixa">Baixa</option>
+        </select>
         <div className="ml-auto flex items-center gap-2">
-          <select value={ordem} onChange={(e) => trocarOrdem(e.target.value as Ordem)}
-            className="h-9 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
+          <select value={ordem} onChange={(e) => trocarOrdem(e.target.value as Ordem)} aria-label="Ordenar"
+            className={cn(filtroCls, 'text-foreground')}>
             {ORDENS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
           </select>
           <MenuColunas colDefs={colDefs} onToggle={toggleCol} onMover={moverCol} />

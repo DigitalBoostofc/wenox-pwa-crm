@@ -45,6 +45,8 @@ const EquipePage = lazy(() =>
   import('@/equipe/EquipePage').then((m) => ({ default: m.EquipePage })));
 const MembroDetailPage = lazy(() =>
   import('@/equipe/MembroDetailPage').then((m) => ({ default: m.MembroDetailPage })));
+const MinhaAreaPage = lazy(() =>
+  import('@/minha-area/MinhaAreaPage').then((m) => ({ default: m.MinhaAreaPage })));
 
 function CarregandoTela() {
   return (
@@ -106,6 +108,9 @@ function AuthedApp() {
         <Switch>
           <Route exact path="/dashboard">
             <Protegido modulo="dashboard"><DashboardPage /></Protegido>
+          </Route>
+          <Route exact path="/minha-area">
+            <Protegido modulo="minha-area"><MinhaAreaPage /></Protegido>
           </Route>
           <Route exact path="/clientes">
             <Protegido modulo="clientes"><ClientesListPage /></Protegido>

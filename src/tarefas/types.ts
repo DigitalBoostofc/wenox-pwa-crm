@@ -55,7 +55,7 @@ export interface Tarefa {
       nome_fantasia?: string;
       logo?: string;
     };
-    responsaveis?: { id: string; nome?: string; email?: string }[];
+    responsaveis?: { id: string; nome?: string; email?: string; foto?: string; collectionId?: string; collectionName?: string }[];
     contato?: { id: string; nome?: string; cargo?: string };
   };
 }

@@ -35,6 +35,7 @@ const CAMPOS_LISTA = [
   'expand.cliente.id', 'expand.cliente.collectionId', 'expand.cliente.collectionName',
   'expand.cliente.nome', 'expand.cliente.nome_fantasia', 'expand.cliente.logo',
   'expand.responsaveis.id', 'expand.responsaveis.nome', 'expand.responsaveis.email',
+  'expand.responsaveis.foto', 'expand.responsaveis.collectionId', 'expand.responsaveis.collectionName',
   'expand.contato.id', 'expand.contato.nome', 'expand.contato.cargo',
 ].join(',');
 

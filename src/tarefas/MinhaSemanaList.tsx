@@ -3,25 +3,16 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ListChecks, Repeat, User
 import type { Tarefa } from './types';
 import { statusTarefaClass, tarefaConcluida, prazoVencido, prazoBR } from './format';
 import { temEtapas, progressoEtapas, etapaAtual } from './etapas';
-import { corAvatar } from '@/clientes/format';
+import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export type TipoAgrupamento = 'prazo' | 'responsavel' | 'projeto' | 'cliente' | 'status';
 
-/* -------------------------------------------------------------------------- */
-/*  Helpers de avatar                                                          */
-/* -------------------------------------------------------------------------- */
+interface RespAvatar { id: string; nome: string; foto?: string; collectionId?: string; collectionName?: string }
 
-function iniciais(n?: string): string {
-  const t = (n ?? '?').trim();
-  const partes = t.split(/\s+/).filter(Boolean);
-  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
-  return t.charAt(0).toUpperCase() || '?';
-}
-
-function responsaveis(t: Tarefa): { id: string; nome: string }[] {
+function responsaveis(t: Tarefa): RespAvatar[] {
   if (t.lado === 'cliente') {
     const c = t.expand?.contato;
     return c ? [{ id: c.id, nome: c.nome ?? '—' }] : [];
@@ -29,6 +20,9 @@ function responsaveis(t: Tarefa): { id: string; nome: string }[] {
   return (t.expand?.responsaveis ?? []).map((r) => ({
     id: r.id,
     nome: r.nome ?? r.email ?? '—',
+    foto: r.foto,
+    collectionId: r.collectionId,
+    collectionName: r.collectionName,
   }));
 }
 
@@ -447,13 +441,7 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
             </span>
           ) : (
             resps.slice(0, 3).map((r) => (
-              <div
-                key={r.id}
-                title={r.nome}
-                className={cn('grid size-6 place-items-center rounded-full border-2 border-card text-[9px] font-bold text-white', corAvatar(r.nome))}
-              >
-                {iniciais(r.nome)}
-              </div>
+              <AvatarMembro key={r.id} membro={r} className="size-6 border-2 border-card text-[9px]" />
             ))
           )}
         </div>

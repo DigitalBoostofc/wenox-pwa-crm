@@ -1,19 +1,15 @@
 import { ArrowDown, ArrowUp, CalendarDays, FolderKanban, Repeat, UserRound } from 'lucide-react';
 import type { Tarefa } from './types';
 import { statusTarefaClass, prazoVencido, LADO_LABEL } from './format';
-import { corAvatar, dataBR } from '@/clientes/format';
+import { dataBR } from '@/clientes/format';
+import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-function iniciais(n?: string): string {
-  const t = (n ?? '?').trim();
-  const partes = t.split(/\s+/).filter(Boolean);
-  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
-  return t.charAt(0).toUpperCase() || '?';
-}
+interface RespAvatar { id: string; nome: string; foto?: string; collectionId?: string; collectionName?: string }
 
 /** Nomes de quem responde pela tarefa (equipe Wenox ou contato do cliente). */
-export function responsaveisTarefa(t: Tarefa): { id: string; nome: string }[] {
+export function responsaveisTarefa(t: Tarefa): RespAvatar[] {
   if (t.lado === 'cliente') {
     const c = t.expand?.contato;
     return c ? [{ id: c.id, nome: c.nome ?? '—' }] : [];
@@ -21,6 +17,9 @@ export function responsaveisTarefa(t: Tarefa): { id: string; nome: string }[] {
   return (t.expand?.responsaveis ?? []).map((r) => ({
     id: r.id,
     nome: r.nome ?? r.email ?? '—',
+    foto: r.foto,
+    collectionId: r.collectionId,
+    collectionName: r.collectionName,
   }));
 }
 
@@ -121,16 +120,7 @@ export function TarefaCard({
             </span>
           ) : (
             resps.slice(0, 3).map((r) => (
-              <div
-                key={r.id}
-                title={r.nome}
-                className={cn(
-                  'grid size-7 place-items-center rounded-full border-2 border-card text-[10px] font-bold text-white',
-                  corAvatar(r.nome),
-                )}
-              >
-                {iniciais(r.nome)}
-              </div>
+              <AvatarMembro key={r.id} membro={r} className="size-7 border-2 border-card text-[10px]" />
             ))
           )}
         </div>

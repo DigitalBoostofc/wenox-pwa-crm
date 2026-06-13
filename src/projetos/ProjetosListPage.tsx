@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { BarraTipos } from '@/components/BarraTipos';
+import { ProjetoSheet } from './ProjetoSheet';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,12 @@ function carregarView(): ViewMode {
 }
 function salvarView(v: ViewMode) {
   try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ }
+}
+
+/** Último tipo de projeto selecionado na barra — persiste entre visitas. */
+const TIPO_KEY = 'wenox-projetos-tipo-v1';
+function carregarTipoProj(): string {
+  try { return localStorage.getItem(TIPO_KEY) || 'Todos'; } catch { return 'Todos'; }
 }
 
 /** Pill clicável que abre um dropdown (Radix) — o botão inteiro abre,
@@ -351,7 +358,8 @@ export function ProjetosListPage() {
   const { user } = useAuth();
   const souCliente = ehCliente(user?.role);
   const [busca, setBusca] = useState('');
-  const [tipoFiltro, setTipoFiltro] = useState('Todos');
+  const [tipoFiltro, setTipoFiltro] = useState(carregarTipoProj);
+  const [criandoProjeto, setCriandoProjeto] = useState(false);
   /** Pill de status — default "Desenvolvimento" (pedido do Leonardo). */
   const [statusFiltro, setStatusFiltro] = useState<string>('Ativo');
   /** Filtro extra (dropdown) — independente do pill de status. */
@@ -396,7 +404,12 @@ export function ProjetosListPage() {
     listOpcoes('tipo_projeto').then((ts) => {
       setTipos(ts);
       // Sem "Todos": começa no 1º tipo (cai em 'Todos' só se não houver tipos).
-      setTipoFiltro((cur) => (cur === 'Todos' && ts.length ? ts[0].valor : cur));
+      setTipoFiltro((cur) => {
+        const validos = ts.map((t) => t.valor);
+        // Mantém o último salvo se ainda existir; senão cai no 1º tipo.
+        if (cur !== 'Todos' && validos.includes(cur)) return cur;
+        return validos[0] ?? 'Todos';
+      });
     });
     listEtapas().then(setTodasEtapas);
     listUsuarios()
@@ -457,6 +470,13 @@ export function ProjetosListPage() {
   // Reseta statusFiltro ao trocar tipo para evitar filtros inconsistentes.
   // "Ativo" existe em todos os tipos (inclusive Social Media).
   useEffect(() => { setStatusFiltro('Ativo'); }, [tipoFiltro]);
+
+  // Persiste o tipo selecionado (cobre barra, pills e kanban).
+  useEffect(() => {
+    if (tipoFiltro && tipoFiltro !== 'Todos') {
+      try { localStorage.setItem(TIPO_KEY, tipoFiltro); } catch { /* */ }
+    }
+  }, [tipoFiltro]);
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 1023px)');
@@ -565,7 +585,7 @@ export function ProjetosListPage() {
             <ViewToggleBtn ativo={view === 'cards'} onClick={() => trocarView('cards')} icon={LayoutGrid} label="Cards" />
           </div>
           {!souCliente && (
-            <Button size="sm" onClick={() => history.push('/projetos/novo')}>
+            <Button size="sm" onClick={() => setCriandoProjeto(true)}>
               <Plus /> Novo projeto
             </Button>
           )}
@@ -709,6 +729,13 @@ export function ProjetosListPage() {
           {projetosFiltrados.length} {projetosFiltrados.length === 1 ? 'projeto' : 'projetos'}
         </p>
       )}
+
+      <ProjetoSheet
+        aberto={criandoProjeto}
+        onClose={() => setCriandoProjeto(false)}
+        onCriado={(id) => { recarregar(); abrirProjeto(id); }}
+        tipoPreset={tipoFiltro !== 'Todos' ? tipoFiltro : undefined}
+      />
       </div>
     </div>
   );

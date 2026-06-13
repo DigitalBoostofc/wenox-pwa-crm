@@ -141,6 +141,14 @@ function EtapasFluxoEditor({
   }
 
   function editarPrazo(id: string, prazo: string) {
+    // Regra: a data da ÚLTIMA etapa precisa ser <= prazo final da tarefa.
+    const ultimaId = etapas[etapas.length - 1]?.id;
+    const taskDia = (t.prazo ?? '').slice(0, 10);
+    if (prazo && id === ultimaId && taskDia && prazo > taskDia) {
+      setErro(`A última etapa não pode ter data depois do prazo da tarefa (${taskDia.split('-').reverse().join('/')}).`);
+      return;
+    }
+    setErro('');
     persistirEtapas(etapas.map((e) => e.id === id ? { ...e, prazo: prazo || undefined } : e));
   }
 
@@ -767,10 +775,20 @@ export function TarefaSheet({
                       key={`prazo-d-${t.id || 'rascunho'}`}
                       defaultValue={(t.prazo ?? '').slice(0, 10)}
                       onChange={(e) => {
+                        const novaData = e.target.value;
+                        // Regra: o prazo da tarefa não pode ser antes da data da última etapa.
+                        const ets = t.etapas ?? [];
+                        const ultima = ets[ets.length - 1];
+                        if (novaData && ultima?.prazo && ultima.prazo.slice(0, 10) > novaData) {
+                          setErroSalvo(`O prazo da tarefa não pode ser antes da última etapa (${ultima.prazo.slice(0, 10).split('-').reverse().join('/')}).`);
+                          e.target.value = (t.prazo ?? '').slice(0, 10);
+                          return;
+                        }
+                        setErroSalvo('');
                         const hora = temHoraPrazo(t.prazo)
                           ? (t.prazo ?? '').replace('T', ' ').replace('Z', '').trim().split(/\s+/)[1]?.slice(0, 5) ?? ''
                           : '';
-                        salvarCampo({ prazo: montarPrazo(e.target.value, hora) });
+                        salvarCampo({ prazo: montarPrazo(novaData, hora) });
                       }}
                       className={cn(inputCls, 'flex-1 [color-scheme:dark]')}
                     />

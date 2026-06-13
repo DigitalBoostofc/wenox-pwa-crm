@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
-import { MessageSquare, History, Send } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { MessageSquare, History, Send, ImagePlus, X } from 'lucide-react';
 import {
-  listAtividade, addComentario, type Entidade, type ItemAtividade,
+  listAtividade, addComentario, anexoUrl, type Entidade, type ItemAtividade,
 } from '@/atividade/atividadeService';
 import { dataBR } from '@/clientes/format';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,8 @@ export function AtividadeFeed({
 }) {
   const [itens, setItens] = useState<ItemAtividade[]>([]);
   const [texto, setTexto] = useState('');
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState('');
@@ -50,8 +52,10 @@ export function AtividadeFeed({
     setErro('');
     setEnviando(true);
     try {
-      await addComentario(entidade, refId, texto);
+      await addComentario(entidade, refId, texto, true, arquivo);
       setTexto('');
+      setArquivo(null);
+      if (fileRef.current) fileRef.current.value = '';
       await carregar();
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao comentar');
@@ -77,14 +81,39 @@ export function AtividadeFeed({
             aria-label="Novo comentário"
             className="w-full rounded-md border border-input bg-background/40 p-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           />
-          <Button
-            type="submit"
-            size="sm"
-            className="self-end"
-            disabled={enviando || !texto.trim()}
-          >
-            <Send /> {enviando ? 'Enviando…' : 'Comentar'}
-          </Button>
+          {arquivo && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <ImagePlus className="size-3.5" />
+              <span className="min-w-0 flex-1 truncate">{arquivo.name}</span>
+              <button
+                type="button"
+                onClick={() => { setArquivo(null); if (fileRef.current) fileRef.current.value = ''; }}
+                aria-label="Remover imagem"
+                className="hover:text-destructive"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+              <ImagePlus className="size-4" /> Anexar imagem
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={enviando || (!texto.trim() && !arquivo)}
+            >
+              <Send /> {enviando ? 'Enviando…' : 'Comentar'}
+            </Button>
+          </div>
         </form>
 
         {erro && (
@@ -115,15 +144,27 @@ export function AtividadeFeed({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p
-                    className={
-                      it.tipo === 'comentario'
-                        ? 'whitespace-pre-wrap text-sm'
-                        : 'text-sm text-muted-foreground'
-                    }
-                  >
-                    {it.tipo === 'comentario' ? it.texto : it.acao}
-                  </p>
+                  {(it.tipo !== 'comentario' || it.texto) && (
+                    <p
+                      className={
+                        it.tipo === 'comentario'
+                          ? 'whitespace-pre-wrap text-sm'
+                          : 'text-sm text-muted-foreground'
+                      }
+                    >
+                      {it.tipo === 'comentario' ? it.texto : it.acao}
+                    </p>
+                  )}
+                  {it.tipo === 'comentario' && it.anexo && (
+                    <a href={anexoUrl(it)} target="_blank" rel="noreferrer" className="mt-2 block w-fit">
+                      <img
+                        src={anexoUrl(it, '300x0')}
+                        alt="anexo"
+                        loading="lazy"
+                        className="max-h-48 rounded-md border border-border object-cover"
+                      />
+                    </a>
+                  )}
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {it.autorNome} · {quando(it.created)}
                   </p>

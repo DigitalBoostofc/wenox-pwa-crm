@@ -11,11 +11,23 @@ interface Base {
   autor?: string;
   autorNome: string;
   created: string;
+  collectionId?: string;
+  collectionName?: string;
   expand?: { autor?: { nome?: string; email?: string } };
 }
 export interface Comentario extends Base {
   tipo: 'comentario';
   texto: string;
+  anexo?: string;
+}
+
+/** URL pública do anexo (imagem) de um comentário ('' se não tiver). */
+export function anexoUrl(
+  c: Pick<Comentario, 'id' | 'collectionId' | 'collectionName' | 'anexo'>,
+  thumb?: string,
+): string {
+  if (!c.anexo) return '';
+  return pb.files.getURL(c as unknown as Record<string, unknown>, c.anexo, thumb ? { thumb } : undefined);
 }
 export interface Historico extends Base {
   tipo: 'historico';
@@ -74,17 +86,26 @@ export async function addComentario(
   refId: string,
   texto: string,
   comNotificacao = true,
+  anexo?: File | null,
 ): Promise<void> {
   const t = texto.trim();
-  if (!t) throw new Error('Escreva um comentário');
+  if (!t && !anexo) throw new Error('Escreva um comentário');
   const { cliente, responsaveis } = await resolverEntidade(entidade, refId);
-  await pb.collection('comentarios').create({
+  const dados = {
     entidade,
     ref_id: refId,
     texto: t,
     autor: pb.authStore?.record?.id,
     cliente,
-  });
+  };
+  if (anexo) {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(dados)) fd.append(k, v == null ? '' : String(v));
+    fd.append('anexo', anexo);
+    await pb.collection('comentarios').create(fd);
+  } else {
+    await pb.collection('comentarios').create(dados);
+  }
   if (!comNotificacao) return;
   try {
     const alvos = entidade === 'tarefa' || entidade === 'projeto'

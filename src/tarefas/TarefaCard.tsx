@@ -102,11 +102,6 @@ export function TarefaCard({
               {dataBR(t.prazo)}
             </span>
           )}
-          {(t.checklist ?? []).length > 0 && (
-            <span className="text-[11px] text-muted-foreground">
-              ✓ {(t.checklist ?? []).filter((i) => i.feito).length}/{(t.checklist ?? []).length}
-            </span>
-          )}
           {t.recorrencia && (
             <span title={`Repete: ${t.recorrencia}`} className="text-muted-foreground">
               <Repeat className="size-3.5" />

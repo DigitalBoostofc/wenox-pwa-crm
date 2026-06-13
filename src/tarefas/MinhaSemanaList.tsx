@@ -369,9 +369,6 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
     ?? t.expand?.cliente?.nome
     ?? (t.projeto || t.cliente ? undefined : 'Interna');
 
-  const checkFeitos = (t.checklist ?? []).filter((i) => i.feito).length;
-  const checkTotal = (t.checklist ?? []).length;
-
   function handleToggle() {
     setOtimista((v) => !v);
     if (concluida) onReabrir(t.id); else onConcluir(t.id);
@@ -406,11 +403,6 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
           <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>
             {t.status}
           </Badge>
-        )}
-        {checkTotal > 0 && (
-          <span className="text-[11px] text-muted-foreground">
-            ✓ {checkFeitos}/{checkTotal}
-          </span>
         )}
         {temEtapas(t) && (() => {
           const { feitas, total } = progressoEtapas(t.etapas);

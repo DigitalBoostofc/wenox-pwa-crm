@@ -7,7 +7,6 @@ import {
 } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
 import { TarefaViewSheet } from '@/tarefas/TarefaViewSheet';
-import { TarefaSheet } from '@/tarefas/TarefaSheet';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -167,7 +166,6 @@ export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolea
   const { user } = useAuth();
   const uid = user?.id ?? '';
   const [viewId, setViewId] = useState<string | null>(null);
-  const [editId, setEditId] = useState<string | null>(null);
 
   if (carregando) {
     return (
@@ -208,8 +206,7 @@ export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolea
   }
 
   function abrirEquipe(t: Tarefa) {
-    if (!somenteLeitura && (!temEtapas(t) || ehVezDoUsuario(t, uid))) setEditId(t.id);
-    else setViewId(t.id);
+    setViewId(t.id);
   }
 
   return (
@@ -259,12 +256,6 @@ export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolea
         onClose={() => setViewId(null)}
         onMudou={() => refresh()}
         somenteLeitura={somenteLeitura}
-      />
-      <TarefaSheet
-        tarefaId={editId}
-        aberto={editId !== null}
-        onClose={() => setEditId(null)}
-        onMudou={() => refresh()}
       />
     </div>
   );

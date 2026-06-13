@@ -397,7 +397,6 @@ export function TarefaSheet({
 
   // Inputs controlados de adição
   const [novaTag, setNovaTag] = useState('');
-  const [novoItemChecklist, setNovoItemChecklist] = useState('');
   const inputTagRef = useRef<HTMLInputElement>(null);
 
   // Guarda se o rascunho já foi inicializado nesta abertura
@@ -433,7 +432,6 @@ export function TarefaSheet({
         lado: 'wenox',
         responsaveis: user?.id ? [user.id] : [],
         contato: '',
-        checklist: [],
         etiquetas: [],
         descricao: '',
         recorrencia: '',
@@ -591,27 +589,6 @@ export function TarefaSheet({
     salvarCampo({ responsaveis: proximos });
   }
 
-  // Checklist
-  function adicionarItemChecklist() {
-    const texto = novoItemChecklist.trim();
-    if (!texto) return;
-    const atuais = t?.checklist ?? [];
-    salvarCampo({ checklist: [...atuais, { texto, feito: false }] });
-    setNovoItemChecklist('');
-  }
-
-  function toggleItemChecklist(idx: number) {
-    const atuais = t?.checklist ?? [];
-    salvarCampo({
-      checklist: atuais.map((item, i) => i === idx ? { ...item, feito: !item.feito } : item),
-    });
-  }
-
-  function removerItemChecklist(idx: number) {
-    const atuais = t?.checklist ?? [];
-    salvarCampo({ checklist: atuais.filter((_, i) => i !== idx) });
-  }
-
   // Etiquetas
   function adicionarTag() {
     const v = novaTag.trim();
@@ -657,7 +634,6 @@ export function TarefaSheet({
         prioridade: t.prioridade,
         recorrencia: t.recorrencia ?? '',
         etiquetas: t.etiquetas ?? [],
-        checklist: t.checklist ?? [],
         ordem: 0,
       };
       await criarTarefa(input);
@@ -671,9 +647,6 @@ export function TarefaSheet({
   }
 
   // ---------- render ----------
-
-  const checklist = t?.checklist ?? [];
-  const checklistFeitos = checklist.filter((i) => i.feito).length;
 
   return (
     <Sheet open={aberto} onOpenChange={(abr) => { if (!abr) onClose(); }}>
@@ -1019,62 +992,7 @@ export function TarefaSheet({
                 </div>
               )}
 
-              {/* 5b. Checklist */}
-              <div>
-                <RotuloCampo>
-                  Checklist{checklist.length > 0 && (
-                    <span className="ml-1.5 font-normal text-muted-foreground/70">
-                      {checklistFeitos}/{checklist.length}
-                    </span>
-                  )}
-                </RotuloCampo>
-                {checklist.length > 0 && (
-                  <ul className="mb-2 flex flex-col gap-1.5">
-                    {checklist.map((item, idx) => (
-                      <li key={idx} className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => toggleItemChecklist(idx)}
-                          aria-label={item.feito ? 'Desmarcar' : 'Marcar como feito'}
-                          className={cn(
-                            'flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
-                            item.feito
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-border bg-background hover:border-primary/60',
-                          )}
-                        >
-                          {item.feito && <Check className="size-2.5" />}
-                        </button>
-                        <span className={cn('flex-1 text-sm', item.feito && 'line-through text-muted-foreground')}>
-                          {item.texto}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removerItemChecklist(idx)}
-                          aria-label={`Remover "${item.texto}"`}
-                          className="text-muted-foreground/50 hover:text-destructive"
-                        >
-                          <X className="size-3.5" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="flex gap-2">
-                  <input
-                    value={novoItemChecklist}
-                    onChange={(e) => setNovoItemChecklist(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); adicionarItemChecklist(); } }}
-                    placeholder="Adicionar item…"
-                    className={cn(inputCls, 'flex-1')}
-                  />
-                  <Button type="button" variant="outline" size="sm" onClick={adicionarItemChecklist}>
-                    <Plus className="size-3.5" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* 5c. Etapas do fluxo */}
+              {/* 5b. Etapas do fluxo */}
               <EtapasFluxoEditor
                 tarefa={t}
                 setTarefa={setT}

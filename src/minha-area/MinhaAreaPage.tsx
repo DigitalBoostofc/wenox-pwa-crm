@@ -76,9 +76,9 @@ export function MinhaAreaPage() {
           </div>
         </div>
 
-        {completo && <MinhaProdutividadeBloco />}
-
         <MinhasTarefasBloco somenteLeitura={somenteLeitura} />
+
+        {completo && <MinhaProdutividadeBloco />}
       </div>
     </DadosAgenciaProvider>
   );

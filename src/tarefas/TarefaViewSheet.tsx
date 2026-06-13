@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { Check, CalendarDays } from 'lucide-react';
 import { getTarefa, atualizarTarefa } from './tarefasService';
 import type { Tarefa } from './types';
-import { statusTarefaClass, prazoVencido } from './format';
+import { statusTarefaClass, prazoVencido, prazoBR } from './format';
 import { STATUS_TAREFA } from './status';
-import { dataBR } from '@/clientes/format';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -162,7 +161,7 @@ export function TarefaViewSheet({
                       vencida ? 'font-medium text-destructive' : 'text-muted-foreground',
                     )}>
                       <CalendarDays className="size-3.5" />
-                      {dataBR(t.prazo)}
+                      {prazoBR(t.prazo)}
                     </span>
                   </div>
                 )}

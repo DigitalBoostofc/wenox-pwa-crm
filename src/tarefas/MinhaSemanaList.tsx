@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ListChecks, Repeat, UserRound } from 'lucide-react';
 import type { Tarefa } from './types';
-import { statusTarefaClass, tarefaConcluida, prazoVencido } from './format';
-import { corAvatar, dataBR } from '@/clientes/format';
+import { statusTarefaClass, tarefaConcluida, prazoVencido, prazoBR } from './format';
+import { corAvatar } from '@/clientes/format';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -419,7 +419,7 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
         )}
         {t.prazo && (
           <span className={cn('text-[11px]', vencida ? 'font-medium text-destructive' : 'text-muted-foreground')}>
-            {dataBR(t.prazo)}
+            {prazoBR(t.prazo)}
           </span>
         )}
         {t.recorrencia && (

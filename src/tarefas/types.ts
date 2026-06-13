@@ -20,6 +20,7 @@ export interface Tarefa {
   /** Veredito do cliente: '' (pendente) | 'aprovada' | 'alteracao'. */
   aprovacao?: '' | 'aprovada' | 'alteracao';
   prazo?: string;
+  concluida_em?: string;
   prioridade?: 'alta' | 'media' | 'baixa';
   recorrencia?: '' | 'semanal' | 'quinzenal' | 'mensal';
   checklist?: ItemChecklist[];

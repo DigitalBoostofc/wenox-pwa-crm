@@ -9,11 +9,24 @@ import { STATUS_INICIAL } from './status';
 
 const col = () => pb.collection('tarefas');
 
+function carimboConclusao(): string {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-') + ' ' + [
+    String(d.getHours()).padStart(2, '0'),
+    String(d.getMinutes()).padStart(2, '0'),
+    String(d.getSeconds()).padStart(2, '0'),
+  ].join(':');
+}
+
 const EXPAND = 'projeto,cliente,responsaveis,contato';
 const CAMPOS_LISTA = [
   'id', 'collectionId', 'collectionName', 'nome', 'descricao', 'projeto',
   'cliente', 'lado', 'responsaveis', 'contato', 'status', 'aprovacao', 'prazo',
-  'etiquetas', 'ordem', 'created', 'updated', 'prioridade', 'checklist', 'recorrencia',
+  'etiquetas', 'ordem', 'created', 'updated', 'prioridade', 'checklist', 'recorrencia', 'concluida_em',
   'expand.projeto.id', 'expand.projeto.nome', 'expand.projeto.tipo',
   'expand.cliente.id', 'expand.cliente.collectionId', 'expand.cliente.collectionName',
   'expand.cliente.nome', 'expand.cliente.nome_fantasia', 'expand.cliente.logo',
@@ -138,7 +151,14 @@ export async function atualizarTarefa(
   } catch {
     /* */
   }
-  const dados = { ...input, ...(uid ? { updated_by: uid } : {}) };
+  const dados: Record<string, unknown> = { ...input, ...(uid ? { updated_by: uid } : {}) };
+  if (input.status !== undefined) {
+    if (tarefaConcluida(input.status) && !tarefaConcluida(antes?.status as string | undefined)) {
+      dados.concluida_em = carimboConclusao();
+    } else if (!tarefaConcluida(input.status) && tarefaConcluida(antes?.status as string | undefined)) {
+      dados.concluida_em = '';
+    }
+  }
   const rec = (await col().update(id, dados)) as unknown as Tarefa;
   const mudancas = diffCampos(antes, input as Record<string, unknown>);
   if (mudancas.length) {
@@ -181,6 +201,7 @@ export async function moverTarefaStatus(
   }
   const rec = (await col().update(id, {
     status,
+    concluida_em: tarefaConcluida(status) ? carimboConclusao() : '',
     ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
   })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, `Moveu para "${status}"`);
@@ -196,6 +217,7 @@ export async function concluirTarefa(id: string, statusConcluido: string): Promi
   try { antes = (await col().getOne(id)) as unknown as Tarefa; } catch { /* */ }
   const rec = (await col().update(id, {
     status: statusConcluido,
+    concluida_em: carimboConclusao(),
     ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
   })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, 'Concluiu a tarefa');
@@ -209,6 +231,7 @@ export async function concluirTarefa(id: string, statusConcluido: string): Promi
 export async function reabrirTarefa(id: string, statusAberto: string): Promise<Tarefa> {
   const rec = (await col().update(id, {
     status: statusAberto,
+    concluida_em: '',
     ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
   })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, 'Reabriu a tarefa');

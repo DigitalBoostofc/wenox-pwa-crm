@@ -1,5 +1,4 @@
-import { pb } from '@/lib/pocketbase';
-import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
+import { tarefaConcluida, prazoVencido, prazoLimite, parsePrazo } from '@/tarefas/format';
 import type { Tarefa } from '@/tarefas/types';
 import type { Usuario } from '@/usuarios/types';
 
@@ -26,17 +25,7 @@ export interface DesempenhoAgencia {
   membros: DesempenhoMembro[];
 }
 
-export interface ConclusaoEvento { refId: string; autor?: string; data: string }
-
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
-
-// Parsing date-only por partes, sem desvio de fuso (mesmo padrão de parsePrazo)
-function parseData(iso?: string): Date | null {
-  if (!iso) return null;
-  const partes = iso.slice(0, 10).split('-').map(Number);
-  if (partes.length !== 3 || partes.some(Number.isNaN)) return null;
-  return new Date(partes[0], partes[1] - 1, partes[2]);
-}
 
 function mesKey(m: MesRef): string { return `${m.ano}-${m.mes}`; }
 
@@ -56,68 +45,38 @@ export function mesesRecentes(qtd: number): MesRef[] {
   return resultado;
 }
 
-/* ── Busca de conclusões ──────────────────────────────────────────────────── */
-
-export async function listConclusoesTarefas(desdeISO: string): Promise<ConclusaoEvento[]> {
-  try {
-    const res = await pb.collection('historico').getFullList({
-      filter: `entidade = "tarefa" && created >= "${desdeISO}" && (acao ~ "Concluiu" || acao ~ "Concluído")`,
-      fields: 'ref_id,autor,created',
-      sort: '-created',
-    });
-    return res.map((r) => ({
-      refId: (r as unknown as { ref_id: string }).ref_id,
-      autor: (r as unknown as { autor?: string }).autor,
-      data: r.created,
-    }));
-  } catch {
-    return [];
-  }
-}
-
 /* ── Cálculo puro ─────────────────────────────────────────────────────────── */
 
 export function calcularDesempenho(p: {
   meses: MesRef[];
   tarefas: Tarefa[];
   usuarios: Usuario[];
-  conclusoes: ConclusaoEvento[];
 }): DesempenhoAgencia {
-  const { meses, tarefas, usuarios, conclusoes } = p;
+  const { meses, tarefas, usuarios } = p;
   const mesesSet = new Set(meses.map(mesKey));
-
-  // Mapa de tarefas por id
-  const tarefaMap = new Map(tarefas.map((t) => [t.id, t]));
-
-  // Para cada refId, evento mais recente (array já vem -created)
-  const conclusaoPorRef = new Map<string, ConclusaoEvento>();
-  for (const ev of conclusoes) {
-    if (!conclusaoPorRef.has(ev.refId)) conclusaoPorRef.set(ev.refId, ev);
-  }
 
   // Classificação por tarefa concluída
   type Classif = 'noPrazo' | 'atrasada' | 'semPrazo';
   interface TarefaConc { tarefa: Tarefa; classif: Classif; mesKey: string }
   const concluidasArr: TarefaConc[] = [];
 
-  for (const [refId, ev] of conclusaoPorRef) {
-    const dataConcl = parseData(ev.data);
+  for (const t of tarefas) {
+    if (!tarefaConcluida(t.status)) continue;
+    const dataConcl = parsePrazo(t.concluida_em);
     if (!dataConcl) continue;
     const mk = mesKey({ ano: dataConcl.getFullYear(), mes: dataConcl.getMonth() + 1 });
     if (!mesesSet.has(mk)) continue;
-    const tarefa = tarefaMap.get(refId);
-    if (!tarefa) continue;
 
     let classif: Classif;
-    const prazoDt = parseData(tarefa.prazo);
-    if (!prazoDt) {
+    const limite = prazoLimite(t.prazo);
+    if (!limite) {
       classif = 'semPrazo';
-    } else if (dataConcl.getTime() <= prazoDt.getTime()) {
+    } else if (dataConcl.getTime() <= limite.getTime()) {
       classif = 'noPrazo';
     } else {
       classif = 'atrasada';
     }
-    concluidasArr.push({ tarefa, classif, mesKey: mk });
+    concluidasArr.push({ tarefa: t, classif, mesKey: mk });
   }
 
   // Totais agência (cada tarefa UMA vez)
@@ -226,11 +185,5 @@ export async function carregarDesempenho(
   tarefas: Tarefa[],
   usuarios: Usuario[],
 ): Promise<DesempenhoAgencia> {
-  if (meses.length === 0) {
-    return calcularDesempenho({ meses, tarefas, usuarios, conclusoes: [] });
-  }
-  const maisAntigo = [...meses].sort((a, b) => a.ano - b.ano || a.mes - b.mes)[0];
-  const desdeISO = `${maisAntigo.ano}-${String(maisAntigo.mes).padStart(2, '0')}-01 00:00:00`;
-  const conclusoes = await listConclusoesTarefas(desdeISO);
-  return calcularDesempenho({ meses, tarefas, usuarios, conclusoes });
+  return calcularDesempenho({ meses, tarefas, usuarios });
 }

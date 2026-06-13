@@ -6,7 +6,7 @@ import {
 } from './tarefasService';
 import type { Tarefa, TarefaInput } from './types';
 import { RECORRENCIA_LABEL } from './types';
-import { statusTarefaClass } from './format';
+import { statusTarefaClass, temHoraPrazo } from './format';
 import { STATUS_TAREFA, STATUS_INICIAL } from './status';
 import { AprovacaoTarefa } from './TarefaDetailPage';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
@@ -213,8 +213,10 @@ export function TarefaSheet({
     salvarCampo({ status: e.target.value });
   }
 
-  function handlePrazo(e: React.ChangeEvent<HTMLInputElement>) {
-    salvarCampo({ prazo: e.target.value });
+  function montarPrazo(data: string, hora: string): string {
+    if (!data) return '';
+    if (!hora) return data;
+    return `${data} ${hora}:00`;
   }
 
   function handlePrioridade(p: 'alta' | 'media' | 'baixa') {
@@ -456,13 +458,36 @@ export function TarefaSheet({
                 </div>
                 <div>
                   <RotuloCampo>Prazo</RotuloCampo>
-                  <input
-                    type="date"
-                    key={`prazo-${t.id || 'rascunho'}`}
-                    defaultValue={(t.prazo ?? '').slice(0, 10)}
-                    onChange={handlePrazo}
-                    className={cn(inputCls, '[color-scheme:dark]')}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      key={`prazo-d-${t.id || 'rascunho'}`}
+                      defaultValue={(t.prazo ?? '').slice(0, 10)}
+                      onChange={(e) => {
+                        const hora = temHoraPrazo(t.prazo)
+                          ? (t.prazo ?? '').replace('T', ' ').replace('Z', '').trim().split(/\s+/)[1]?.slice(0, 5) ?? ''
+                          : '';
+                        salvarCampo({ prazo: montarPrazo(e.target.value, hora) });
+                      }}
+                      className={cn(inputCls, 'flex-1 [color-scheme:dark]')}
+                    />
+                    <input
+                      type="time"
+                      key={`prazo-h-${t.id || 'rascunho'}`}
+                      defaultValue={
+                        temHoraPrazo(t.prazo)
+                          ? (t.prazo ?? '').replace('T', ' ').replace('Z', '').trim().split(/\s+/)[1]?.slice(0, 5) ?? ''
+                          : ''
+                      }
+                      onChange={(e) => {
+                        const data = (t.prazo ?? '').slice(0, 10);
+                        salvarCampo({ prazo: montarPrazo(data, e.target.value) });
+                      }}
+                      placeholder="HH:MM"
+                      title="Horário limite (opcional)"
+                      className={cn(inputCls, 'w-28 [color-scheme:dark]')}
+                    />
+                  </div>
                 </div>
               </div>
 

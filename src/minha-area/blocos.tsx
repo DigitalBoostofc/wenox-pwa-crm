@@ -10,6 +10,7 @@ import { STATUS_CONCLUIDO, STATUS_INICIAL } from '@/tarefas/status';
 import { MinhaSemanaList } from '@/tarefas/MinhaSemanaList';
 import { QuickAddTarefa } from '@/tarefas/QuickAddTarefa';
 import { TarefaSheet } from '@/tarefas/TarefaSheet';
+import { TarefaViewSheet } from '@/tarefas/TarefaViewSheet';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,7 +53,10 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
   const { user } = useAuth();
   const { tarefas: todasTarefas, carregando, erro: erroGlobal, refresh } = useDadosAgencia();
   const [erro, setErro] = useState('');
-  const [sheetId, setSheetId] = useState<string | null>(null);
+  /** Clique numa tarefa existente → painel de visualização (somente leitura). */
+  const [viewId, setViewId] = useState<string | null>(null);
+  /** Quick-add → painel de edição da tarefa recém-criada (preencher detalhes). */
+  const [editId, setEditId] = useState<string | null>(null);
 
   const minhasTarefas = todasTarefas.filter(
     (t) => (t.responsaveis ?? []).includes(user?.id ?? ''),
@@ -92,7 +96,7 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
 
       {!somenteLeitura && (
         <QuickAddTarefa
-          onCriada={(id) => { refresh(); setSheetId(id); }}
+          onCriada={(id) => { refresh(); setEditId(id); }}
         />
       )}
 
@@ -105,17 +109,27 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
       ) : (
         <MinhaSemanaList
           tarefas={minhasTarefas}
-          onAbrir={(id) => setSheetId(id)}
+          onAbrir={(id) => setViewId(id)}
           onConcluir={handleConcluir}
           onReabrir={handleReabrir}
           agrupar="prazo"
         />
       )}
 
+      {/* Clique numa tarefa: visualização (leitura + checklist + status) */}
+      <TarefaViewSheet
+        tarefaId={viewId}
+        aberto={viewId !== null}
+        onClose={() => setViewId(null)}
+        onMudou={() => refresh()}
+        somenteLeitura={somenteLeitura}
+      />
+
+      {/* Quick-add: edição completa da tarefa recém-criada */}
       <TarefaSheet
-        tarefaId={sheetId}
-        aberto={sheetId !== null}
-        onClose={() => setSheetId(null)}
+        tarefaId={editId}
+        aberto={editId !== null}
+        onClose={() => setEditId(null)}
         onMudou={() => refresh()}
       />
     </div>

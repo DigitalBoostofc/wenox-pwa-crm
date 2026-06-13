@@ -189,8 +189,8 @@ export function RankingMembros({ meses }: { meses: MesRef[] }) {
   return (
     <div className="flex h-full flex-col gap-3">
       <h2 className="text-lg font-semibold">Desempenho por membro</h2>
-      <Card className="flex-1">
-        <CardContent className="p-0">
+      <Card className="flex flex-1 flex-col">
+        <CardContent className="flex flex-1 flex-col p-0">
           {carregando ? (
             <div className="flex flex-col gap-2 p-4">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -205,13 +205,13 @@ export function RankingMembros({ meses }: { meses: MesRef[] }) {
               <p className="text-sm text-muted-foreground">Sem dados de desempenho no período.</p>
             </div>
           ) : (
-            <div className="divide-y divide-border/40">
+            <div className="flex flex-1 flex-col divide-y divide-border/40">
               {dados.membros.map((m) => (
                 <button
                   key={m.id}
                   type="button"
                   onClick={() => setMembroSel(m)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
+                  className="flex w-full flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
                 >
                   <div
                     className={cn(

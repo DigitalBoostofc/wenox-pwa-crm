@@ -200,13 +200,13 @@ export function PulsoEquipeBloco() {
           </div>
         </Card>
       ) : (
-        <Card className="flex-1 divide-y divide-border/40">
+        <Card className="flex flex-1 flex-col divide-y divide-border/40">
           {linhas.map((l) => (
             <button
               key={l.id}
               type="button"
               onClick={() => irParaMembro(l.id, l.nome)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
+              className="flex w-full flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
             >
               <div
                 className={cn(
@@ -230,7 +230,7 @@ export function PulsoEquipeBloco() {
             <button
               type="button"
               onClick={irParaTarefas}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
+              className="flex w-full flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
             >
               <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border bg-secondary text-xs text-muted-foreground">
                 ⚠

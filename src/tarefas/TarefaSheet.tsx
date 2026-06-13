@@ -365,7 +365,7 @@ export function TarefaSheet({
     <Sheet open={aberto} onOpenChange={(abr) => { if (!abr) onClose(); }}>
       <SheetContent
         side="right"
-        className={cn('flex flex-col gap-0 overflow-y-auto p-0 sm:max-w-xl')}
+        className={cn('flex flex-col gap-0 overflow-y-auto p-0 w-full sm:w-[33vw] sm:min-w-[480px] sm:max-w-none')}
       >
         {/* Topo */}
         <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-3 pr-12">

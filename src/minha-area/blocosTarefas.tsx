@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { ArrowUp } from 'lucide-react';
 import { useDadosAgencia } from '@/dashboard/useDadosAgencia';
 import { useAuth } from '@/auth/useAuth';
-import { tarefaConcluida, prazoVencido, prazoBR, statusTarefaClass, prazoLimite } from '@/tarefas/format';
+import { tarefaConcluida, prazoVencido, prazoBR, prazoLimite } from '@/tarefas/format';
 import {
   temEtapas, tarefaEmEquipe, ehVezDoUsuario, aguardandoAprovacaoCliente, vezLabel,
 } from '@/tarefas/etapas';
@@ -15,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 /* -------------------------------------------------------------------------- */
-/*  Helpers                                                                    */
+/*  Helpers de ordenação / contexto                                           */
 /* -------------------------------------------------------------------------- */
 
 function pesoPrioridade(p?: string): number {
@@ -59,37 +58,65 @@ function nomeDe(t: Tarefa): (id: string) => string {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Linha de tarefa reutilizável                                              */
+/*  Etiquetas                                                                  */
 /* -------------------------------------------------------------------------- */
 
-function LinhaTarefa({
-  t, onClick, extra,
-}: {
-  t: Tarefa;
-  onClick: () => void;
-  extra?: React.ReactNode;
-}) {
+function BadgePrazo({ t }: { t: Tarefa }) {
+  if (prazoVencido(t.prazo, t.status)) {
+    return (
+      <Badge className="shrink-0 animate-pulse border border-destructive/60 bg-destructive/20 text-[10px] text-destructive">
+        Atrasada
+      </Badge>
+    );
+  }
+  return (
+    <Badge className="shrink-0 border border-emerald-500/50 bg-emerald-500/15 text-[10px] text-emerald-500">
+      No prazo
+    </Badge>
+  );
+}
+
+function BadgePrioridade({ t }: { t: Tarefa }) {
+  const p = t.prioridade ?? 'media';
+  if (p === 'alta') {
+    return (
+      <Badge className="shrink-0 animate-pulse border border-red-500/60 bg-red-500/20 text-[10px] text-red-500">
+        Alta
+      </Badge>
+    );
+  }
+  if (p === 'baixa') {
+    return (
+      <Badge className="shrink-0 border border-sky-500/50 bg-sky-500/15 text-[10px] text-sky-400">
+        Baixa
+      </Badge>
+    );
+  }
+  return (
+    <Badge className="shrink-0 border border-amber-500/50 bg-amber-500/15 text-[10px] text-amber-400">
+      Média
+    </Badge>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Linha de tarefa (badge customizável)                                      */
+/* -------------------------------------------------------------------------- */
+
+function LinhaTarefa({ t, onClick, badge }: { t: Tarefa; onClick: () => void; badge: React.ReactNode }) {
   const vencida = prazoVencido(t.prazo, t.status);
   const ctx = contexto(t);
-
   return (
     <button
       type="button"
       onClick={onClick}
       className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
     >
-      {t.prioridade === 'alta' && (
-        <ArrowUp className="size-3.5 shrink-0 text-orange-500" />
-      )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{t.nome}</p>
         {ctx && <p className="truncate text-xs text-muted-foreground">{ctx}</p>}
       </div>
-      {t.status && (
-        <Badge className={cn('shrink-0 border text-[10px]', statusTarefaClass(t.status))}>
-          {t.status}
-        </Badge>
-      )}
+      {badge}
       {t.prazo && (
         <span className={cn(
           'shrink-0 text-[11px]',
@@ -98,99 +125,30 @@ function LinhaTarefa({
           {prazoBR(t.prazo)}
         </span>
       )}
-      {extra}
     </button>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  A) MinhasTarefasBloco                                                     */
-/* -------------------------------------------------------------------------- */
-
-export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
-  const { tarefas, carregando, refresh } = useDadosAgencia();
-  const { user } = useAuth();
-  const uid = user?.id ?? '';
-  const [viewId, setViewId] = useState<string | null>(null);
-
-  if (carregando) {
-    return (
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Minhas Tarefas em aberto</h2>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Skeleton className="h-40 w-full rounded-xl" />
-          <Skeleton className="h-40 w-full rounded-xl" />
-        </div>
-      </div>
-    );
-  }
-
-  const minhas = tarefas.filter(
-    (t) =>
-      (t.responsaveis ?? []).includes(uid) &&
-      !tarefaConcluida(t.status) &&
-      !tarefaEmEquipe(t),
-  );
-
-  const porPrioridade = ordenarPorPrioridade(minhas);
-  const porData = ordenarPorData(minhas);
-
+function CardLista({ titulo, vazio, children }: { titulo: string; vazio: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Minhas Tarefas em aberto</h2>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <div className="border-b border-border px-4 py-2.5">
-            <span className="text-xs font-medium text-muted-foreground">Por prioridade</span>
-          </div>
-          {porPrioridade.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              Nenhuma tarefa.
-            </div>
-          ) : (
-            <div className="divide-y divide-border/40">
-              {porPrioridade.map((t) => (
-                <LinhaTarefa key={t.id} t={t} onClick={() => setViewId(t.id)} />
-              ))}
-            </div>
-          )}
-        </Card>
-
-        <Card>
-          <div className="border-b border-border px-4 py-2.5">
-            <span className="text-xs font-medium text-muted-foreground">Por data</span>
-          </div>
-          {porData.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              Nenhuma tarefa.
-            </div>
-          ) : (
-            <div className="divide-y divide-border/40">
-              {porData.map((t) => (
-                <LinhaTarefa key={t.id} t={t} onClick={() => setViewId(t.id)} />
-              ))}
-            </div>
-          )}
-        </Card>
+    <Card className="flex flex-col">
+      <div className="border-b border-border px-4 py-2.5">
+        <span className="text-xs font-medium text-muted-foreground">{titulo}</span>
       </div>
-
-      <TarefaViewSheet
-        tarefaId={viewId}
-        aberto={viewId !== null}
-        onClose={() => setViewId(null)}
-        onMudou={() => refresh()}
-        somenteLeitura={somenteLeitura}
-      />
-    </div>
+      {vazio ? (
+        <div className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhuma tarefa.</div>
+      ) : (
+        <div className="divide-y divide-border/40">{children}</div>
+      )}
+    </Card>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  B) TarefasEquipeBloco                                                     */
+/*  Minhas Tarefas — 3 cards (Por data | Por prioridade | Tarefas em Equipe)  */
 /* -------------------------------------------------------------------------- */
 
-export function TarefasEquipeBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
+export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
   const { tarefas, carregando, refresh } = useDadosAgencia();
   const { user } = useAuth();
   const uid = user?.id ?? '';
@@ -200,86 +158,77 @@ export function TarefasEquipeBloco({ somenteLeitura }: { somenteLeitura?: boolea
   if (carregando) {
     return (
       <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Tarefas em Equipe</h2>
-        <Skeleton className="h-40 w-full rounded-xl" />
+        <h2 className="text-lg font-semibold">Minhas Tarefas</h2>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Skeleton className="h-44 w-full rounded-xl" />
+          <Skeleton className="h-44 w-full rounded-xl" />
+          <Skeleton className="h-44 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
 
-  const equipe = tarefas.filter(
-    (t) =>
-      (t.responsaveis ?? []).includes(uid) &&
-      tarefaEmEquipe(t) &&
-      !tarefaConcluida(t.status),
+  const individuais = tarefas.filter(
+    (t) => (t.responsaveis ?? []).includes(uid) && !tarefaConcluida(t.status) && !tarefaEmEquipe(t),
   );
+  const porData = ordenarPorData(individuais);
+  const porPrioridade = ordenarPorPrioridade(individuais);
 
-  equipe.sort((a, b) => {
-    const va = ehVezDoUsuario(a, uid) ? 0 : 1;
-    const vb = ehVezDoUsuario(b, uid) ? 0 : 1;
-    if (va !== vb) return va - vb;
-    const pa = prazoLimite(a.prazo)?.getTime() ?? Infinity;
-    const pb = prazoLimite(b.prazo)?.getTime() ?? Infinity;
-    return pa - pb;
-  });
+  const equipe = tarefas
+    .filter((t) => (t.responsaveis ?? []).includes(uid) && tarefaEmEquipe(t) && !tarefaConcluida(t.status))
+    .sort((a, b) => {
+      const va = ehVezDoUsuario(a, uid) ? 0 : 1;
+      const vb = ehVezDoUsuario(b, uid) ? 0 : 1;
+      if (va !== vb) return va - vb;
+      return (prazoLimite(a.prazo)?.getTime() ?? Infinity) - (prazoLimite(b.prazo)?.getTime() ?? Infinity);
+    });
 
-  function tagEtapa(t: Tarefa) {
+  function tagEquipe(t: Tarefa) {
     if (!temEtapas(t)) {
-      return (
-        <Badge className="shrink-0 border border-border bg-secondary text-[10px] text-muted-foreground">
-          Em equipe
-        </Badge>
-      );
+      return <Badge className="shrink-0 border border-border bg-secondary text-[10px] text-muted-foreground">Em equipe</Badge>;
     }
     if (ehVezDoUsuario(t, uid)) {
-      return (
-        <Badge className="shrink-0 border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">
-          Concluir etapa
-        </Badge>
-      );
+      return <Badge className="shrink-0 animate-pulse border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">Concluir etapa</Badge>;
     }
     if (aguardandoAprovacaoCliente(t)) {
-      return (
-        <Badge className="shrink-0 border border-yellow-500/50 bg-yellow-500/15 text-[10px] text-yellow-500">
-          Aguardando cliente
-        </Badge>
-      );
+      return <Badge className="shrink-0 border border-yellow-500/50 bg-yellow-500/15 text-[10px] text-yellow-500">Aguardando cliente</Badge>;
     }
-    return (
-      <Badge className="shrink-0 border border-amber-700/50 bg-amber-700/15 text-[10px] text-amber-600">
-        Aguardando equipe
-      </Badge>
-    );
+    return <Badge className="shrink-0 border border-amber-700/50 bg-amber-700/15 text-[10px] text-amber-600">Aguardando equipe</Badge>;
   }
 
-  function handleClick(t: Tarefa) {
-    // Sem etapas (tarefa compartilhada) ou é a minha vez → editor (posso agir);
-    // senão, leitura.
-    if (!temEtapas(t) || ehVezDoUsuario(t, uid)) {
-      setEditId(t.id);
-    } else {
-      setViewId(t.id);
-    }
+  function abrirEquipe(t: Tarefa) {
+    if (!somenteLeitura && (!temEtapas(t) || ehVezDoUsuario(t, uid))) setEditId(t.id);
+    else setViewId(t.id);
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Tarefas em Equipe</h2>
+      <h2 className="text-lg font-semibold">Minhas Tarefas</h2>
 
-      {equipe.length === 0 ? (
-        <Card>
-          <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-            Você não tem tarefas em equipe.
-          </div>
-        </Card>
-      ) : (
-        <Card className="divide-y divide-border/40">
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Por data */}
+        <CardLista titulo="Por data" vazio={porData.length === 0}>
+          {porData.map((t) => (
+            <LinhaTarefa key={t.id} t={t} onClick={() => setViewId(t.id)} badge={<BadgePrazo t={t} />} />
+          ))}
+        </CardLista>
+
+        {/* Por prioridade */}
+        <CardLista titulo="Por prioridade" vazio={porPrioridade.length === 0}>
+          {porPrioridade.map((t) => (
+            <LinhaTarefa key={t.id} t={t} onClick={() => setViewId(t.id)} badge={<BadgePrioridade t={t} />} />
+          ))}
+        </CardLista>
+
+        {/* Tarefas em Equipe */}
+        <CardLista titulo="Tarefas em Equipe" vazio={equipe.length === 0}>
           {equipe.map((t) => {
             const label = vezLabel(t, nomeDe(t));
             return (
               <button
                 key={t.id}
                 type="button"
-                onClick={() => handleClick(t)}
+                onClick={() => abrirEquipe(t)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
               >
                 <div className="min-w-0 flex-1">
@@ -288,25 +237,25 @@ export function TarefasEquipeBloco({ somenteLeitura }: { somenteLeitura?: boolea
                     {contexto(t)}{label ? ` · ${label}` : ''}
                   </p>
                 </div>
-                {tagEtapa(t)}
+                {tagEquipe(t)}
               </button>
             );
           })}
-        </Card>
-      )}
+        </CardLista>
+      </div>
 
-      <TarefaSheet
-        tarefaId={editId}
-        aberto={editId !== null}
-        onClose={() => setEditId(null)}
-        onMudou={() => refresh()}
-      />
       <TarefaViewSheet
         tarefaId={viewId}
         aberto={viewId !== null}
         onClose={() => setViewId(null)}
         onMudou={() => refresh()}
         somenteLeitura={somenteLeitura}
+      />
+      <TarefaSheet
+        tarefaId={editId}
+        aberto={editId !== null}
+        onClose={() => setEditId(null)}
+        onMudou={() => refresh()}
       />
     </div>
   );

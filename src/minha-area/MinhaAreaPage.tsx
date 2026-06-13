@@ -9,7 +9,7 @@ import { corAvatar, inicial } from '@/clientes/format';
 import type { Usuario } from '@/usuarios/types';
 import { DadosAgenciaProvider } from '@/dashboard/useDadosAgencia';
 import { MinhaProdutividadeBloco } from './blocos';
-import { MinhasTarefasBloco, TarefasEquipeBloco } from './blocosTarefas';
+import { MinhasTarefasBloco } from './blocosTarefas';
 
 const ROLES_COMPLETOS = new Set(['Owner', 'Admin', 'Gestor', 'Membro']);
 
@@ -79,8 +79,6 @@ export function MinhaAreaPage() {
         {completo && <MinhaProdutividadeBloco />}
 
         <MinhasTarefasBloco somenteLeitura={somenteLeitura} />
-
-        {completo && <TarefasEquipeBloco />}
       </div>
     </DadosAgenciaProvider>
   );

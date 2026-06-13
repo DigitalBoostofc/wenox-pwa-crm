@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { listUsuarios } from '@/usuarios/usuariosService';
 import { SlidersHorizontal, GripVertical, UserRound, ChevronDown } from 'lucide-react';
 import { useDadosAgencia } from '@/dashboard/useDadosAgencia';
 import { useAuth } from '@/auth/useAuth';
@@ -193,6 +194,17 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
   const [fPrioridade, setFPrioridade] = useState(''); // '' = todas
   const [fPrazo, setFPrazo] = useState('');           // '' = todos
   const [concluidasAbertas, setConcluidasAbertas] = useState(false);
+  // Logins de cliente (role=Cliente) por id do cliente — p/ foto do "Aguardando Cliente".
+  const [clienteUsers, setClienteUsers] = useState<Record<string, { id: string; nome?: string; foto?: string; collectionId?: string; collectionName?: string }>>({});
+  useEffect(() => {
+    listUsuarios()
+      .then((us) => {
+        const m: Record<string, typeof clienteUsers[string]> = {};
+        for (const u of us) if (u.role === 'Cliente' && u.cliente) m[u.cliente] = u;
+        setClienteUsers(m);
+      })
+      .catch(() => { /* sem permissão p/ listar → cai no logo do cliente */ });
+  }, []);
 
   function toggleCol(k: ColKey) {
     setColDefs((cs) => { const n = cs.map((c) => c.key === k ? { ...c, visivel: !c.visivel } : c); salvarColunas(n); return n; });
@@ -391,7 +403,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
       {/* Etapas Pendentes */}
       {etapasPendentes.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold">Etapas Pendentes</h3>
+          <h3 className="text-base font-semibold tracking-tight sm:text-lg">Etapas Pendentes</h3>
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
@@ -433,7 +445,9 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
                         </td>
                         <td className="overflow-hidden px-4 py-3">
                           {etapa.tipo === 'aprovacao_cliente'
-                            ? <span className="text-xs text-amber-500">Cliente</span>
+                            ? (clienteUsers[t.cliente ?? '']
+                                ? <AvatarMembro membro={clienteUsers[t.cliente!]} className="size-7 text-[10px]" />
+                                : clienteCell(t))
                             : resp
                               ? <AvatarMembro membro={resp} className="size-7 text-[10px]" />
                               : <span className="text-muted-foreground">—</span>}

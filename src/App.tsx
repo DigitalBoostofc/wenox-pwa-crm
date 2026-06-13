@@ -15,6 +15,8 @@ const LoginPage = lazy(() =>
   import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const ConfigPage = lazy(() =>
   import('@/pages/ConfigPage').then((m) => ({ default: m.ConfigPage })));
+const AutomacoesPage = lazy(() =>
+  import('@/automacoes/AutomacoesPage').then((m) => ({ default: m.AutomacoesPage })));
 const ClientesListPage = lazy(() =>
   import('@/clientes/ClientesListPage').then((m) => ({ default: m.ClientesListPage })));
 const ClienteFormPage = lazy(() =>
@@ -199,6 +201,9 @@ function AuthedApp() {
           </Route>
           <Route exact path="/config/privacidade">
             <SomenteAdmin><PrivacidadePage /></SomenteAdmin>
+          </Route>
+          <Route exact path="/config/automacoes">
+            <SomenteAdmin><AutomacoesPage /></SomenteAdmin>
           </Route>
           <Route exact path="/config">
             <Protegido modulo="config"><ConfigPage /></Protegido>

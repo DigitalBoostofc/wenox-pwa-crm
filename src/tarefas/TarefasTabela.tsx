@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
-import { SlidersHorizontal, GripVertical, UserRound, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, GripVertical, UserRound, ChevronDown, Plus } from 'lucide-react';
 import type { Tarefa } from './types';
 import { statusTarefaClass, prazoBR, tarefaConcluida, prazoLimite } from './format';
+import { atualizarTarefa } from './tarefasService';
+import { addComentario } from '@/atividade/atividadeService';
 import { useStatuses } from './status';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { logoUrl } from '@/clientes/clientesService';
@@ -19,8 +21,13 @@ const filtroCls =
 
 /* --------------------------------- Colunas -------------------------------- */
 
-export type ColKey = 'cliente' | 'projeto' | 'tarefa' | 'status' | 'prazo' | 'prioridade' | 'responsaveis';
+export type ColKey =
+  | 'cliente' | 'projeto' | 'tarefa' | 'status' | 'prazo' | 'prioridade' | 'responsaveis'
+  | 'descricao' | 'comentario';
 interface ColDef { key: ColKey; label: string; visivel: boolean }
+
+/** Colunas que se editam clicando na própria célula da linha. */
+const COLS_EDITAVEIS = new Set<ColKey>(['descricao', 'comentario']);
 
 const COLS_PADRAO: ColDef[] = [
   { key: 'cliente', label: 'Cliente', visivel: true },
@@ -30,6 +37,8 @@ const COLS_PADRAO: ColDef[] = [
   { key: 'prazo', label: 'Prazo', visivel: true },
   { key: 'prioridade', label: 'Prioridade', visivel: true },
   { key: 'responsaveis', label: 'Responsáveis', visivel: true },
+  { key: 'descricao', label: 'Descrição', visivel: false },
+  { key: 'comentario', label: 'Comentário', visivel: false },
 ];
 
 function carregarColunas(prefix: string): ColDef[] {
@@ -153,6 +162,35 @@ function PrioridadeBadge({ p }: { p?: string }) {
   return <Badge className="border border-amber-500/50 bg-amber-500/15 text-[10px] text-amber-400">Média</Badge>;
 }
 
+/** Editor inline de célula (descrição = edita o campo; comentário = adiciona).
+ *  Enter salva, Esc cancela, sair do campo (blur) salva. */
+function CellEditor({ valorInicial, placeholder, onSalvar, onCancelar }: {
+  valorInicial: string;
+  placeholder: string;
+  onSalvar: (v: string) => void;
+  onCancelar: () => void;
+}) {
+  const [v, setV] = useState(valorInicial);
+  const confirmado = useRef(false);
+  function confirmar() { if (confirmado.current) return; confirmado.current = true; onSalvar(v); }
+  return (
+    <textarea
+      autoFocus
+      value={v}
+      placeholder={placeholder}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setV(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmar(); }
+        if (e.key === 'Escape') { e.preventDefault(); confirmado.current = true; onCancelar(); }
+      }}
+      onBlur={confirmar}
+      rows={1}
+      className="w-full resize-none rounded-md border border-input bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+    />
+  );
+}
+
 /* ------------------------------- Componente ------------------------------- */
 
 /**
@@ -162,11 +200,13 @@ function PrioridadeBadge({ p }: { p?: string }) {
  * `persistPrefix` separa as preferências (colunas/larguras/ordem) por contexto.
  */
 export function TarefasTabela({
-  tarefas, onAbrir, persistPrefix,
+  tarefas, onAbrir, persistPrefix, onMudou,
 }: {
   tarefas: Tarefa[];
   onAbrir: (id: string) => void;
   persistPrefix: string;
+  /** Chamado após salvar uma edição inline (descrição/comentário) p/ recarregar. */
+  onMudou?: () => void;
 }) {
   const statuses = useStatuses();
   const [colDefs, setColDefs] = useState<ColDef[]>(() => carregarColunas(persistPrefix));
@@ -176,6 +216,25 @@ export function TarefasTabela({
   const [fPrioridade, setFPrioridade] = useState('');
   const [fPrazo, setFPrazo] = useState('');
   const [concluidasAbertas, setConcluidasAbertas] = useState(false);
+  // Edição inline de célula + overrides locais p/ refletir na hora.
+  const [edit, setEdit] = useState<{ id: string; campo: 'descricao' | 'comentario' } | null>(null);
+  const [descOverride, setDescOverride] = useState<Record<string, string>>({});
+  const [comentado, setComentado] = useState<Record<string, boolean>>({});
+
+  function abrirEdicao(t: Tarefa, campo: 'descricao' | 'comentario') {
+    setEdit({ id: t.id, campo });
+  }
+  async function salvarCelula(id: string, campo: 'descricao' | 'comentario', valor: string) {
+    setEdit(null);
+    const v = valor.trim();
+    if (campo === 'descricao') {
+      setDescOverride((m) => ({ ...m, [id]: v }));
+      try { await atualizarTarefa(id, { descricao: v }); onMudou?.(); } catch { /* */ }
+    } else {
+      if (!v) return;
+      try { await addComentario('tarefa', id, v); setComentado((m) => ({ ...m, [id]: true })); onMudou?.(); } catch { /* */ }
+    }
+  }
 
   function toggleCol(k: ColKey) {
     setColDefs((cs) => { const n = cs.map((c) => c.key === k ? { ...c, visivel: !c.visivel } : c); salvarColunas(persistPrefix, n); return n; });
@@ -231,6 +290,19 @@ export function TarefasTabela({
       return <span className={cn('text-xs', corPrazo(catPrazo(t)))}>{prazoBR(t.prazo)}</span>;
     }
     if (key === 'prioridade') return <PrioridadeBadge p={t.prioridade} />;
+    if (key === 'descricao') {
+      const v = descOverride[t.id] ?? t.descricao ?? '';
+      return v
+        ? <span className="line-clamp-2 whitespace-pre-wrap text-xs text-foreground">{v}</span>
+        : <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/60"><Plus className="size-3" /> adicionar</span>;
+    }
+    if (key === 'comentario') {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/60">
+          <Plus className="size-3" /> {comentado[t.id] ? 'comentar de novo' : 'comentar'}
+        </span>
+      );
+    }
     if (key === 'responsaveis') {
       const rs = t.expand?.responsaveis ?? [];
       if (rs.length === 0) return <span className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-muted-foreground"><UserRound className="size-3.5" /></span>;
@@ -272,10 +344,28 @@ export function TarefasTabela({
                 <tr><td colSpan={colsVisiveis.length || 1} className="px-5 py-12 text-center text-sm text-muted-foreground">{vazio}</td></tr>
               ) : linhas.map((t) => (
                 <tr key={t.id} onClick={() => onAbrir(t.id)}
-                  className={cn('cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50', tarefaConcluida(t.status) && 'opacity-60')}>
-                  {colsVisiveis.map((col) => (
-                    <td key={col.key} className="overflow-hidden px-4 py-3 text-muted-foreground">{celula(t, col.key)}</td>
-                  ))}
+                  className={cn('border-b border-border last:border-0 transition-colors hover:bg-secondary/50', tarefaConcluida(t.status) && 'opacity-60')}>
+                  {colsVisiveis.map((col) => {
+                    const editavel = COLS_EDITAVEIS.has(col.key);
+                    const emEdicao = editavel && edit?.id === t.id && edit.campo === col.key;
+                    return (
+                      <td key={col.key}
+                        onClick={editavel
+                          ? (e) => { e.stopPropagation(); if (!emEdicao) abrirEdicao(t, col.key as 'descricao' | 'comentario'); }
+                          : undefined}
+                        className={cn('overflow-hidden px-4 py-3 align-middle text-muted-foreground',
+                          editavel ? 'cursor-text' : 'cursor-pointer')}>
+                        {emEdicao ? (
+                          <CellEditor
+                            valorInicial={col.key === 'descricao' ? (descOverride[t.id] ?? t.descricao ?? '') : ''}
+                            placeholder={col.key === 'descricao' ? 'Descrição da tarefa…' : 'Escreva um comentário…'}
+                            onSalvar={(v) => salvarCelula(t.id, col.key as 'descricao' | 'comentario', v)}
+                            onCancelar={() => setEdit(null)}
+                          />
+                        ) : celula(t, col.key)}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

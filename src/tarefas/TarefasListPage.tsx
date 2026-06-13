@@ -323,6 +323,7 @@ export function TarefasListPage() {
             tarefas={tarefasExibidas}
             onAbrir={abrir}
             persistPrefix="wenox-tarefas-tabela"
+            onMudou={() => setRecarrega((n) => n + 1)}
           />
         </div>
       )}

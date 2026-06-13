@@ -88,7 +88,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
 
   return (
     <div className="flex flex-col gap-4">
-      <TarefasTabela tarefas={minhas} onAbrir={setViewId} persistPrefix="wenox-minha-lista" />
+      <TarefasTabela tarefas={minhas} onAbrir={setViewId} persistPrefix="wenox-minha-lista" onMudou={refresh} />
 
       {/* Etapas Pendentes */}
       {etapasPendentes.length > 0 && (

@@ -63,6 +63,34 @@ function salvarLarguras(l: Larguras) {
   try { localStorage.setItem(LARGURA_KEY, JSON.stringify(l)); } catch { /* */ }
 }
 
+/** Arrasto genérico de redimensionamento de coluna. */
+function dragResize(thEl: HTMLElement, e: React.MouseEvent, aplicar: (largura: number) => void) {
+  e.preventDefault(); e.stopPropagation();
+  const base = thEl.getBoundingClientRect().width;
+  const startX = e.clientX; const MIN = 80;
+  document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+  function onMove(ev: MouseEvent) { aplicar(Math.max(MIN, Math.round(base + (ev.clientX - startX)))); }
+  function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.body.style.cursor = ''; document.body.style.userSelect = ''; }
+  document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+}
+
+/** Colunas (fixas) da tabela de Etapas Pendentes. */
+const COLS_ETAPAS: { key: string; label: string; w?: number }[] = [
+  { key: 'cliente', label: 'Cliente', w: 72 },
+  { key: 'projeto', label: 'Projeto' },
+  { key: 'tarefa', label: 'Tarefa / Etapa' },
+  { key: 'status', label: 'Status', w: 170 },
+  { key: 'prazo', label: 'Prazo', w: 130 },
+  { key: 'resp', label: 'Responsável', w: 110 },
+];
+const LARGURA_ETAPAS_KEY = 'wenox-minha-etapas-larguras-v1';
+function carregarLargurasEtapas(): Record<string, number> {
+  try { const s = localStorage.getItem(LARGURA_ETAPAS_KEY); return s ? JSON.parse(s) : {}; } catch { return {}; }
+}
+function salvarLargurasEtapas(l: Record<string, number>) {
+  try { localStorage.setItem(LARGURA_ETAPAS_KEY, JSON.stringify(l)); } catch { /* */ }
+}
+
 type Ordem = 'prazo' | 'prioridade' | 'nome';
 const ORDEM_KEY = 'wenox-minha-lista-ordem-v1';
 const ORDENS: { v: Ordem; label: string }[] = [
@@ -159,6 +187,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
 
   const [colDefs, setColDefs] = useState<ColDef[]>(carregarColunas);
   const [larguras, setLarguras] = useState<Larguras>(carregarLarguras);
+  const [largurasEtapas, setLargurasEtapas] = useState<Record<string, number>>(carregarLargurasEtapas);
   const [ordem, setOrdem] = useState<Ordem>(carregarOrdem);
   const [fStatus, setFStatus] = useState('');       // '' = todos
   const [fPrioridade, setFPrioridade] = useState(''); // '' = todas
@@ -201,15 +230,10 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
   const colsVisiveis = useMemo(() => colDefs.filter((c) => c.visivel), [colDefs]);
 
   function iniciarResize(key: ColKey, thEl: HTMLElement, e: React.MouseEvent) {
-    e.preventDefault(); e.stopPropagation();
-    const base = thEl.getBoundingClientRect().width;
-    const startX = e.clientX; const MIN = 80;
-    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
-    function onMove(ev: MouseEvent) {
-      setLarguras((prev) => { const n = { ...prev, [key]: Math.max(MIN, Math.round(base + (ev.clientX - startX))) }; salvarLarguras(n); return n; });
-    }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.body.style.cursor = ''; document.body.style.userSelect = ''; }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    dragResize(thEl, e, (w) => setLarguras((prev) => { const n = { ...prev, [key]: w }; salvarLarguras(n); return n; }));
+  }
+  function iniciarResizeEtapas(key: string, thEl: HTMLElement, e: React.MouseEvent) {
+    dragResize(thEl, e, (w) => setLargurasEtapas((prev) => { const n = { ...prev, [key]: w }; salvarLargurasEtapas(n); return n; }));
   }
 
   function celula(t: Tarefa, key: ColKey) {
@@ -373,12 +397,17 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
               <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
                 <thead>
                   <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-4 py-3 font-medium" style={{ width: 72 }}>Cliente</th>
-                    <th className="px-4 py-3 font-medium">Projeto</th>
-                    <th className="px-4 py-3 font-medium">Tarefa / Etapa</th>
-                    <th className="px-4 py-3 font-medium" style={{ width: 170 }}>Status</th>
-                    <th className="px-4 py-3 font-medium" style={{ width: 130 }}>Prazo</th>
-                    <th className="px-4 py-3 font-medium" style={{ width: 110 }}>Responsável</th>
+                    {COLS_ETAPAS.map((c) => (
+                      <th key={c.key} className="relative px-4 py-3 font-medium"
+                        style={largurasEtapas[c.key] ? { width: largurasEtapas[c.key] } : (c.w ? { width: c.w } : undefined)}>
+                        {c.label}
+                        <span role="separator" aria-orientation="vertical" aria-label="Redimensionar"
+                          onMouseDown={(e) => iniciarResizeEtapas(c.key, e.currentTarget.parentElement!, e)}
+                          className="group absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center">
+                          <span aria-hidden className="h-2/3 w-px bg-border transition-colors group-hover:w-0.5 group-hover:bg-primary" />
+                        </span>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>

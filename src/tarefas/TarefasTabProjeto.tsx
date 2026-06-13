@@ -57,7 +57,7 @@ export function TarefasTabProjeto({
       )}
 
       <QuickAddTarefa
-        onCriada={() => setRecarrega((n) => n + 1)}
+        onCriada={(id) => { setRecarrega((n) => n + 1); setSheetId(id); }}
         presetProjeto={projetoId}
         presetCliente={clienteId}
       />

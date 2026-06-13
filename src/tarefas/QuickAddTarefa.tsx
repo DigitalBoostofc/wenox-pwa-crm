@@ -8,7 +8,8 @@ export function QuickAddTarefa({
   presetProjeto,
   presetCliente,
 }: {
-  onCriada: () => void;
+  /** Recebe o id da tarefa recém-criada (para abrir o painel dela). */
+  onCriada: (id: string) => void;
   presetProjeto?: string;
   presetCliente?: string;
 }) {
@@ -28,7 +29,7 @@ export function QuickAddTarefa({
     try {
       const d = new Date();
       const hoje = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      await criarTarefa({
+      const nova = await criarTarefa({
         nome,
         status: STATUS_INICIAL,
         prazo: hoje,
@@ -42,7 +43,7 @@ export function QuickAddTarefa({
         ordem: 0,
       });
       setValor('');
-      onCriada();
+      onCriada(nova.id);
     } catch {
       setErro('Não foi possível criar a tarefa. Tente novamente.');
     } finally {

@@ -290,7 +290,9 @@ export function TarefasListPage() {
         )
       ) : (
         <div className="flex flex-col gap-3">
-          <QuickAddTarefa onCriada={() => setRecarrega((n) => n + 1)} />
+          <QuickAddTarefa
+            onCriada={(id) => { setRecarrega((n) => n + 1); setSheetId(id); }}
+          />
           <MinhaSemanaList
             tarefas={tarefas}
             onAbrir={abrir}

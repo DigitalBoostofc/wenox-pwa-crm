@@ -69,8 +69,9 @@ export function indexEtapaInternaAnterior(etapas: EtapaTarefa[], aPartirDe: numb
 
 /** Rótulo de "de quem é a vez" — usado na seção Aguardando. */
 export function vezLabel(t: Pick<Tarefa, 'etapas'>, nomeDe: (id: string) => string): string {
+  if (!temEtapas(t)) return '';
   const e = etapaAtual(t.etapas);
-  if (!e) return 'Concluída';
+  if (!e) return '';
   if (e.tipo === 'aprovacao_cliente') return 'Aguardando aprovação do cliente';
   return e.responsavel ? `Vez de ${nomeDe(e.responsavel)}` : 'Etapa sem responsável';
 }

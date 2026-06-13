@@ -4,7 +4,7 @@ import { useDadosAgencia } from '@/dashboard/useDadosAgencia';
 import { useAuth } from '@/auth/useAuth';
 import { tarefaConcluida, prazoVencido, prazoBR, statusTarefaClass, prazoLimite } from '@/tarefas/format';
 import {
-  tarefaEmEquipe, ehVezDoUsuario, aguardandoAprovacaoCliente, vezLabel,
+  temEtapas, tarefaEmEquipe, ehVezDoUsuario, aguardandoAprovacaoCliente, vezLabel,
 } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
 import { TarefaViewSheet } from '@/tarefas/TarefaViewSheet';
@@ -223,6 +223,13 @@ export function TarefasEquipeBloco({ somenteLeitura }: { somenteLeitura?: boolea
   });
 
   function tagEtapa(t: Tarefa) {
+    if (!temEtapas(t)) {
+      return (
+        <Badge className="shrink-0 border border-border bg-secondary text-[10px] text-muted-foreground">
+          Em equipe
+        </Badge>
+      );
+    }
     if (ehVezDoUsuario(t, uid)) {
       return (
         <Badge className="shrink-0 border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">
@@ -245,7 +252,9 @@ export function TarefasEquipeBloco({ somenteLeitura }: { somenteLeitura?: boolea
   }
 
   function handleClick(t: Tarefa) {
-    if (ehVezDoUsuario(t, uid)) {
+    // Sem etapas (tarefa compartilhada) ou é a minha vez → editor (posso agir);
+    // senão, leitura.
+    if (!temEtapas(t) || ehVezDoUsuario(t, uid)) {
       setEditId(t.id);
     } else {
       setViewId(t.id);

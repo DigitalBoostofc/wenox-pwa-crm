@@ -148,7 +148,7 @@ function CardAprovacao({
               onClick={(e) => { e.stopPropagation(); setPedindo(true); }}
               disabled={salvando}
             >
-              <RotateCcw className="size-3.5" /> Pedir alteração
+              <RotateCcw className="size-3.5" /> Revisar
             </Button>
           </div>
         )}
@@ -160,12 +160,12 @@ function CardAprovacao({
               rows={3}
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
-              placeholder="O que precisa ser alterado?"
+              placeholder="Descreva o que precisa ser revisado nesta etapa…"
               className="w-full rounded-md border border-input bg-background/60 p-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             />
             <div className="flex gap-2">
               <Button size="sm" onClick={handleEnviarAlteracao} disabled={salvando || !texto.trim()}>
-                {salvando ? 'Enviando…' : 'Enviar pedido'}
+                {salvando ? 'Enviando…' : 'Enviar revisão'}
               </Button>
               <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setPedindo(false); setTexto(''); }}>
                 Cancelar

@@ -6,7 +6,7 @@ import { pb } from '@/lib/pocketbase';
 import { concluirTarefa, reabrirTarefa } from '@/tarefas/tarefasService';
 import type { Usuario } from '@/usuarios/types';
 import { tarefaConcluida, prazoVencido, prazoBR } from '@/tarefas/format';
-import { temEtapas, aguardandoAprovacaoCliente } from '@/tarefas/etapas';
+import { temEtapas, aguardandoAprovacaoCliente, ehVezDoUsuario, vezLabel } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
 import { STATUS_CONCLUIDO, STATUS_INICIAL } from '@/tarefas/status';
 import { MinhaSemanaList } from '@/tarefas/MinhaSemanaList';
@@ -60,8 +60,16 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
   /** Quick-add → painel de edição da tarefa recém-criada (preencher detalhes). */
   const [editId, setEditId] = useState<string | null>(null);
 
+  const uid = user?.id ?? '';
   const minhasTarefas = todasTarefas.filter(
-    (t) => (t.responsaveis ?? []).includes(user?.id ?? ''),
+    (t) => (t.responsaveis ?? []).includes(uid),
+  );
+
+  const ativas = minhasTarefas.filter(
+    (t) => !temEtapas(t) || ehVezDoUsuario(t, uid) || tarefaConcluida(t.status),
+  );
+  const aguardando = minhasTarefas.filter(
+    (t) => temEtapas(t) && !tarefaConcluida(t.status) && !ehVezDoUsuario(t, uid),
   );
 
   async function handleConcluir(id: string) {
@@ -109,13 +117,58 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
           <Skeleton className="h-12 w-full rounded-md" />
         </div>
       ) : (
-        <MinhaSemanaList
-          tarefas={minhasTarefas}
-          onAbrir={(id) => setViewId(id)}
-          onConcluir={handleConcluir}
-          onReabrir={handleReabrir}
-          agrupar="prazo"
-        />
+        <>
+          <MinhaSemanaList
+            tarefas={ativas}
+            onAbrir={(id) => setViewId(id)}
+            onConcluir={handleConcluir}
+            onReabrir={handleReabrir}
+            agrupar="prazo"
+          />
+
+          {aguardando.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Aguardando ({aguardando.length})
+              </h3>
+              <Card className="divide-y divide-border/40">
+                {aguardando.map((t) => {
+                  const contexto = t.expand?.projeto?.nome
+                    ?? t.expand?.cliente?.nome_fantasia
+                    ?? t.expand?.cliente?.nome;
+                  const nomeDe = (id: string) =>
+                    t.expand?.responsaveis?.find((r) => r.id === id)?.nome ?? 'alguém';
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setViewId(t.id)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-muted-foreground">{t.nome}</p>
+                        {contexto && (
+                          <p className="truncate text-xs text-muted-foreground/70">{contexto}</p>
+                        )}
+                      </div>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {vezLabel(t, nomeDe)}
+                      </span>
+                      {t.prazo && (
+                        <span className={cn(
+                          'shrink-0 text-[11px]',
+                          prazoVencido(t.prazo, t.status) ? 'font-medium text-destructive' : 'text-muted-foreground',
+                        )}>
+                          {prazoBR(t.prazo)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </Card>
+            </div>
+          )}
+        </>
       )}
 
       {/* Clique numa tarefa: visualização (leitura + checklist + status) */}

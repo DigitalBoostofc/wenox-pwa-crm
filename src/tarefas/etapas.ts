@@ -48,6 +48,33 @@ export function statusDerivado(etapas: EtapaTarefa[], aprovacao?: string): strin
   return etapas.some((e) => e.feito) ? 'Fazendo' : STATUS_INICIAL;
 }
 
+/** Tarefa em equipe = mais de um responsável (independe da qtd de etapas). */
+export function tarefaEmEquipe(t?: Pick<Tarefa, 'responsaveis'>): boolean {
+  return (t?.responsaveis?.length ?? 0) > 1;
+}
+
+/** É a vez deste usuário agir: etapa atual é interna e pertence a ele. */
+export function ehVezDoUsuario(t: Pick<Tarefa, 'etapas'>, uid: string): boolean {
+  const e = etapaAtual(t.etapas);
+  return !!e && e.tipo === 'interna' && e.responsavel === uid;
+}
+
+/** Índice da etapa interna anterior a `aPartirDe` (para o "Revisar" voltar). -1 se não houver. */
+export function indexEtapaInternaAnterior(etapas: EtapaTarefa[], aPartirDe: number): number {
+  for (let i = aPartirDe - 1; i >= 0; i--) {
+    if (etapas[i].tipo === 'interna') return i;
+  }
+  return -1;
+}
+
+/** Rótulo de "de quem é a vez" — usado na seção Aguardando. */
+export function vezLabel(t: Pick<Tarefa, 'etapas'>, nomeDe: (id: string) => string): string {
+  const e = etapaAtual(t.etapas);
+  if (!e) return 'Concluída';
+  if (e.tipo === 'aprovacao_cliente') return 'Aguardando aprovação do cliente';
+  return e.responsavel ? `Vez de ${nomeDe(e.responsavel)}` : 'Etapa sem responsável';
+}
+
 /** Gera um id curto e estável para uma nova etapa. */
 export function novaEtapaId(): string {
   try {

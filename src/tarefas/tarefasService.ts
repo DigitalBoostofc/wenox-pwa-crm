@@ -8,6 +8,7 @@ import { tarefaConcluida } from './format';
 import { STATUS_INICIAL } from './status';
 import {
   temEtapas, etapaAtual, etapaAtualIndex, aguardandoAprovacaoCliente, statusDerivado,
+  indexEtapaInternaAnterior,
 } from './etapas';
 
 const col = () => pb.collection('tarefas');
@@ -277,6 +278,7 @@ export async function salvarEtapas(
   rec: Tarefa,
   etapas: EtapaTarefa[],
   extra: Record<string, unknown> = {},
+  notificarHandoff = true,
 ): Promise<Tarefa> {
   const antesAtual = etapaAtual(rec.etapas);
   const aprovacao = ('aprovacao' in extra ? extra.aprovacao : rec.aprovacao) as string | undefined;
@@ -290,7 +292,7 @@ export async function salvarEtapas(
   };
   const atualizado = (await col().update(rec.id, dados)) as unknown as Tarefa;
   const depoisAtual = etapaAtual(etapas);
-  if (depoisAtual && depoisAtual.id !== antesAtual?.id) {
+  if (notificarHandoff && depoisAtual && depoisAtual.id !== antesAtual?.id) {
     await notificarVezDaEtapa(atualizado);
   }
   if (tudoFeito && !tarefaConcluida(rec.status)) {
@@ -372,13 +374,21 @@ export async function pedirAlteracaoTarefa(
   const rec = (await col().getOne(id)) as unknown as Tarefa;
 
   if (temEtapas(rec) && aguardandoAprovacaoCliente(rec)) {
-    // Mantém a etapa de aprovação como atual; marca alteração (status "Em alteração").
-    const r = await salvarEtapas(rec, rec.etapas!, { aprovacao: 'alteracao' });
-    await registrarHistorico('tarefa', id, 'Cliente pediu alteração');
-    try { await addComentario('tarefa', id, `🔁 Alteração solicitada: ${t}`, false); } catch { /* */ }
-    await notificar(await alvosAprovacao(r), {
+    // "Revisar": volta para a etapa interna anterior (quem fez o trabalho), que
+    // vira a etapa atual e é notificado; status deriva para "Em alteração".
+    const idxAprov = etapaAtualIndex(rec.etapas!);
+    const idxVolta = indexEtapaInternaAnterior(rec.etapas!, idxAprov);
+    const etapas = idxVolta >= 0
+      ? rec.etapas!.map((e, i) => (i === idxVolta ? { ...e, feito: false, feito_por: '', feito_em: '' } : e))
+      : rec.etapas!;
+    const r = await salvarEtapas(rec, etapas, { aprovacao: 'alteracao' }, false);
+    await registrarHistorico('tarefa', id, 'Cliente pediu revisão');
+    try { await addComentario('tarefa', id, `🔁 Revisão solicitada: ${t}`, false); } catch { /* */ }
+    const responsavelEtapa = idxVolta >= 0 ? etapas[idxVolta].responsavel : undefined;
+    const alvos = responsavelEtapa ? [responsavelEtapa] : await alvosAprovacao(r);
+    await notificar(alvos, {
       tipo: 'alteracao',
-      titulo: `Cliente pediu alteração: ${r.nome}`,
+      titulo: `Cliente pediu revisão: ${r.nome}`,
       mensagem: t,
       link: `/tarefas/${id}`,
     });

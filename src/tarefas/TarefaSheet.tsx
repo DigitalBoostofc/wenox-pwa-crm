@@ -65,7 +65,6 @@ function EtapasFluxoEditor({
   setTarefa: setT,
   modoRascunho,
   nomeUsuario,
-  usuarios,
   onMudou,
   setErro,
 }: {
@@ -73,7 +72,6 @@ function EtapasFluxoEditor({
   setTarefa: (t: Tarefa) => void;
   modoRascunho: boolean;
   nomeUsuario: (id: string) => string;
-  usuarios: Usuario[];
   onMudou: () => void;
   setErro: (e: string) => void;
 }) {
@@ -246,16 +244,22 @@ function EtapasFluxoEditor({
                 {/* Linha de meta: responsável + select tipo + estado */}
                 <div className="flex flex-wrap items-center gap-2 pl-7 text-xs">
                   {e.tipo === 'interna' && (
-                    <select
-                      value={e.responsavel ?? ''}
-                      onChange={(ev) => editarResp(e.id, ev.target.value)}
-                      className="h-7 rounded border border-input bg-background/40 px-2 text-xs"
-                    >
-                      <option value="">Sem responsável</option>
-                      {usuarios.map((u) => (
-                        <option key={u.id} value={u.id}>{u.nome || u.email}</option>
-                      ))}
-                    </select>
+                    (t.responsaveis?.length ?? 0) > 0 ? (
+                      <select
+                        value={e.responsavel ?? ''}
+                        onChange={(ev) => editarResp(e.id, ev.target.value)}
+                        className="h-7 rounded border border-input bg-background/40 px-2 text-xs"
+                      >
+                        <option value="">Sem responsável</option>
+                        {(t.responsaveis ?? []).map((id) => (
+                          <option key={id} value={id}>{nomeUsuario(id)}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">
+                        Selecione os responsáveis da tarefa para atribuir etapas.
+                      </span>
+                    )
                   )}
                   <select
                     value={e.tipo}
@@ -339,16 +343,22 @@ function EtapasFluxoEditor({
             <option value="aprovacao_cliente">Aprovação do cliente</option>
           </select>
           {novoTipo === 'interna' && (
-            <select
-              value={novoResp}
-              onChange={(ev) => setNovoResp(ev.target.value)}
-              className="h-7 flex-1 rounded border border-input bg-background/40 px-2 text-xs"
-            >
-              <option value="">Sem responsável</option>
-              {usuarios.map((u) => (
-                <option key={u.id} value={u.id}>{u.nome || u.email}</option>
-              ))}
-            </select>
+            (t.responsaveis?.length ?? 0) > 0 ? (
+              <select
+                value={novoResp}
+                onChange={(ev) => setNovoResp(ev.target.value)}
+                className="h-7 flex-1 rounded border border-input bg-background/40 px-2 text-xs"
+              >
+                <option value="">Sem responsável</option>
+                {(t.responsaveis ?? []).map((id) => (
+                  <option key={id} value={id}>{nomeUsuario(id)}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">
+                Selecione os responsáveis da tarefa para atribuir etapas.
+              </span>
+            )
           )}
         </div>
       </div>
@@ -1070,7 +1080,6 @@ export function TarefaSheet({
                 setTarefa={setT}
                 modoRascunho={modoRascunho}
                 nomeUsuario={nomeUsuario}
-                usuarios={usuarios}
                 onMudou={onMudou}
                 setErro={setErroSalvo}
               />

@@ -236,7 +236,7 @@ export function AprovacaoTarefa({
             )}
             <p className="text-sm text-muted-foreground">
               {souCliente
-                ? etapa ? 'Avalie a etapa acima e aprove ou peça alteração.' : 'Esta tarefa está aguardando sua aprovação.'
+                ? etapa ? 'Avalie a etapa acima e aprove ou solicite revisão.' : 'Esta tarefa está aguardando sua aprovação.'
                 : 'Aguardando o cliente aprovar.'}
             </p>
           </div>
@@ -248,7 +248,7 @@ export function AprovacaoTarefa({
               <Check /> Aprovar
             </Button>
             <Button size="sm" variant="outline" onClick={() => setPedindo(true)} disabled={salvando}>
-              <RotateCcw /> Pedir alteração
+              <RotateCcw /> Revisar
             </Button>
           </div>
         )}
@@ -259,12 +259,12 @@ export function AprovacaoTarefa({
               rows={3}
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
-              placeholder="O que precisa ser alterado?"
+              placeholder="Descreva o que precisa ser revisado nesta etapa…"
               className="w-full rounded-md border border-input bg-background/40 p-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             />
             <div className="flex gap-2">
               <Button size="sm" onClick={pedir} disabled={salvando || !texto.trim()}>
-                {salvando ? 'Enviando…' : 'Enviar pedido'}
+                {salvando ? 'Enviando…' : 'Enviar revisão'}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setPedindo(false)}>
                 Cancelar

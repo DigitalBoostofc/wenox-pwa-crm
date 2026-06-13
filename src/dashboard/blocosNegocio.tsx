@@ -4,8 +4,8 @@ import {
   Users, ListChecks, FolderKanban,
 } from 'lucide-react';
 import { useDadosAgencia } from './useDadosAgencia';
-import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
-import { temEtapas, aguardandoAprovacaoCliente } from '@/tarefas/etapas';
+import { tarefaConcluida, prazoVencido, prazoLimite } from '@/tarefas/format';
+import { temEtapas, aguardandoAprovacaoCliente, etapaAtual } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
 import { dataBR, inicial, corAvatar } from '@/clientes/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -263,35 +263,47 @@ export function PulsoEquipeBloco() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Aprovações Pendentes                                                      */
+/*  Etapas Pendentes / Validação Pendente                                     */
 /* -------------------------------------------------------------------------- */
 
-function aguardandoCliente(t: Tarefa): boolean {
-  if (temEtapas(t)) return aguardandoAprovacaoCliente(t) && t.aprovacao !== 'alteracao';
-  return (t.status ?? '').toLowerCase().includes('aprova') && t.aprovacao !== 'aprovada' && !tarefaConcluida(t.status);
+/** Data da etapa com cor por urgência. */
+function dataCor(prazo?: string): { txt: string; cls: string } | null {
+  if (!prazo) return null;
+  const lim = prazoLimite(prazo);
+  if (!lim) return null;
+  let cls = 'text-muted-foreground';
+  if (lim.getTime() < Date.now()) cls = 'font-medium text-destructive';
+  else {
+    const h = new Date(); h.setHours(0, 0, 0, 0);
+    const d = new Date(lim); d.setHours(0, 0, 0, 0);
+    const diff = Math.round((d.getTime() - h.getTime()) / 86400000);
+    if (diff === 0) cls = 'font-medium text-yellow-500';
+    else if (diff === 1) cls = 'font-medium text-orange-500';
+  }
+  return { txt: dataBR(prazo), cls };
 }
 
-export function AprovacoesPendentesBloco() {
+function contextoTarefa(t: Tarefa): string | undefined {
+  return t.expand?.projeto?.nome ?? t.expand?.cliente?.nome_fantasia ?? t.expand?.cliente?.nome;
+}
+
+/** Etapas internas pendentes (a vez de algum membro) — de todos. */
+export function EtapasPendentesBloco() {
   const { tarefas, carregando, refresh } = useDadosAgencia();
   const [sheetId, setSheetId] = useState<string | null>(null);
 
-  const pendentes = tarefas
-    .filter((t) => aguardandoCliente(t))
-    .sort((a, b) => {
-      if (!a.prazo && !b.prazo) return 0;
-      if (!a.prazo) return 1;
-      if (!b.prazo) return -1;
-      return a.prazo.localeCompare(b.prazo);
-    });
+  const linhas = tarefas
+    .filter((t) => temEtapas(t) && !tarefaConcluida(t.status))
+    .map((t) => ({ t, etapa: etapaAtual(t.etapas) }))
+    .filter((r): r is { t: Tarefa; etapa: NonNullable<typeof r.etapa> } => !!r.etapa && r.etapa.tipo === 'interna')
+    .sort((a, b) => (prazoLimite(a.etapa.prazo)?.getTime() ?? Infinity) - (prazoLimite(b.etapa.prazo)?.getTime() ?? Infinity));
 
   if (carregando) {
     return (
       <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Aprovações Pendentes</h2>
+        <h2 className="text-lg font-semibold">Etapas Pendentes</h2>
         <div className="flex flex-col gap-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-md" />
-          ))}
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}
         </div>
       </div>
     );
@@ -299,61 +311,97 @@ export function AprovacoesPendentesBloco() {
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Aprovações Pendentes</h2>
-
-      {pendentes.length === 0 ? (
+      <h2 className="text-lg font-semibold">Etapas Pendentes</h2>
+      {linhas.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
             <ListChecks className="size-9 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Nenhuma tarefa aguardando aprovação de cliente.
-            </p>
+            <p className="text-sm text-muted-foreground">Nenhuma etapa pendente com a equipe.</p>
           </div>
         </Card>
       ) : (
         <Card className="divide-y divide-border/40">
-          {pendentes.map((t) => {
-            const cli = t.expand?.cliente;
-            const contexto =
-              t.expand?.projeto?.nome ??
-              cli?.nome_fantasia ??
-              cli?.nome;
-            const vencida = prazoVencido(t.prazo, t.status);
+          {linhas.map(({ t, etapa }) => {
+            const resp = (t.expand?.responsaveis ?? []).find((r) => r.id === etapa.responsavel);
+            const data = dataCor(etapa.prazo);
             return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setSheetId(t.id)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
-              >
+              <button key={t.id} type="button" onClick={() => setSheetId(t.id)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50">
+                {resp
+                  ? <AvatarMembro membro={{ id: resp.id, nome: resp.nome ?? '', foto: resp.foto, collectionId: resp.collectionId, collectionName: resp.collectionName }} />
+                  : <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border bg-secondary text-xs text-muted-foreground">?</div>}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{t.nome}</p>
-                  {contexto && (
-                    <p className="truncate text-xs text-muted-foreground">{contexto}</p>
-                  )}
+                  <p className="truncate text-xs text-muted-foreground">
+                    {etapa.texto}{resp ? ` · ${resp.nome ?? resp.email ?? ''}` : ' · sem responsável'}
+                  </p>
                 </div>
-                {t.prazo && (
-                  <span
-                    className={cn(
-                      'shrink-0 text-xs',
-                      vencida ? 'font-medium text-destructive' : 'text-muted-foreground',
-                    )}
-                  >
-                    {dataBR(t.prazo)}
-                  </span>
-                )}
+                {data && <span className={cn('shrink-0 text-xs', data.cls)}>{data.txt}</span>}
               </button>
             );
           })}
         </Card>
       )}
+      <TarefaSheet tarefaId={sheetId} aberto={sheetId !== null} onClose={() => setSheetId(null)} onMudou={() => refresh()} />
+    </div>
+  );
+}
 
-      <TarefaSheet
-        tarefaId={sheetId}
-        aberto={sheetId !== null}
-        onClose={() => setSheetId(null)}
-        onMudou={() => refresh()}
-      />
+/** Etapas aguardando validação do cliente — com prazo e etiqueta. */
+export function ValidacaoPendenteBloco() {
+  const { tarefas, carregando, refresh } = useDadosAgencia();
+  const [sheetId, setSheetId] = useState<string | null>(null);
+
+  const linhas = tarefas
+    .filter((t) => temEtapas(t) && !tarefaConcluida(t.status) && aguardandoAprovacaoCliente(t))
+    .map((t) => ({ t, etapa: etapaAtual(t.etapas) }))
+    .filter((r): r is { t: Tarefa; etapa: NonNullable<typeof r.etapa> } => !!r.etapa)
+    .sort((a, b) => (prazoLimite(a.etapa.prazo)?.getTime() ?? Infinity) - (prazoLimite(b.etapa.prazo)?.getTime() ?? Infinity));
+
+  if (carregando) {
+    return (
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Validação Pendente</h2>
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold">Validação Pendente</h2>
+      {linhas.length === 0 ? (
+        <Card>
+          <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
+            <ListChecks className="size-9 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Nenhuma etapa aguardando validação do cliente.</p>
+          </div>
+        </Card>
+      ) : (
+        <Card className="divide-y divide-border/40">
+          {linhas.map(({ t, etapa }) => {
+            const data = dataCor(etapa.prazo);
+            return (
+              <button key={t.id} type="button" onClick={() => setSheetId(t.id)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{t.nome}</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {contextoTarefa(t) && <span className="truncate text-xs text-muted-foreground">{contextoTarefa(t)}</span>}
+                    {(t.etiquetas ?? []).slice(0, 3).map((e) => (
+                      <Badge key={e} variant="muted" className="text-[10px]">{e}</Badge>
+                    ))}
+                  </div>
+                </div>
+                {data && <span className={cn('shrink-0 text-xs', data.cls)}>{data.txt}</span>}
+              </button>
+            );
+          })}
+        </Card>
+      )}
+      <TarefaSheet tarefaId={sheetId} aberto={sheetId !== null} onClose={() => setSheetId(null)} onMudou={() => refresh()} />
     </div>
   );
 }

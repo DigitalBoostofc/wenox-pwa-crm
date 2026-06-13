@@ -269,8 +269,7 @@ export function AprovacoesPendentesBloco() {
       if (!a.prazo) return 1;
       if (!b.prazo) return -1;
       return a.prazo.localeCompare(b.prazo);
-    })
-    .slice(0, 8);
+    });
 
   if (carregando) {
     return (

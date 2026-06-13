@@ -6,7 +6,7 @@ import {
 import { DadosAgenciaProvider, useDadosAgencia } from './useDadosAgencia';
 import { SaudeProjetosBloco, PulsoEquipeBloco, AprovacoesPendentesBloco } from './blocosNegocio';
 import { SeletorMeses } from './SeletorMeses';
-import { SecaoDesempenho } from './blocosDesempenho';
+import { VisaoGeralDesempenho, RankingMembros } from './blocosDesempenho';
 import { mesesRecentes } from './relatoriosService';
 import type { MesRef } from './relatoriosService';
 import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
@@ -123,11 +123,17 @@ function CockpitNegocio() {
             />
           </div>
 
-          <SecaoDesempenho meses={meses} />
+          <VisaoGeralDesempenho meses={meses} />
 
-          <div className="grid gap-5 lg:grid-cols-3">
-            <SaudeProjetosBloco />
+          {/* Desempenho por membro | Pulso da Equipe — metade cada */}
+          <div className="grid gap-5 lg:grid-cols-2">
+            <RankingMembros meses={meses} />
             <PulsoEquipeBloco />
+          </div>
+
+          {/* Saúde dos Projetos | Aprovações Pendentes */}
+          <div className="grid gap-5 lg:grid-cols-2">
+            <SaudeProjetosBloco />
             <AprovacoesPendentesBloco />
           </div>
         </>

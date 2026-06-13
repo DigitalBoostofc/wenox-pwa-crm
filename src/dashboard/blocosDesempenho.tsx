@@ -19,13 +19,38 @@ function iniciais(n?: string): string {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Mini KPI inline                                                           */
+/*  Hook de dados (compute em memória — barato, sem fetch)                     */
+/* -------------------------------------------------------------------------- */
+
+function useDesempenho(meses: MesRef[]) {
+  const { tarefas, usuarios, carregando: carregandoDados } = useDadosAgencia();
+  const [dados, setDados] = useState<DesempenhoAgencia | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+  const seqRef = useRef(0);
+
+  useEffect(() => {
+    if (carregandoDados) return;
+    const seq = ++seqRef.current;
+    setCarregando(true);
+    setErro('');
+    carregarDesempenho(meses, tarefas, usuarios)
+      .then((r) => { if (seq === seqRef.current) setDados(r); })
+      .catch(() => { if (seq === seqRef.current) setErro('Não foi possível carregar o desempenho.'); })
+      .finally(() => { if (seq === seqRef.current) setCarregando(false); });
+  }, [meses, tarefas, usuarios, carregandoDados]);
+
+  return { dados, carregando: carregando || carregandoDados, erro };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Mini KPI                                                                   */
 /* -------------------------------------------------------------------------- */
 
 function MiniKpi({ rotulo, valor, cor }: { rotulo: string; valor: number; cor?: string }) {
   return (
-    <div className="flex flex-col items-center gap-0.5">
-      <span className={cn('text-xl font-semibold', cor)}>{valor}</span>
+    <div className="flex flex-col items-center gap-0.5 rounded-lg bg-secondary/40 py-3">
+      <span className={cn('text-2xl font-semibold leading-none', cor)}>{valor}</span>
       <span className="text-[10px] text-muted-foreground">{rotulo}</span>
     </div>
   );
@@ -36,9 +61,7 @@ function MiniKpi({ rotulo, valor, cor }: { rotulo: string; valor: number; cor?: 
 /* -------------------------------------------------------------------------- */
 
 function MembroDesempenhoSheet({
-  membro,
-  aberto,
-  onClose,
+  membro, aberto, onClose,
 }: {
   membro: DesempenhoMembro | null;
   aberto: boolean;
@@ -49,15 +72,13 @@ function MembroDesempenhoSheet({
     <Sheet open={aberto} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent side="right" className="w-80 overflow-y-auto sm:w-96">
         <SheetTitle className="text-base">{membro.nome}</SheetTitle>
-
         <div className="flex flex-col items-center gap-4 pt-4">
           <Donut
             porcentagem={membro.taxaNoPrazo}
             rotulo="No prazo"
             sublabel={`${membro.noPrazo}/${membro.noPrazo + membro.atrasadas} com prazo`}
-            tamanho={110}
+            tamanho={120}
           />
-
           <div className="grid w-full grid-cols-2 gap-3">
             <MiniKpi rotulo="Concluídas" valor={membro.concluidas} />
             <MiniKpi rotulo="No prazo" valor={membro.noPrazo} cor="text-emerald-500" />
@@ -73,38 +94,21 @@ function MembroDesempenhoSheet({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  SecaoDesempenho                                                           */
+/*  Visão geral da agência (donut + barras + resumo)                          */
 /* -------------------------------------------------------------------------- */
 
-export function SecaoDesempenho({ meses }: { meses: MesRef[] }) {
-  const { tarefas, usuarios, carregando: carregandoDados } = useDadosAgencia();
-  const [dados, setDados] = useState<DesempenhoAgencia | null>(null);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState('');
-  const [membroSel, setMembroSel] = useState<DesempenhoMembro | null>(null);
-  const seqRef = useRef(0);
+export function VisaoGeralDesempenho({ meses }: { meses: MesRef[] }) {
+  const { dados, carregando, erro } = useDesempenho(meses);
 
-  useEffect(() => {
-    if (carregandoDados) return;
-    const seq = ++seqRef.current;
-    setCarregando(true);
-    setErro('');
-    carregarDesempenho(meses, tarefas, usuarios)
-      .then((r) => { if (seq === seqRef.current) setDados(r); })
-      .catch(() => { if (seq === seqRef.current) setErro('Não foi possível carregar o desempenho.'); })
-      .finally(() => { if (seq === seqRef.current) setCarregando(false); });
-  }, [meses, tarefas, usuarios, carregandoDados]);
-
-  if (carregando || carregandoDados) {
+  if (carregando) {
     return (
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold">Desempenho da Equipe</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-52 w-full rounded-xl" />
-          ))}
+        <div className="grid gap-4 lg:grid-cols-4">
+          <Skeleton className="h-56 w-full rounded-xl lg:col-span-1" />
+          <Skeleton className="h-56 w-full rounded-xl lg:col-span-2" />
+          <Skeleton className="h-56 w-full rounded-xl lg:col-span-1" />
         </div>
-        <Skeleton className="h-40 w-full rounded-xl" />
       </div>
     );
   }
@@ -119,7 +123,6 @@ export function SecaoDesempenho({ meses }: { meses: MesRef[] }) {
       </div>
     );
   }
-
   if (!dados) return null;
 
   const comPrazo = dados.totalNoPrazo + dados.totalAtrasadas;
@@ -127,41 +130,40 @@ export function SecaoDesempenho({ meses }: { meses: MesRef[] }) {
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Desempenho da Equipe</h2>
-
-      {/* ── Visão geral ─────────────────────────────────────────────── */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="flex items-center justify-center p-6">
+      <div className="grid gap-4 lg:grid-cols-4">
+        {/* Donut — taxa no prazo */}
+        <Card className="lg:col-span-1">
+          <CardContent className="flex h-full items-center justify-center p-6">
             <Donut
               porcentagem={dados.taxaNoPrazo}
               rotulo="Entregas no prazo"
-              sublabel={`${dados.totalNoPrazo}/${comPrazo} concluídas com prazo`}
+              sublabel={`${dados.totalNoPrazo}/${comPrazo} com prazo`}
             />
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Barras por mês — mais largo */}
+        <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Entregas por mês</CardTitle>
           </CardHeader>
           <CardContent>
             <BarrasMensais
               dados={dados.porMes.map((p) => ({
-                rotulo: p.rotulo,
-                noPrazo: p.noPrazo,
-                atrasadas: p.atrasadas,
+                rotulo: p.rotulo, noPrazo: p.noPrazo, atrasadas: p.atrasadas,
               }))}
-              altura={140}
+              altura={200}
             />
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Resumo do período */}
+        <Card className="lg:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Resumo do período</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <MiniKpi rotulo="Concluídas" valor={dados.totalConcluidas} />
               <MiniKpi rotulo="No prazo" valor={dados.totalNoPrazo} cor="text-emerald-500" />
               <MiniKpi rotulo="Atrasadas" valor={dados.totalAtrasadas} cor="text-destructive" />
@@ -172,22 +174,35 @@ export function SecaoDesempenho({ meses }: { meses: MesRef[] }) {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
 
-      {/* ── Ranking do time ─────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <Users className="size-4" />
-            Desempenho por membro
-          </CardTitle>
-        </CardHeader>
+/* -------------------------------------------------------------------------- */
+/*  Ranking por membro (com drill-down)                                       */
+/* -------------------------------------------------------------------------- */
+
+export function RankingMembros({ meses }: { meses: MesRef[] }) {
+  const { dados, carregando, erro } = useDesempenho(meses);
+  const [membroSel, setMembroSel] = useState<DesempenhoMembro | null>(null);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold">Desempenho por membro</h2>
+      <Card className="flex-1">
         <CardContent className="p-0">
-          {dados.membros.length === 0 ? (
+          {carregando ? (
+            <div className="flex flex-col gap-2 p-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-md" />
+              ))}
+            </div>
+          ) : erro ? (
+            <p className="px-5 py-8 text-center text-sm text-destructive">{erro}</p>
+          ) : !dados || dados.membros.length === 0 ? (
             <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
               <Users className="size-9 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Sem dados de desempenho no período.
-              </p>
+              <p className="text-sm text-muted-foreground">Sem dados de desempenho no período.</p>
             </div>
           ) : (
             <div className="divide-y divide-border/40">
@@ -200,7 +215,7 @@ export function SecaoDesempenho({ meses }: { meses: MesRef[] }) {
                 >
                   <div
                     className={cn(
-                      'grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white',
+                      'grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold text-white',
                       corAvatar(m.nome),
                     )}
                   >
@@ -208,15 +223,27 @@ export function SecaoDesempenho({ meses }: { meses: MesRef[] }) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{m.nome}</p>
-                    <p className="text-xs text-muted-foreground">{m.concluidas} concluídas</p>
+                    <p className="text-xs text-muted-foreground">
+                      {m.concluidas} concluídas
+                      {m.atrasadasAgora > 0 && (
+                        <span className="text-destructive"> · {m.atrasadasAgora} atrasada(s) agora</span>
+                      )}
+                    </p>
                   </div>
-                  <div className="flex w-28 shrink-0 flex-col gap-1">
-                    <BarraProgresso valor={m.taxaNoPrazo} max={100} />
-                    <span className="text-[10px] text-muted-foreground">{m.taxaNoPrazo}% no prazo</span>
+                  <div className="flex w-32 shrink-0 flex-col gap-1">
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>No prazo</span>
+                      <span className="font-semibold text-foreground">{m.taxaNoPrazo}%</span>
+                    </div>
+                    <BarraProgresso
+                      valor={m.taxaNoPrazo}
+                      max={100}
+                      cor={m.taxaNoPrazo >= 70 ? 'bg-emerald-500' : m.taxaNoPrazo >= 40 ? 'bg-amber-500' : 'bg-destructive'}
+                    />
                   </div>
                   {m.atrasadas > 0 && (
                     <Badge className="shrink-0 border border-destructive/50 bg-destructive/15 text-[10px] text-destructive">
-                      {m.atrasadas} atrasada{m.atrasadas !== 1 ? 's' : ''}
+                      {m.atrasadas}
                     </Badge>
                   )}
                 </button>

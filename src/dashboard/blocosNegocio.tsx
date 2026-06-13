@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
-  Users, ListChecks, FolderKanban, AlertTriangle,
+  Users, ListChecks, FolderKanban,
 } from 'lucide-react';
 import { useDadosAgencia } from './useDadosAgencia';
 import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
 import { temEtapas, aguardandoAprovacaoCliente } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
-import { dataBR } from '@/clientes/format';
+import { dataBR, inicial, corAvatar } from '@/clientes/format';
+import { logoUrl } from '@/clientes/clientesService';
 import { AvatarMembro } from './AvatarMembro';
 import { TarefaSheet } from '@/tarefas/TarefaSheet';
 import { Card } from '@/components/ui/card';
@@ -19,10 +20,20 @@ import { cn } from '@/lib/utils';
 /*  Saúde dos Projetos                                                        */
 /* -------------------------------------------------------------------------- */
 
+interface ClienteLogo {
+  id: string;
+  collectionId?: string;
+  collectionName?: string;
+  nome?: string;
+  nome_fantasia?: string;
+  logo?: string;
+}
+
 interface LinhaProjeto {
   id: string;
-  nome: string;
-  cliente: string;
+  projetoNome: string;
+  clienteNome: string;
+  cli?: ClienteLogo;
   abertas: number;
   atrasadas: number;
 }
@@ -52,12 +63,13 @@ export function SaudeProjetosBloco() {
     );
     const abertas = doProj.filter((t) => !tarefaConcluida(t.status));
     const atrasadas = abertas.filter((t) => prazoVencido(t.prazo, t.status));
-    const cli =
-      p.expand?.cliente?.nome_fantasia ?? p.expand?.cliente?.nome ?? '';
+    const cli = p.expand?.cliente;
+    const clienteNome = cli?.nome_fantasia ?? cli?.nome ?? 'Sem cliente';
     return {
       id: p.id,
-      nome: p.nome,
-      cliente: cli,
+      projetoNome: p.nome,
+      clienteNome,
+      cli,
       abertas: abertas.length,
       atrasadas: atrasadas.length,
     };
@@ -90,14 +102,22 @@ export function SaudeProjetosBloco() {
               onClick={() => history.push(`/projetos/${l.id}`)}
               className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
             >
-              {l.atrasadas > 0 && (
-                <AlertTriangle className="size-4 shrink-0 text-destructive" />
+              {l.cli?.logo ? (
+                <img
+                  src={logoUrl(l.cli as never, '100x100')}
+                  alt={l.clienteNome}
+                  loading="lazy"
+                  decoding="async"
+                  className="size-9 shrink-0 rounded-lg object-cover"
+                />
+              ) : (
+                <div className={cn('grid size-9 shrink-0 place-items-center rounded-lg text-xs font-bold text-white', corAvatar(l.clienteNome))}>
+                  {inicial(l.clienteNome)}
+                </div>
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{l.nome}</p>
-                {l.cliente && (
-                  <p className="truncate text-xs text-muted-foreground">{l.cliente}</p>
-                )}
+                <p className="truncate text-sm font-medium">{l.clienteNome}</p>
+                <p className="truncate text-xs text-muted-foreground">{l.projetoNome}</p>
               </div>
               <span className="shrink-0 text-xs text-muted-foreground">
                 {l.abertas} abertas

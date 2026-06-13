@@ -88,6 +88,28 @@ function carregarOrdem(prefix: string): Ordem {
   return 'prazo';
 }
 
+/* ------------------------------ Mês / competência ------------------------- */
+
+const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+/** "YYYY-MM" do mês corrente (local). */
+function mesAtualStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+/** "2026-07" → "Julho 2026". */
+function rotuloMes(ym: string): string {
+  const [a, m] = ym.split('-').map(Number);
+  return `${MESES_PT[(m || 1) - 1]} ${a}`;
+}
+/** Competência da tarefa = mês do prazo ("YYYY-MM", '' se sem prazo). */
+function competencia(t: Tarefa): string {
+  return (t.prazo ?? '').slice(0, 7);
+}
+function carregarMes(prefix: string): string {
+  try { return localStorage.getItem(`${prefix}-mes-v1`) ?? ''; } catch { return ''; }
+}
+
 /* --------------------------------- Helpers -------------------------------- */
 
 function pesoPrioridade(p?: string) { return p === 'alta' ? 0 : p === 'baixa' ? 2 : 1; }
@@ -215,7 +237,9 @@ export function TarefasTabela({
   const [fStatus, setFStatus] = useState('');
   const [fPrioridade, setFPrioridade] = useState('');
   const [fPrazo, setFPrazo] = useState('');
+  const [fMes, setFMes] = useState(() => carregarMes(persistPrefix)); // '' = todos; 'atual'; ou 'YYYY-MM'
   const [concluidasAbertas, setConcluidasAbertas] = useState(false);
+  const [atrasadasAbertas, setAtrasadasAbertas] = useState(true);
   // Edição inline de célula + overrides locais p/ refletir na hora.
   const [edit, setEdit] = useState<{ id: string; campo: 'descricao' | 'comentario' } | null>(null);
   const [descOverride, setDescOverride] = useState<Record<string, string>>({});
@@ -246,6 +270,16 @@ export function TarefasTabela({
     });
   }
   function trocarOrdem(o: Ordem) { setOrdem(o); try { localStorage.setItem(`${persistPrefix}-ordem-v1`, o); } catch { /* */ } }
+  function trocarMes(m: string) { setFMes(m); try { localStorage.setItem(`${persistPrefix}-mes-v1`, m); } catch { /* */ } }
+
+  // Mês selecionado resolvido ('' = todos; 'atual' vira o mês corrente real).
+  const mesSel = fMes === 'atual' ? mesAtualStr() : fMes;
+  // Meses presentes nos dados (pra povoar o dropdown), do mais recente ao mais antigo.
+  const mesesDisponiveis = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of tarefas) { const c = competencia(t); if (c) set.add(c); }
+    return [...set].sort().reverse();
+  }, [tarefas]);
 
   const filtradas = useMemo(() => {
     let arr = tarefas;
@@ -316,8 +350,17 @@ export function TarefasTabela({
     return null;
   }
 
-  const abertas = filtradas.filter((t) => !tarefaConcluida(t.status));
-  const concluidas = filtradas.filter((t) => tarefaConcluida(t.status));
+  let abertas = filtradas.filter((t) => !tarefaConcluida(t.status));
+  let concluidas = filtradas.filter((t) => tarefaConcluida(t.status));
+  // Atrasadas = abertas com competência ANTERIOR ao mês selecionado (ficam à vista, à parte).
+  let atrasadas: Tarefa[] = [];
+  if (mesSel) {
+    const noMes = (t: Tarefa) => competencia(t) === mesSel;
+    const antes = (t: Tarefa) => { const c = competencia(t); return !!c && c < mesSel; };
+    atrasadas = abertas.filter(antes);
+    abertas = abertas.filter(noMes);
+    concluidas = concluidas.filter(noMes);
+  }
 
   function tabela(linhas: Tarefa[], vazio: string) {
     return (
@@ -398,6 +441,12 @@ export function TarefasTabela({
           <option value="amanha">Amanhã</option>
           <option value="vencida">Vencida</option>
         </select>
+        <select value={fMes} onChange={(e) => trocarMes(e.target.value)} aria-label="Filtrar por mês"
+          className={cn(filtroCls, fMes ? 'text-foreground' : 'text-muted-foreground')}>
+          <option value="">Mês: todos</option>
+          <option value="atual">Mês atual</option>
+          {mesesDisponiveis.map((m) => <option key={m} value={m}>{rotuloMes(m)}</option>)}
+        </select>
         <div className="ml-auto flex items-center gap-2">
           <select value={ordem} onChange={(e) => trocarOrdem(e.target.value as Ordem)} aria-label="Ordenar"
             className={cn(filtroCls, 'text-foreground')}>
@@ -407,11 +456,31 @@ export function TarefasTabela({
         </div>
       </div>
 
-      {tabela(abertas, 'Nenhuma tarefa neste filtro.')}
+      {mesSel && (
+        <p className="-mb-1 text-xs text-muted-foreground">
+          Mostrando <span className="font-medium text-foreground">{rotuloMes(mesSel)}</span>
+        </p>
+      )}
+
+      {tabela(abertas, mesSel ? `Nenhuma tarefa em ${rotuloMes(mesSel)}.` : 'Nenhuma tarefa neste filtro.')}
 
       <p className="pt-1 text-right text-xs text-muted-foreground">
         {abertas.length} {abertas.length === 1 ? 'tarefa em aberto' : 'tarefas em aberto'}
       </p>
+
+      {/* Atrasadas de meses anteriores — à vista, mas separadas */}
+      {atrasadas.length > 0 && (
+        <div>
+          <button type="button" onClick={() => setAtrasadasAbertas((v) => !v)}
+            className="flex w-full items-center justify-between rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm transition-colors hover:bg-destructive/15">
+            <span className="font-medium text-destructive">
+              ⚠ Atrasadas de meses anteriores <span className="opacity-70">({atrasadas.length})</span>
+            </span>
+            <ChevronDown className={cn('size-4 text-destructive transition-transform', atrasadasAbertas && 'rotate-180')} />
+          </button>
+          {atrasadasAbertas && <div className="mt-2">{tabela(atrasadas, 'Nenhuma atrasada.')}</div>}
+        </div>
+      )}
 
       {/* Concluídas — recolhidas no final */}
       {concluidas.length > 0 && (

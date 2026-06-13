@@ -132,6 +132,13 @@ function LinhaTarefa({ t, onClick, badge }: { t: Tarefa; onClick: () => void; ba
 /** Altura fixa ≈ 5 linhas; passa disso, rola dentro do próprio card. */
 const ALTURA_LISTA = 'h-[19rem]';
 
+/** Scroll fino e discreto, na cor do tema (thumb suave, trilho transparente). */
+const SCROLL_CLEAN =
+  '[scrollbar-width:thin] '
+  + '[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent '
+  + '[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border '
+  + 'hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40';
+
 function CardLista({ titulo, vazio, children }: { titulo: string; vazio: boolean; children: React.ReactNode }) {
   return (
     <Card className="flex flex-col">
@@ -143,7 +150,7 @@ function CardLista({ titulo, vazio, children }: { titulo: string; vazio: boolean
           Nenhuma tarefa.
         </div>
       ) : (
-        <div className={cn('divide-y divide-border/40 overflow-y-auto', ALTURA_LISTA)}>
+        <div className={cn('divide-y divide-border/40 overflow-y-auto', ALTURA_LISTA, SCROLL_CLEAN)}>
           {children}
         </div>
       )}

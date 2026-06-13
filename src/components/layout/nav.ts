@@ -51,6 +51,7 @@ export function titleForPath(pathname: string): string {
   if (pathname.startsWith('/usuarios')) return 'Usuários';
   if (pathname.startsWith('/novo-cliente')) return 'Novo cliente';
   if (pathname.startsWith('/minha-empresa')) return 'Minha Empresa';
+  if (pathname.startsWith('/minha-area')) return 'Minhas Tarefas';
   const todos = [...NAV_ITEMS, ...NAV_ITEMS_CLIENTE];
   const match = todos.filter((i) => pathname.startsWith(i.path)).sort(
     (a, b) => b.path.length - a.path.length,

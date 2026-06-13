@@ -171,13 +171,10 @@ export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolea
 
   if (carregando) {
     return (
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Minhas Tarefas</h2>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Skeleton className="h-44 w-full rounded-xl" />
-          <Skeleton className="h-44 w-full rounded-xl" />
-          <Skeleton className="h-44 w-full rounded-xl" />
-        </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Skeleton className="h-44 w-full rounded-xl" />
+        <Skeleton className="h-44 w-full rounded-xl" />
+        <Skeleton className="h-44 w-full rounded-xl" />
       </div>
     );
   }
@@ -217,8 +214,6 @@ export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolea
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Minhas Tarefas</h2>
-
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Por data */}
         <CardLista titulo="Por data" vazio={porData.length === 0}>

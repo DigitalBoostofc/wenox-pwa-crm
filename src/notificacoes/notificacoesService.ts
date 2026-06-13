@@ -1,7 +1,7 @@
 import { pb } from '@/lib/pocketbase';
 
 export type TipoNotificacao =
-  | 'aprovacao' | 'alteracao' | 'atribuicao' | 'comentario';
+  | 'aprovacao' | 'alteracao' | 'atribuicao' | 'comentario' | 'mencao';
 
 export interface Notificacao {
   id: string;

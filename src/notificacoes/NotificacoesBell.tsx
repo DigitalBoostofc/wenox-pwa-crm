@@ -13,7 +13,7 @@ import { haDias } from '@/clientes/format';
 import { cn } from '@/lib/utils';
 
 const ICONE_TIPO: Record<string, string> = {
-  aprovacao: '✅', alteracao: '🔁', atribuicao: '👤', comentario: '💬',
+  aprovacao: '✅', alteracao: '🔁', atribuicao: '👤', comentario: '💬', mencao: '📣',
 };
 
 export function NotificacoesBell({ compacta = false }: { compacta?: boolean }) {

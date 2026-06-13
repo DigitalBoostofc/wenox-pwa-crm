@@ -15,10 +15,18 @@ interface Base {
   collectionName?: string;
   expand?: { autor?: { nome?: string; email?: string } };
 }
+export interface MencaoUsuario { id: string; nome: string }
+
 export interface Comentario extends Base {
   tipo: 'comentario';
   texto: string;
   anexo?: string;
+  /** id do comentário-pai quando este é uma resposta (estilo Instagram). */
+  parent?: string;
+  /** ids dos usuários marcados com @. */
+  mencionados?: string[];
+  /** {id, nome} dos marcados (para destacar no texto). */
+  mencionadosNomes?: MencaoUsuario[];
 }
 
 /** URL pública do anexo (imagem) de um comentário ('' se não tiver). */
@@ -72,13 +80,22 @@ export async function listComentarios(
   const res = await pb.collection('comentarios').getFullList({
     filter: `entidade = "${entidade}" && ref_id = "${refId}"`,
     sort: '-created',
-    expand: 'autor',
+    expand: 'autor,mencionados',
   });
-  return res.map((r) => ({
-    ...(r as unknown as Comentario),
-    tipo: 'comentario',
-    autorNome: nomeAutor(r),
-  })) as Comentario[];
+  return res.map((r) => {
+    const rec = r as unknown as Comentario & {
+      expand?: { mencionados?: { id: string; nome?: string; email?: string }[] };
+    };
+    const mencionadosNomes = (rec.expand?.mencionados ?? []).map((m) => ({
+      id: m.id, nome: m.nome ?? m.email ?? 'alguém',
+    }));
+    return {
+      ...(rec as unknown as Comentario),
+      tipo: 'comentario',
+      autorNome: nomeAutor(r),
+      mencionadosNomes,
+    };
+  }) as Comentario[];
 }
 
 export async function addComentario(
@@ -87,41 +104,116 @@ export async function addComentario(
   texto: string,
   comNotificacao = true,
   anexo?: File | null,
+  opts?: { mencionados?: string[]; parent?: string },
 ): Promise<void> {
   const t = texto.trim();
   if (!t && !anexo) throw new Error('Escreva um comentário');
+  const mencionados = [...new Set(opts?.mencionados ?? [])].filter(Boolean);
+  const parent = opts?.parent ?? '';
   const { cliente, responsaveis } = await resolverEntidade(entidade, refId);
-  const dados = {
+  const dados: Record<string, unknown> = {
     entidade,
     ref_id: refId,
     texto: t,
     autor: pb.authStore?.record?.id,
     cliente,
+    parent,
+    mencionados,
   };
   if (anexo) {
     const fd = new FormData();
-    for (const [k, v] of Object.entries(dados)) fd.append(k, v == null ? '' : String(v));
+    for (const [k, v] of Object.entries(dados)) {
+      if (Array.isArray(v)) v.forEach((x) => fd.append(k, String(x)));
+      else fd.append(k, v == null ? '' : String(v));
+    }
     fd.append('anexo', anexo);
     await pb.collection('comentarios').create(fd);
   } else {
     await pb.collection('comentarios').create(dados);
   }
   if (!comNotificacao) return;
+
+  const link = entidade === 'tarefa' ? `/tarefas/${refId}`
+    : entidade === 'projeto' ? `/projetos/${refId}`
+    : entidade === 'cliente' ? `/clientes/${refId}`
+    : cliente ? `/clientes/${cliente}` : undefined;
+  const trecho = t.length > 120 ? `${t.slice(0, 120)}…` : t;
+
+  // 1) Notifica os marcados com @ (prioridade — sempre, mesmo sem ser responsável).
+  if (mencionados.length) {
+    try {
+      await notificar(mencionados, {
+        tipo: 'mencao',
+        titulo: 'Você foi mencionado num comentário',
+        mensagem: trecho,
+        link,
+      });
+    } catch { /* best-effort */ }
+  }
+
+  // 2) Se é resposta, avisa o autor do comentário-pai.
+  if (parent) {
+    try {
+      const pai = await pb.collection('comentarios').getOne(parent, { fields: 'autor' });
+      const autorPai = (pai as { autor?: string }).autor;
+      if (autorPai) {
+        await notificar([autorPai], {
+          tipo: 'comentario',
+          titulo: 'Responderam seu comentário',
+          mensagem: trecho,
+          link,
+        });
+      }
+    } catch { /* best-effort */ }
+  }
+
+  // 3) Notificação geral do comentário (responsáveis/gestão), exceto quem já foi avisado pela menção.
   try {
-    const alvos = entidade === 'tarefa' || entidade === 'projeto'
+    const base = entidade === 'tarefa' || entidade === 'projeto'
       ? responsaveis
       : await idsGestao();
-    const link = entidade === 'tarefa' ? `/tarefas/${refId}`
-      : entidade === 'projeto' ? `/projetos/${refId}`
-      : entidade === 'cliente' ? `/clientes/${refId}`
-      : cliente ? `/clientes/${cliente}` : undefined;
-    await notificar(alvos, {
-      tipo: 'comentario',
-      titulo: 'Novo comentário',
-      mensagem: t.length > 120 ? `${t.slice(0, 120)}…` : t,
-      link,
-    });
+    const alvos = base.filter((id) => !mencionados.includes(id));
+    if (alvos.length) {
+      await notificar(alvos, {
+        tipo: 'comentario',
+        titulo: 'Novo comentário',
+        mensagem: trecho,
+        link,
+      });
+    }
   } catch { /* notificação é best-effort */ }
+}
+
+/** Candidatos para marcação @: colaboradores internos + logins do cliente do item. */
+export async function candidatosMencao(
+  entidade: Entidade,
+  refId: string,
+): Promise<{ colaboradores: MencaoUsuario[]; clientes: MencaoUsuario[] }> {
+  const { cliente } = await resolverEntidade(entidade, refId);
+  try {
+    const internos = await pb.collection('usuarios').getFullList({
+      filter: 'role != "Cliente" && status = "Ativo"',
+      fields: 'id,nome,email',
+      sort: 'nome',
+    });
+    const colaboradores = internos.map((u) => ({
+      id: u.id, nome: (u as { nome?: string; email?: string }).nome || (u as { email?: string }).email || '—',
+    }));
+    let clientes: MencaoUsuario[] = [];
+    if (cliente) {
+      const logins = await pb.collection('usuarios').getFullList({
+        filter: `role = "Cliente" && cliente = "${cliente}"`,
+        fields: 'id,nome,email',
+        sort: 'nome',
+      });
+      clientes = logins.map((u) => ({
+        id: u.id, nome: (u as { nome?: string; email?: string }).nome || (u as { email?: string }).email || 'Cliente',
+      }));
+    }
+    return { colaboradores, clientes };
+  } catch {
+    return { colaboradores: [], clientes: [] };
+  }
 }
 
 export async function listHistorico(

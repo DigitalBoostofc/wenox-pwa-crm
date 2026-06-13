@@ -8,13 +8,16 @@ import { fotoUrl } from '@/usuarios/usuariosService';
 import { corAvatar, inicial } from '@/clientes/format';
 import type { Usuario } from '@/usuarios/types';
 import { MeuDiaBloco, MeusProjetosBloco, MinhaProdutividadeBloco, MeusDadosBloco } from './blocos';
+import { PulsoEquipeBloco, AprovacoesPendentesBloco, PulsoNegocioBloco } from './blocosGestao';
 
-type BlocoId = 'meu-dia' | 'meu-dia-readonly' | 'meus-projetos' | 'produtividade' | 'meus-dados';
+type BlocoId =
+  | 'meu-dia' | 'meu-dia-readonly' | 'meus-projetos' | 'produtividade' | 'meus-dados'
+  | 'pulso-equipe' | 'aprovacoes' | 'pulso-negocio';
 
 const BLOCOS_POR_ROLE: Record<string, BlocoId[]> = {
-  Owner:        ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
-  Admin:        ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
-  Gestor:       ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
+  Owner:        ['pulso-negocio', 'meu-dia', 'meus-projetos', 'produtividade', 'meus-dados', 'pulso-equipe', 'aprovacoes'],
+  Admin:        ['pulso-negocio', 'meu-dia', 'meus-projetos', 'produtividade', 'meus-dados', 'pulso-equipe', 'aprovacoes'],
+  Gestor:       ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados', 'pulso-equipe', 'aprovacoes'],
   Membro:       ['meu-dia', 'meus-projetos', 'produtividade', 'meus-dados'],
   Visualizador: ['meu-dia-readonly', 'meus-projetos', 'meus-dados'],
 };
@@ -81,6 +84,9 @@ export function MinhaAreaPage() {
         </div>
       </div>
 
+      {/* Pulso do negócio — full width, só Owner/Admin */}
+      {blocos.includes('pulso-negocio') && <PulsoNegocioBloco />}
+
       {/* Linha de produtividade */}
       {temProdutividade && (
         <div>
@@ -102,6 +108,14 @@ export function MinhaAreaPage() {
           </div>
         )}
       </div>
+
+      {/* Seção de gestão — Owner, Admin e Gestor */}
+      {(blocos.includes('pulso-equipe') || blocos.includes('aprovacoes')) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {blocos.includes('pulso-equipe') && <PulsoEquipeBloco />}
+          {blocos.includes('aprovacoes') && <AprovacoesPendentesBloco />}
+        </div>
+      )}
     </div>
   );
 }

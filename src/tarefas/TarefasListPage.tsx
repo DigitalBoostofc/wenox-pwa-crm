@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Plus, Search, ListChecks, List, Columns3, X } from 'lucide-react';
-import { listTarefas, moverTarefaStatus, concluirTarefa, reabrirTarefa } from './tarefasService';
+import { listTarefas, moverTarefaStatus } from './tarefasService';
 import type { Tarefa } from './types';
 import { TarefaCard } from './TarefaCard';
 import { statusTarefaClass, tarefaConcluida } from './format';
-import { MinhaSemanaList } from './MinhaSemanaList';
-import type { TipoAgrupamento } from './MinhaSemanaList';
+import { TarefasTabela } from './TarefasTabela';
 import { QuickAddTarefa } from './QuickAddTarefa';
-import { useStatuses, statusConcluido, statusInicial } from './status';
+import { useStatuses } from './status';
 import { useAuth } from '@/auth/useAuth';
 import { ehCliente, canGerirEquipe } from '@/auth/perms';
 import { listOpcoes } from '@/opcoes/opcoesService';
@@ -37,16 +36,6 @@ function carregarView(): ViewMode {
   return 'lista';
 }
 
-const AGRUPAR_KEY = 'wenox-tarefas-agrupar-v1';
-const AGRUPAMENTOS_VALIDOS: TipoAgrupamento[] = ['prazo', 'responsavel', 'projeto', 'cliente', 'status'];
-function carregarAgrupar(): TipoAgrupamento {
-  try {
-    const s = localStorage.getItem(AGRUPAR_KEY);
-    if (s && AGRUPAMENTOS_VALIDOS.includes(s as TipoAgrupamento)) return s as TipoAgrupamento;
-  } catch { /* */ }
-  return 'prazo';
-}
-
 /** Último tipo de projeto selecionado na barra (Owner/Admin/Gestor). */
 const TIPO_KEY = 'wenox-tarefas-tipo-v1';
 function carregarTipo(): string {
@@ -62,14 +51,6 @@ const ESCOPOS: { v: Escopo; label: string }[] = [
   { v: 'minhas', label: 'Minhas' },
   { v: 'todas', label: 'Todas' },
   { v: 'internas', label: 'Internas (sem projeto)' },
-];
-
-const AGRUPAMENTOS: { v: TipoAgrupamento; label: string }[] = [
-  { v: 'prazo', label: 'Prazo' },
-  { v: 'responsavel', label: 'Responsável' },
-  { v: 'projeto', label: 'Projeto' },
-  { v: 'cliente', label: 'Cliente' },
-  { v: 'status', label: 'Status' },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -108,7 +89,6 @@ export function TarefasListPage() {
   const [busca, setBusca] = useState('');
   const [escopo, setEscopo] = useState<Escopo>('minhas');
   const [view, setView] = useState<ViewMode>(carregarView);
-  const [agrupar, setAgrupar] = useState<TipoAgrupamento>(carregarAgrupar);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -203,11 +183,6 @@ export function TarefasListPage() {
     try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ }
   };
 
-  const trocarAgrupar = (v: TipoAgrupamento) => {
-    setAgrupar(v);
-    try { localStorage.setItem(AGRUPAR_KEY, v); } catch { /* */ }
-  };
-
   // Membro abre em modo visualização (status + concluir etapa); só edita os campos
   // de tarefas que ele mesmo criou. Gestão/cliente seguem no editor.
   function abrir(id: string) {
@@ -226,28 +201,6 @@ export function TarefasListPage() {
       await moverTarefaStatus(tarefaId, status);
     } catch {
       setErro('Não foi possível mover a tarefa. Tente novamente.');
-      setRecarrega((n) => n + 1);
-    }
-  }
-
-  async function handleConcluir(id: string) {
-    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusConcluido() } : t)));
-    try {
-      await concluirTarefa(id, statusConcluido());
-      setRecarrega((n) => n + 1);
-    } catch {
-      setErro('Não foi possível concluir a tarefa.');
-      setRecarrega((n) => n + 1);
-    }
-  }
-
-  async function handleReabrir(id: string) {
-    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusInicial() } : t)));
-    try {
-      await reabrirTarefa(id, statusInicial());
-      setRecarrega((n) => n + 1);
-    } catch {
-      setErro('Não foi possível reabrir a tarefa.');
       setRecarrega((n) => n + 1);
     }
   }
@@ -332,25 +285,6 @@ export function TarefasListPage() {
           </button>
         )}
 
-        {view === 'lista' && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden lg:overflow-visible">
-            <span className="shrink-0 text-xs text-muted-foreground">Agrupar:</span>
-            {AGRUPAMENTOS.map((ag) => (
-              <button
-                key={ag.v}
-                onClick={() => trocarAgrupar(ag.v)}
-                className={cn(
-                  'shrink-0 rounded-full border px-3 py-0.5 text-xs transition-colors',
-                  agrupar === ag.v
-                    ? 'border-primary/50 bg-primary/15 text-primary'
-                    : 'border-border text-muted-foreground hover:bg-secondary',
-                )}
-              >
-                {ag.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {erro && (
@@ -385,18 +319,15 @@ export function TarefasListPage() {
           <QuickAddTarefa
             onCriada={(id) => { setRecarrega((n) => n + 1); setSheetId(id); }}
           />
-          <MinhaSemanaList
+          <TarefasTabela
             tarefas={tarefasExibidas}
             onAbrir={abrir}
-            onConcluir={handleConcluir}
-            onReabrir={handleReabrir}
-            agrupar={agrupar}
-            statuses={statuses.map((s) => s.nome)}
+            persistPrefix="wenox-tarefas-tabela"
           />
         </div>
       )}
 
-      {!carregando && tarefasExibidas.length > 0 && (
+      {!carregando && view === 'kanban' && tarefasExibidas.length > 0 && (
         <p className="pt-1 text-right text-xs text-muted-foreground">
           {tarefasExibidas.length} {tarefasExibidas.length === 1 ? 'tarefa' : 'tarefas'}
         </p>

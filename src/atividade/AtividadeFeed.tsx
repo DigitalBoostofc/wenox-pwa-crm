@@ -65,7 +65,7 @@ function CampoComentario({
     ...candidatos.clientes.map((c) => ({ ...c, grupo: 'Cliente' as const })),
   ];
   const sugestoes = query != null
-    ? todos.filter((c) => c.nome.toLowerCase().includes(query.toLowerCase())).slice(0, 6)
+    ? todos.filter((c) => c.nome.toLowerCase().includes(query.toLowerCase()))
     : [];
 
   function aoDigitar(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -119,7 +119,7 @@ function CampoComentario({
           className="w-full rounded-md border border-input bg-background/40 p-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         />
         {query != null && sugestoes.length > 0 && (
-          <div className="absolute left-2 top-full z-20 mt-1 w-64 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+          <div className="absolute left-2 top-full z-20 mt-1 max-h-60 w-64 overflow-y-auto rounded-md border border-border bg-popover shadow-lg [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
             {sugestoes.map((c) => (
               <button
                 key={c.id}

@@ -3,7 +3,7 @@ import { Users } from 'lucide-react';
 import { useDadosAgencia } from './useDadosAgencia';
 import { carregarDesempenho } from './relatoriosService';
 import type { MesRef, DesempenhoAgencia, DesempenhoMembro } from './relatoriosService';
-import { Donut, BarrasMensais, BarraProgresso } from './charts';
+import { BarrasMensais, BarraProgresso, RoscaSegmentada } from './charts';
 import { corAvatar } from '@/clientes/format';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -44,14 +44,88 @@ function useDesempenho(meses: MesRef[]) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Mini KPI                                                                   */
+/*  Painel de desempenho compartilhado (recebidas / concluídas / abertas)     */
 /* -------------------------------------------------------------------------- */
 
-function MiniKpi({ rotulo, valor, cor }: { rotulo: string; valor: number; cor?: string }) {
+export interface ResumoDesempenho {
+  recebidas: number;
+  concl: { total: number; noPrazo: number; atrasada: number; semPrazo: number };
+  abertas: { total: number; atrasada: number; noPrazo: number };
+}
+
+export function resumoDeMembro(d: DesempenhoMembro): ResumoDesempenho {
+  return {
+    recebidas: d.concluidas + d.abertasAgora,
+    concl: { total: d.concluidas, noPrazo: d.noPrazo, atrasada: d.atrasadas, semPrazo: d.semPrazo },
+    abertas: { total: d.abertasAgora, atrasada: d.atrasadasAgora, noPrazo: d.abertasAgora - d.atrasadasAgora },
+  };
+}
+
+export function resumoDeAgencia(a: DesempenhoAgencia): ResumoDesempenho {
+  return {
+    recebidas: a.totalConcluidas + a.abertasAgora,
+    concl: { total: a.totalConcluidas, noPrazo: a.totalNoPrazo, atrasada: a.totalAtrasadas, semPrazo: a.totalSemPrazo },
+    abertas: { total: a.abertasAgora, atrasada: a.atrasadasAgora, noPrazo: a.abertasAgora - a.atrasadasAgora },
+  };
+}
+
+function ItemLegenda({ cor, rotulo, valor }: { cor: string; rotulo: string; valor: number }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 rounded-lg bg-secondary/40 py-3">
-      <span className={cn('text-2xl font-semibold leading-none', cor)}>{valor}</span>
-      <span className="text-[10px] text-muted-foreground">{rotulo}</span>
+    <div className="flex items-center gap-1.5">
+      <span className={cn('size-2.5 shrink-0 rounded-full', cor)} />
+      <span className="text-xs text-muted-foreground">{rotulo}</span>
+      <span className="ml-auto text-xs font-semibold">{valor}</span>
+    </div>
+  );
+}
+
+/** Painel: Total recebidas + 2 gráficos separados (Concluídas / Abertas). */
+export function PainelDesempenho({ resumo }: { resumo: ResumoDesempenho }) {
+  const { recebidas, concl, abertas } = resumo;
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="rounded-lg bg-secondary/40 px-4 py-3 text-center">
+        <span className="text-2xl font-semibold">{recebidas}</span>
+        <span className="ml-2 text-sm text-muted-foreground">tarefas recebidas</span>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Concluídas */}
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-border p-4">
+          <span className="text-sm font-medium">Concluídas</span>
+          <RoscaSegmentada
+            centro={concl.total}
+            segmentos={[
+              { valor: concl.noPrazo, classe: 'stroke-emerald-500' },
+              { valor: concl.atrasada, classe: 'stroke-destructive' },
+              { valor: concl.semPrazo, classe: 'stroke-muted-foreground' },
+            ]}
+            tamanho={110}
+          />
+          <div className="flex w-full flex-col gap-1">
+            <ItemLegenda cor="bg-emerald-500" rotulo="No prazo" valor={concl.noPrazo} />
+            <ItemLegenda cor="bg-destructive" rotulo="Atrasada" valor={concl.atrasada} />
+            <ItemLegenda cor="bg-muted-foreground" rotulo="Sem prazo" valor={concl.semPrazo} />
+          </div>
+        </div>
+
+        {/* Abertas */}
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-border p-4">
+          <span className="text-sm font-medium">Abertas</span>
+          <RoscaSegmentada
+            centro={abertas.total}
+            segmentos={[
+              { valor: abertas.atrasada, classe: 'stroke-destructive' },
+              { valor: abertas.noPrazo, classe: 'stroke-emerald-500' },
+            ]}
+            tamanho={110}
+          />
+          <div className="flex w-full flex-col gap-1">
+            <ItemLegenda cor="bg-destructive" rotulo="Atrasada" valor={abertas.atrasada} />
+            <ItemLegenda cor="bg-emerald-500" rotulo="No prazo" valor={abertas.noPrazo} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -72,21 +146,8 @@ function MembroDesempenhoSheet({
     <Sheet open={aberto} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent side="right" className="w-80 overflow-y-auto sm:w-96">
         <SheetTitle className="text-base">{membro.nome}</SheetTitle>
-        <div className="flex flex-col items-center gap-4 pt-4">
-          <Donut
-            porcentagem={membro.taxaNoPrazo}
-            rotulo="No prazo"
-            sublabel={`${membro.noPrazo}/${membro.noPrazo + membro.atrasadas} com prazo`}
-            tamanho={120}
-          />
-          <div className="grid w-full grid-cols-2 gap-3">
-            <MiniKpi rotulo="Concluídas" valor={membro.concluidas} />
-            <MiniKpi rotulo="No prazo" valor={membro.noPrazo} cor="text-emerald-500" />
-            <MiniKpi rotulo="Atrasadas" valor={membro.atrasadas} cor="text-destructive" />
-            <MiniKpi rotulo="Sem prazo" valor={membro.semPrazo} cor="text-muted-foreground" />
-            <MiniKpi rotulo="Abertas agora" valor={membro.abertasAgora} />
-            <MiniKpi rotulo="Atrasadas agora" valor={membro.atrasadasAgora} cor="text-destructive" />
-          </div>
+        <div className="pt-4">
+          <PainelDesempenho resumo={resumoDeMembro(membro)} />
         </div>
       </SheetContent>
     </Sheet>
@@ -125,25 +186,19 @@ export function VisaoGeralDesempenho({ meses }: { meses: MesRef[] }) {
   }
   if (!dados) return null;
 
-  const comPrazo = dados.totalNoPrazo + dados.totalAtrasadas;
-
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Desempenho da Equipe</h2>
-      <div className="grid gap-4 lg:grid-cols-4">
-        {/* Donut — taxa no prazo */}
-        <Card className="lg:col-span-1">
-          <CardContent className="flex h-full items-center justify-center p-6">
-            <Donut
-              porcentagem={dados.taxaNoPrazo}
-              rotulo="Entregas no prazo"
-              sublabel={`${dados.totalNoPrazo}/${comPrazo} com prazo`}
-            />
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Recebidas + Concluídas/Abertas (gráficos separados) */}
+        <Card className="lg:col-span-2">
+          <CardContent className="p-4">
+            <PainelDesempenho resumo={resumoDeAgencia(dados)} />
           </CardContent>
         </Card>
 
-        {/* Barras por mês — mais largo */}
-        <Card className="lg:col-span-2">
+        {/* Entregas por mês */}
+        <Card className="lg:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Entregas por mês</CardTitle>
           </CardHeader>
@@ -154,23 +209,6 @@ export function VisaoGeralDesempenho({ meses }: { meses: MesRef[] }) {
               }))}
               altura={200}
             />
-          </CardContent>
-        </Card>
-
-        {/* Resumo do período */}
-        <Card className="lg:col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Resumo do período</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2">
-              <MiniKpi rotulo="Concluídas" valor={dados.totalConcluidas} />
-              <MiniKpi rotulo="No prazo" valor={dados.totalNoPrazo} cor="text-emerald-500" />
-              <MiniKpi rotulo="Atrasadas" valor={dados.totalAtrasadas} cor="text-destructive" />
-              <MiniKpi rotulo="Sem prazo" valor={dados.totalSemPrazo} cor="text-muted-foreground" />
-              <MiniKpi rotulo="Abertas agora" valor={dados.abertasAgora} />
-              <MiniKpi rotulo="Atrasadas agora" valor={dados.atrasadasAgora} cor="text-destructive" />
-            </div>
           </CardContent>
         </Card>
       </div>

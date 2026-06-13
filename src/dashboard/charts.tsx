@@ -69,6 +69,57 @@ export function Donut({
 }
 
 /* -------------------------------------------------------------------------- */
+/*  RoscaSegmentada — donut com vários segmentos (breakdown)                   */
+/* -------------------------------------------------------------------------- */
+
+export function RoscaSegmentada({
+  segmentos,
+  centro,
+  sublabel,
+  tamanho = 120,
+}: {
+  segmentos: { valor: number; classe: string }[]; // classe = stroke-* do Tailwind
+  centro: string | number;
+  sublabel?: string;
+  tamanho?: number;
+}) {
+  const raio = 42;
+  const circ = 2 * Math.PI * raio;
+  const total = segmentos.reduce((s, x) => s + Math.max(0, x.valor), 0);
+  let acc = 0;
+
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <svg width={tamanho} height={tamanho} viewBox="0 0 100 100" role="img" aria-label={`${centro}`}>
+        <circle cx="50" cy="50" r={raio} fill="none" className="stroke-secondary" strokeWidth="10" />
+        {total > 0 && segmentos.map((s, i) => {
+          const frac = Math.max(0, s.valor) / total;
+          const len = frac * circ;
+          if (len <= 0) return null;
+          const el = (
+            <circle
+              key={i}
+              cx="50" cy="50" r={raio} fill="none"
+              className={s.classe}
+              strokeWidth="10"
+              strokeDasharray={`${len} ${circ - len}`}
+              strokeDashoffset={-acc}
+              transform="rotate(-90 50 50)"
+            />
+          );
+          acc += len;
+          return el;
+        })}
+        <text x="50" y="50" textAnchor="middle" dominantBaseline="central" className="fill-foreground text-[20px] font-semibold">
+          {centro}
+        </text>
+      </svg>
+      {sublabel && <span className="text-xs text-muted-foreground">{sublabel}</span>}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  BarrasMensais — barras verticais empilhadas (noPrazo + atrasadas)         */
 /* -------------------------------------------------------------------------- */
 

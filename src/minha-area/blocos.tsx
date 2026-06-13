@@ -20,7 +20,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useDadosAgencia } from '@/dashboard/useDadosAgencia';
 import { desempenhoDoUsuario, mesesRecentes } from '@/dashboard/relatoriosService';
-import { Donut } from '@/dashboard/charts';
+import type { MesRef } from '@/dashboard/relatoriosService';
+import { PainelDesempenho, resumoDeMembro } from '@/dashboard/blocosDesempenho';
 import { MeusDadosSheet } from './MeusDadosSheet';
 
 /* -------------------------------------------------------------------------- */
@@ -240,25 +241,42 @@ export function MeusProjetosBloco() {
 /*  3. MinhaProdutividadeBloco                                                 */
 /* -------------------------------------------------------------------------- */
 
-function MiniKpi({ valor, rotulo, cor }: { valor: number; rotulo: string; cor?: string }) {
-  return (
-    <div className="flex flex-col items-center gap-0.5">
-      <p className={cn('text-xl font-semibold leading-tight', cor)}>{valor}</p>
-      <p className="text-[11px] text-muted-foreground">{rotulo}</p>
-    </div>
-  );
+const MESES_FULL = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+function rotuloMesFull(m: MesRef): string {
+  return `${MESES_FULL[m.mes - 1]} ${m.ano}`;
 }
 
 export function MinhaProdutividadeBloco() {
   const { user } = useAuth();
   const { tarefas, carregando, erro } = useDadosAgencia();
 
+  // Mês atual + 2 anteriores (mais recente primeiro).
+  const opcoesMes = [...mesesRecentes(3)].reverse();
+  const [sel, setSel] = useState<MesRef>(opcoesMes[0]);
+
   const nome = user?.nome || user?.email || '';
-  const d = desempenhoDoUsuario(user?.id ?? '', nome, tarefas, mesesRecentes(1));
+  const d = desempenhoDoUsuario(user?.id ?? '', nome, tarefas, [sel]);
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Minha Produtividade</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">Minha Produtividade</h2>
+        <select
+          value={`${sel.ano}-${sel.mes}`}
+          onChange={(e) => {
+            const [a, m] = e.target.value.split('-').map(Number);
+            setSel({ ano: a, mes: m });
+          }}
+          className="h-8 rounded-md border border-input bg-background/40 px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          {opcoesMes.map((m) => (
+            <option key={`${m.ano}-${m.mes}`} value={`${m.ano}-${m.mes}`}>{rotuloMesFull(m)}</option>
+          ))}
+        </select>
+      </div>
 
       {erro && (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
@@ -267,29 +285,10 @@ export function MinhaProdutividadeBloco() {
       )}
 
       {carregando ? (
-        <div className="flex flex-col items-center gap-4">
-          <Skeleton className="size-28 rounded-full" />
-          <div className="grid w-full grid-cols-3 gap-3">
-            <Skeleton className="h-14 rounded-xl" />
-            <Skeleton className="h-14 rounded-xl" />
-            <Skeleton className="h-14 rounded-xl" />
-          </div>
-        </div>
+        <Skeleton className="h-64 w-full rounded-xl" />
       ) : (
-        <Card className="flex flex-col items-center gap-5 p-5">
-          <Donut
-            porcentagem={d.taxaNoPrazo}
-            rotulo="No prazo"
-            sublabel={`${d.noPrazo}/${d.noPrazo + d.atrasadas} com prazo`}
-          />
-          <div className="grid w-full grid-cols-3 gap-4">
-            <MiniKpi valor={d.concluidas} rotulo="Concluídas" />
-            <MiniKpi valor={d.noPrazo} rotulo="No prazo" cor="text-emerald-500" />
-            <MiniKpi valor={d.atrasadas} rotulo="Atrasadas" cor="text-destructive" />
-            <MiniKpi valor={d.semPrazo} rotulo="Sem prazo" cor="text-muted-foreground" />
-            <MiniKpi valor={d.abertasAgora} rotulo="Abertas agora" />
-            <MiniKpi valor={d.atrasadasAgora} rotulo="Atrasadas agora" cor="text-destructive" />
-          </div>
+        <Card className="p-4">
+          <PainelDesempenho resumo={resumoDeMembro(d)} />
         </Card>
       )}
     </div>

@@ -80,6 +80,29 @@ function carregarOrdem(): Ordem {
 /* --------------------------------- Helpers -------------------------------- */
 
 function pesoPrioridade(p?: string) { return p === 'alta' ? 0 : p === 'baixa' ? 2 : 1; }
+
+/** Categoria do prazo da tarefa: vencida / hoje / amanhã / futuro / '' (sem prazo). */
+type CatPrazo = '' | 'vencida' | 'hoje' | 'amanha' | 'futuro';
+function catPrazo(t: Tarefa): CatPrazo {
+  if (!t.prazo) return '';
+  if (prazoVencido(t.prazo, t.status)) return 'vencida';
+  const lim = prazoLimite(t.prazo);
+  if (!lim) return '';
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const d = new Date(lim); d.setHours(0, 0, 0, 0);
+  const diff = Math.round((d.getTime() - hoje.getTime()) / 86400000);
+  if (diff === 0) return 'hoje';
+  if (diff === 1) return 'amanha';
+  return 'futuro';
+}
+/** Cor da data por categoria de prazo. */
+function corPrazo(cat: CatPrazo): string {
+  if (cat === 'vencida') return 'font-medium text-destructive';
+  if (cat === 'hoje') return 'font-medium text-yellow-500';
+  if (cat === 'amanha') return 'font-medium text-orange-500';
+  return 'text-muted-foreground';
+}
+
 function nomeCliente(t: Tarefa) {
   return t.expand?.cliente?.nome_fantasia ?? t.expand?.cliente?.nome ?? '—';
 }
@@ -138,6 +161,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
   const [ordem, setOrdem] = useState<Ordem>(carregarOrdem);
   const [fStatus, setFStatus] = useState('');       // '' = todos
   const [fPrioridade, setFPrioridade] = useState(''); // '' = todas
+  const [fPrazo, setFPrazo] = useState('');           // '' = todos
   const [concluidasAbertas, setConcluidasAbertas] = useState(false);
 
   function toggleCol(k: ColKey) {
@@ -160,6 +184,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
     let arr = minhas;
     if (fStatus) arr = arr.filter((t) => (t.status ?? '') === fStatus);
     if (fPrioridade) arr = arr.filter((t) => (t.prioridade ?? 'media') === fPrioridade);
+    if (fPrazo) arr = arr.filter((t) => catPrazo(t) === fPrazo);
     return [...arr].sort((a, b) => {
       if (ordem === 'nome') return (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR', { sensitivity: 'base' });
       if (ordem === 'prioridade') {
@@ -170,7 +195,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
       const pb = prazoLimite(b.prazo)?.getTime() ?? Infinity;
       return pa - pb;
     });
-  }, [minhas, fStatus, fPrioridade, ordem]);
+  }, [minhas, fStatus, fPrioridade, fPrazo, ordem]);
 
   const colsVisiveis = useMemo(() => colDefs.filter((c) => c.visivel), [colDefs]);
 
@@ -203,8 +228,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
       : <span className="text-muted-foreground">—</span>;
     if (key === 'prazo') {
       if (!t.prazo) return <span className="text-muted-foreground">—</span>;
-      const venc = prazoVencido(t.prazo, t.status);
-      return <span className={cn('text-xs', venc ? 'font-medium text-destructive' : 'text-muted-foreground')}>{prazoBR(t.prazo)}</span>;
+      return <span className={cn('text-xs', corPrazo(catPrazo(t)))}>{prazoBR(t.prazo)}</span>;
     }
     if (key === 'prioridade') return <PrioridadeBadge p={t.prioridade} />;
     if (key === 'responsaveis') {
@@ -284,6 +308,13 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
           <option value="alta">Alta</option>
           <option value="media">Média</option>
           <option value="baixa">Baixa</option>
+        </select>
+        <select value={fPrazo} onChange={(e) => setFPrazo(e.target.value)} aria-label="Filtrar por prazo"
+          className={cn(filtroCls, fPrazo ? 'text-foreground' : 'text-muted-foreground')}>
+          <option value="">Prazo</option>
+          <option value="hoje">Hoje</option>
+          <option value="amanha">Amanhã</option>
+          <option value="vencida">Vencida</option>
         </select>
         <div className="ml-auto flex items-center gap-2">
           <select value={ordem} onChange={(e) => trocarOrdem(e.target.value as Ordem)} aria-label="Ordenar"

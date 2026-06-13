@@ -5,7 +5,7 @@ import { carregarDesempenho, calcularDesempenho, mesesRecentes } from './relator
 import type { MesRef, DesempenhoAgencia, DesempenhoMembro } from './relatoriosService';
 import { LinhaPontualidade, BarraProgresso, RoscaSegmentada } from './charts';
 import { corAvatar } from '@/clientes/format';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -177,12 +177,12 @@ function TendenciaPontualidade() {
 
   return (
     <Card className="lg:col-span-1">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm">Tendência de pontualidade</CardTitle>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-3 p-4">
+        <div className="rounded-lg bg-secondary/40 px-4 py-3 text-center">
+          <span className="text-sm font-medium">Tendência de pontualidade</span>
+        </div>
         <LinhaPontualidade pontos={pontos} />
-        <p className="mt-1 text-center text-[10px] text-muted-foreground">% de entregas no prazo por mês</p>
+        <p className="text-center text-[10px] text-muted-foreground">% de entregas no prazo por mês</p>
       </CardContent>
     </Card>
   );

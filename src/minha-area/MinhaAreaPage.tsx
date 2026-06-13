@@ -8,7 +8,7 @@ import { fotoUrl } from '@/usuarios/usuariosService';
 import { corAvatar, inicial } from '@/clientes/format';
 import type { Usuario } from '@/usuarios/types';
 import { DadosAgenciaProvider } from '@/dashboard/useDadosAgencia';
-import { MeusProjetosBloco, MinhaProdutividadeBloco } from './blocos';
+import { MinhaProdutividadeBloco } from './blocos';
 import { MinhasTarefasBloco, TarefasEquipeBloco } from './blocosTarefas';
 
 const ROLES_COMPLETOS = new Set(['Owner', 'Admin', 'Gestor', 'Membro']);
@@ -81,8 +81,6 @@ export function MinhaAreaPage() {
         <MinhasTarefasBloco somenteLeitura={somenteLeitura} />
 
         {completo && <TarefasEquipeBloco />}
-
-        <MeusProjetosBloco />
       </div>
     </DadosAgenciaProvider>
   );

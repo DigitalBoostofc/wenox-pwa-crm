@@ -3,7 +3,7 @@ import { useDadosAgencia } from '@/dashboard/useDadosAgencia';
 import { useAuth } from '@/auth/useAuth';
 import { tarefaConcluida, prazoVencido, prazoBR, prazoLimite } from '@/tarefas/format';
 import {
-  temEtapas, tarefaEmEquipe, ehVezDoUsuario, aguardandoAprovacaoCliente, vezLabel,
+  tarefaEmEquipe, ehVezDoUsuario, vezLabel, etapaAtual,
 } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
 import { TarefaViewSheet } from '@/tarefas/TarefaViewSheet';
@@ -161,6 +161,23 @@ function CardLista({ titulo, vazio, children }: { titulo: string; vazio: boolean
 /*  Minhas Tarefas — 3 cards (Por data | Por prioridade | Tarefas em Equipe)  */
 /* -------------------------------------------------------------------------- */
 
+/** Data da etapa com cor por urgência (vencida=vermelho, hoje=amarelo, amanhã=laranja). */
+function dataEtapaCor(prazo?: string): { txt: string; cls: string } | null {
+  if (!prazo) return null;
+  const lim = prazoLimite(prazo);
+  if (!lim) return null;
+  let cls = 'text-muted-foreground';
+  if (lim.getTime() < Date.now()) cls = 'font-medium text-destructive';
+  else {
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const d = new Date(lim); d.setHours(0, 0, 0, 0);
+    const diff = Math.round((d.getTime() - hoje.getTime()) / 86400000);
+    if (diff === 0) cls = 'font-medium text-yellow-500';
+    else if (diff === 1) cls = 'font-medium text-orange-500';
+  }
+  return { txt: prazoBR(prazo), cls };
+}
+
 export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
   const { tarefas, carregando, refresh } = useDadosAgencia();
   const { user } = useAuth();
@@ -183,26 +200,17 @@ export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolea
   const porData = ordenarPorData(individuais);
   const porPrioridade = ordenarPorPrioridade(individuais);
 
+  // Tarefas pendentes = etapas em que é a VEZ do usuário (status "Concluir Etapa").
   const equipe = tarefas
-    .filter((t) => (t.responsaveis ?? []).includes(uid) && tarefaEmEquipe(t) && !tarefaConcluida(t.status))
+    .filter((t) => (t.responsaveis ?? []).includes(uid) && tarefaEmEquipe(t) && !tarefaConcluida(t.status) && ehVezDoUsuario(t, uid))
     .sort((a, b) => {
-      const va = ehVezDoUsuario(a, uid) ? 0 : 1;
-      const vb = ehVezDoUsuario(b, uid) ? 0 : 1;
-      if (va !== vb) return va - vb;
-      return (prazoLimite(a.prazo)?.getTime() ?? Infinity) - (prazoLimite(b.prazo)?.getTime() ?? Infinity);
+      const pa = prazoLimite(etapaAtual(a.etapas)?.prazo)?.getTime() ?? Infinity;
+      const pb = prazoLimite(etapaAtual(b.etapas)?.prazo)?.getTime() ?? Infinity;
+      return pa - pb;
     });
 
-  function tagEquipe(t: Tarefa) {
-    if (!temEtapas(t)) {
-      return <Badge className="shrink-0 border border-border bg-secondary text-[10px] text-muted-foreground">Em equipe</Badge>;
-    }
-    if (ehVezDoUsuario(t, uid)) {
-      return <Badge className="shrink-0 animate-pulse border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">Concluir Etapa</Badge>;
-    }
-    if (aguardandoAprovacaoCliente(t)) {
-      return <Badge className="shrink-0 border border-yellow-500/50 bg-yellow-500/15 text-[10px] text-yellow-500">Aguardando Cliente</Badge>;
-    }
-    return <Badge className="shrink-0 border border-amber-700/50 bg-amber-700/15 text-[10px] text-amber-600">Aguardando Equipe</Badge>;
+  function tagEquipe() {
+    return <Badge className="shrink-0 animate-pulse border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">Concluir Etapa</Badge>;
   }
 
   function abrirEquipe(t: Tarefa) {
@@ -226,10 +234,11 @@ export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolea
           ))}
         </CardLista>
 
-        {/* Tarefas em Equipe */}
-        <CardLista titulo="Tarefas em Equipe" vazio={equipe.length === 0}>
+        {/* Tarefas pendentes (etapa na minha vez) */}
+        <CardLista titulo="Tarefas pendentes" vazio={equipe.length === 0}>
           {equipe.map((t) => {
             const label = vezLabel(t, nomeDe(t));
+            const data = dataEtapaCor(etapaAtual(t.etapas)?.prazo);
             return (
               <button
                 key={t.id}
@@ -243,7 +252,10 @@ export function MinhasTarefasBloco({ somenteLeitura }: { somenteLeitura?: boolea
                     {contexto(t)}{label ? ` · ${label}` : ''}
                   </p>
                 </div>
-                {tagEquipe(t)}
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  {tagEquipe()}
+                  {data && <span className={cn('text-[11px]', data.cls)}>{data.txt}</span>}
+                </div>
               </button>
             );
           })}

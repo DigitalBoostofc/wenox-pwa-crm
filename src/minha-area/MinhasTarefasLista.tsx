@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { SlidersHorizontal, GripVertical, UserRound } from 'lucide-react';
+import { SlidersHorizontal, GripVertical, UserRound, ChevronDown } from 'lucide-react';
 import { useDadosAgencia } from '@/dashboard/useDadosAgencia';
 import { useAuth } from '@/auth/useAuth';
 import type { Tarefa } from '@/tarefas/types';
@@ -139,6 +139,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
   const [ordem, setOrdem] = useState<Ordem>(carregarOrdem);
   const [fStatus, setFStatus] = useState('');       // '' = todos
   const [fPrioridade, setFPrioridade] = useState(''); // '' = todas
+  const [concluidasAbertas, setConcluidasAbertas] = useState(false);
 
   function toggleCol(k: ColKey) {
     setColDefs((cs) => { const n = cs.map((c) => c.key === k ? { ...c, visivel: !c.visivel } : c); salvarColunas(n); return n; });
@@ -222,6 +223,47 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
     return null;
   }
 
+  const abertas = filtradas.filter((t) => !tarefaConcluida(t.status));
+  const concluidas = filtradas.filter((t) => tarefaConcluida(t.status));
+
+  function tabela(linhas: Tarefa[], vazio: string) {
+    return (
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                {colsVisiveis.map((col) => (
+                  <th key={col.key} className="relative px-4 py-3 font-medium"
+                    style={larguras[col.key] ? { width: larguras[col.key] } : undefined}>
+                    {col.label}
+                    <span role="separator" aria-orientation="vertical" aria-label="Redimensionar"
+                      onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)}
+                      className="group absolute -right-1 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center">
+                      <span aria-hidden className="h-2/3 w-px bg-border transition-colors group-hover:w-0.5 group-hover:bg-primary" />
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {linhas.length === 0 ? (
+                <tr><td colSpan={colsVisiveis.length || 1} className="px-5 py-12 text-center text-sm text-muted-foreground">{vazio}</td></tr>
+              ) : linhas.map((t) => (
+                <tr key={t.id} onClick={() => setViewId(t.id)}
+                  className={cn('cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50', tarefaConcluida(t.status) && 'opacity-60')}>
+                  {colsVisiveis.map((col) => (
+                    <td key={col.key} className="overflow-hidden px-4 py-3 text-muted-foreground">{celula(t, col.key)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    );
+  }
+
   if (carregando) return <Skeleton className="h-64 w-full rounded-xl" />;
 
   return (
@@ -249,46 +291,26 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
         </div>
       </div>
 
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                {colsVisiveis.map((col) => (
-                  <th key={col.key} className="relative px-4 py-3 font-medium"
-                    style={larguras[col.key] ? { width: larguras[col.key] } : undefined}>
-                    {col.label}
-                    <span role="separator" aria-orientation="vertical" aria-label="Redimensionar"
-                      onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)}
-                      className="group absolute -right-1 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center">
-                      <span aria-hidden className="h-2/3 w-px bg-border transition-colors group-hover:w-0.5 group-hover:bg-primary" />
-                    </span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtradas.length === 0 ? (
-                <tr><td colSpan={colsVisiveis.length || 1} className="px-5 py-12 text-center text-sm text-muted-foreground">
-                  Nenhuma tarefa neste filtro.
-                </td></tr>
-              ) : filtradas.map((t) => (
-                <tr key={t.id} onClick={() => setViewId(t.id)}
-                  className={cn('cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50', tarefaConcluida(t.status) && 'opacity-60')}>
-                  {colsVisiveis.map((col) => (
-                    <td key={col.key} className="overflow-hidden px-4 py-3 text-muted-foreground">{celula(t, col.key)}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {tabela(abertas, 'Nenhuma tarefa neste filtro.')}
 
       {!carregando && (
         <p className="pt-1 text-right text-xs text-muted-foreground">
-          {filtradas.length} {filtradas.length === 1 ? 'tarefa' : 'tarefas'}
+          {abertas.length} {abertas.length === 1 ? 'tarefa em aberto' : 'tarefas em aberto'}
         </p>
+      )}
+
+      {/* Concluídas — recolhidas no final */}
+      {concluidas.length > 0 && (
+        <div>
+          <button type="button" onClick={() => setConcluidasAbertas((v) => !v)}
+            className="flex w-full items-center justify-between rounded-md border border-border bg-card px-4 py-2.5 text-sm transition-colors hover:bg-secondary/50">
+            <span className="font-medium text-muted-foreground">
+              Tarefas concluídas <span className="text-muted-foreground/70">({concluidas.length})</span>
+            </span>
+            <ChevronDown className={cn('size-4 text-muted-foreground transition-transform', concluidasAbertas && 'rotate-180')} />
+          </button>
+          {concluidasAbertas && <div className="mt-2">{tabela(concluidas, 'Nenhuma tarefa concluída.')}</div>}
+        </div>
       )}
 
       <TarefaViewSheet

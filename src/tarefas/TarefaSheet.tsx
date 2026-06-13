@@ -639,6 +639,7 @@ export function TarefaSheet({
         prioridade: t.prioridade,
         recorrencia: t.recorrencia ?? '',
         etiquetas: t.etiquetas ?? [],
+        etapas: t.etapas ?? [],
         ordem: 0,
       };
       await criarTarefa(input);

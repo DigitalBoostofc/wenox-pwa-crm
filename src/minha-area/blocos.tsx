@@ -8,7 +8,7 @@ import type { Usuario } from '@/usuarios/types';
 import { tarefaConcluida, prazoVencido, prazoBR } from '@/tarefas/format';
 import { temEtapas, aguardandoAprovacaoCliente, ehVezDoUsuario, vezLabel } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
-import { STATUS_CONCLUIDO, STATUS_INICIAL } from '@/tarefas/status';
+import { statusConcluido, statusInicial } from '@/tarefas/status';
 import { MinhaSemanaList } from '@/tarefas/MinhaSemanaList';
 import { QuickAddTarefa } from '@/tarefas/QuickAddTarefa';
 import { TarefaSheet } from '@/tarefas/TarefaSheet';
@@ -52,7 +52,7 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
   async function handleConcluir(id: string) {
     if (somenteLeitura) return;
     try {
-      await concluirTarefa(id, STATUS_CONCLUIDO);
+      await concluirTarefa(id, statusConcluido());
       refresh();
     } catch {
       setErro('Não foi possível concluir a tarefa.');
@@ -62,7 +62,7 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
   async function handleReabrir(id: string) {
     if (somenteLeitura) return;
     try {
-      await reabrirTarefa(id, STATUS_INICIAL);
+      await reabrirTarefa(id, statusInicial());
       refresh();
     } catch {
       setErro('Não foi possível reabrir a tarefa.');

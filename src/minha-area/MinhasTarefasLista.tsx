@@ -7,7 +7,7 @@ import type { Tarefa } from '@/tarefas/types';
 import { TarefaViewSheet } from '@/tarefas/TarefaViewSheet';
 import { statusTarefaClass, prazoBR, tarefaConcluida, prazoLimite } from '@/tarefas/format';
 import { temEtapas, etapaAtual, ehVezDoUsuario, aguardandoAprovacaoCliente } from '@/tarefas/etapas';
-import { STATUS_TAREFA } from '@/tarefas/status';
+import { useStatuses } from '@/tarefas/status';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial } from '@/clientes/format';
@@ -184,6 +184,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
   const { tarefas, carregando, refresh } = useDadosAgencia();
   const { user } = useAuth();
   const uid = user?.id ?? '';
+  const statuses = useStatuses();
   const [viewId, setViewId] = useState<string | null>(null);
 
   const [colDefs, setColDefs] = useState<ColDef[]>(carregarColunas);
@@ -353,7 +354,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
         <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label="Filtrar por status"
           className={cn(filtroCls, fStatus ? 'text-foreground' : 'text-muted-foreground')}>
           <option value="">Status</option>
-          {STATUS_TAREFA.map((s) => <option key={s} value={s}>{s}</option>)}
+          {statuses.map((s) => <option key={s.id} value={s.nome}>{s.nome}</option>)}
         </select>
         <select value={fPrioridade} onChange={(e) => setFPrioridade(e.target.value)} aria-label="Filtrar por prioridade"
           className={cn(filtroCls, fPrioridade ? 'text-foreground' : 'text-muted-foreground')}>

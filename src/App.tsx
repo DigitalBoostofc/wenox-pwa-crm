@@ -27,6 +27,8 @@ const UsuariosPage = lazy(() =>
   import('@/usuarios/UsuariosPage').then((m) => ({ default: m.UsuariosPage })));
 const ParametrosPage = lazy(() =>
   import('@/opcoes/ParametrosPage').then((m) => ({ default: m.ParametrosPage })));
+const StatusTarefaPage = lazy(() =>
+  import('@/opcoes/StatusTarefaPage').then((m) => ({ default: m.StatusTarefaPage })));
 const ProjetosListPage = lazy(() =>
   import('@/projetos/ProjetosListPage').then((m) => ({ default: m.ProjetosListPage })));
 const ProjetoFormPage = lazy(() =>
@@ -198,6 +200,9 @@ function AuthedApp() {
           </Route>
           <Route exact path="/config/etapas-projeto">
             <SomenteAdmin><EtapasProjetoPage /></SomenteAdmin>
+          </Route>
+          <Route exact path="/config/status-tarefa">
+            <SomenteAdmin><StatusTarefaPage /></SomenteAdmin>
           </Route>
           <Route exact path="/config/privacidade">
             <SomenteAdmin><PrivacidadePage /></SomenteAdmin>

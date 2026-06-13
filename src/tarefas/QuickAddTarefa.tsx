@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { criarTarefa } from './tarefasService';
-import { STATUS_INICIAL } from './status';
+import { statusInicial } from './status';
 import { useAuth } from '@/auth/useAuth';
 
 export function QuickAddTarefa({
@@ -31,7 +31,7 @@ export function QuickAddTarefa({
       const hoje = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const nova = await criarTarefa({
         nome,
-        status: STATUS_INICIAL,
+        status: statusInicial(),
         prazo: hoje,
         lado: 'wenox',
         responsaveis: user?.id ? [user.id] : [],

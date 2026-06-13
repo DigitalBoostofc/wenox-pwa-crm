@@ -9,7 +9,7 @@ import type { Tarefa, TarefaInput, EtapaTarefa, TipoEtapa } from './types';
 import { RECORRENCIA_LABEL } from './types';
 import { etapaAtualIndex, progressoEtapas, novaEtapaId } from './etapas';
 import { statusTarefaClass, temHoraPrazo } from './format';
-import { STATUS_TAREFA, STATUS_INICIAL } from './status';
+import { useStatuses, statusInicial } from './status';
 import { AprovacaoTarefa } from './TarefaDetailPage';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { listProjetos } from '@/projetos/projetosService';
@@ -401,6 +401,7 @@ export function TarefaSheet({
 }) {
   const history = useHistory();
   const { user } = useAuth();
+  const statuses = useStatuses();
   const souCliente = ehCliente(user?.role);
   /** Membro/Visualizador: precisa ficar como responsável da tarefa que cria. */
   const ehMembro = !souCliente && !canGerirEquipe(user?.role);
@@ -449,7 +450,7 @@ export function TarefaSheet({
       setT({
         id: '',
         nome: '',
-        status: STATUS_INICIAL,
+        status: statusInicial(),
         prazo: hojeLocal(),
         projeto: presetProjeto ?? '',
         cliente: clienteId,
@@ -654,7 +655,7 @@ export function TarefaSheet({
         lado: t.lado ?? 'wenox',
         responsaveis: t.responsaveis ?? [],
         contato: t.contato ?? '',
-        status: t.status ?? STATUS_INICIAL,
+        status: t.status ?? statusInicial(),
         prazo: t.prazo ?? '',
         prioridade: t.prioridade,
         recorrencia: t.recorrencia ?? '',
@@ -757,8 +758,8 @@ export function TarefaSheet({
                     className={selectCls}
                   >
                     <option value="">—</option>
-                    {STATUS_TAREFA.map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                    {statuses.map((s) => (
+                      <option key={s.id} value={s.nome}>{s.nome}</option>
                     ))}
                   </select>
                   {t.status && (

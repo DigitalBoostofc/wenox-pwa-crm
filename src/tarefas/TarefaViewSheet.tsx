@@ -6,7 +6,7 @@ import {
 import type { Tarefa, EtapaTarefa } from './types';
 import { statusTarefaClass, prazoVencido, prazoBR } from './format';
 import { temEtapas, etapaAtualIndex, progressoEtapas } from './etapas';
-import { STATUS_TAREFA } from './status';
+import { useStatuses } from './status';
 import { addComentario } from '@/atividade/atividadeService';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { useAuth } from '@/auth/useAuth';
@@ -43,6 +43,7 @@ export function TarefaViewSheet({
 }) {
   const { user } = useAuth();
   const uid = user?.id ?? '';
+  const statuses = useStatuses();
   const [t, setT] = useState<Tarefa | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
@@ -180,7 +181,7 @@ export function TarefaViewSheet({
                     <div className="flex items-center gap-2">
                       <select value={statusEdit} onChange={(e) => setStatusEdit(e.target.value)} className={selectCls}>
                         <option value="">—</option>
-                        {STATUS_TAREFA.map((s) => <option key={s} value={s}>{s}</option>)}
+                        {statuses.map((s) => <option key={s.id} value={s.nome}>{s.nome}</option>)}
                       </select>
                       {statusEdit !== (t.status ?? '') && (
                         <Button size="sm" onClick={salvarStatus} disabled={salvandoStatus} className="shrink-0">

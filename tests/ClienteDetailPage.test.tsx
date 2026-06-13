@@ -10,6 +10,8 @@ vi.mock('@/clientes/clientesService', () => ({
 vi.mock('@/atividade/atividadeService', () => ({
   listAtividade: vi.fn(async () => []),
   addComentario: vi.fn(),
+  candidatosMencao: vi.fn(async () => ({ colaboradores: [], clientes: [] })),
+  removerComentario: vi.fn(),
 }));
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ id: 'c1' }),

@@ -46,6 +46,8 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
       setMatriz(m);
       setCarregando(false);
     });
+    // Status de tarefas configuráveis: atualiza o cache global (notifica via store).
+    import('@/tarefas/status').then((m) => m.carregarStatusRemoto()).catch(() => { /* */ });
     return () => { vivo = false; };
   }, []);
 

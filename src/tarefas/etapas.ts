@@ -1,5 +1,5 @@
 import type { EtapaTarefa, Tarefa } from './types';
-import { STATUS_INICIAL, STATUS_CONCLUIDO } from './status';
+import { statusInicial, statusConcluido, statusDoPapel } from './status';
 
 /* -------------------------------------------------------------------------- */
 /*  Motor de etapas (funções puras) — fluxo sequencial com handoff            */
@@ -41,11 +41,13 @@ export function progressoEtapas(etapas?: EtapaTarefa[]): { feitas: number; total
  */
 export function statusDerivado(etapas: EtapaTarefa[], aprovacao?: string): string {
   const i = etapaAtualIndex(etapas);
-  if (i === -1) return STATUS_CONCLUIDO;
-  if (aprovacao === 'alteracao') return 'Em alteração';
+  if (i === -1) return statusConcluido();
+  if (aprovacao === 'alteracao') return statusDoPapel('em_alteracao') ?? 'Em alteração';
   const atual = etapas[i];
-  if (atual.tipo === 'aprovacao_cliente') return 'Aguardando aprovação';
-  return etapas.some((e) => e.feito) ? 'Em andamento' : STATUS_INICIAL;
+  if (atual.tipo === 'aprovacao_cliente') return statusDoPapel('aguardando_aprovacao') ?? 'Aguardando aprovação';
+  return etapas.some((e) => e.feito)
+    ? (statusDoPapel('em_andamento') ?? 'Em andamento')
+    : statusInicial();
 }
 
 /** Tarefa em equipe = mais de um responsável (independe da qtd de etapas). */

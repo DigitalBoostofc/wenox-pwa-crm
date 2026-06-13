@@ -5,7 +5,7 @@ import {
 import { notificar, idsGestao } from '@/notificacoes/notificacoesService';
 import type { Tarefa, TarefaInput, EtapaTarefa } from './types';
 import { tarefaConcluida } from './format';
-import { STATUS_INICIAL } from './status';
+import { statusInicial, statusDoPapel } from './status';
 import {
   temEtapas, etapaAtual, etapaAtualIndex, aguardandoAprovacaoCliente, statusDerivado,
   indexEtapaInternaAnterior,
@@ -83,7 +83,7 @@ async function criarProximaOcorrencia(t: Tarefa): Promise<void> {
       recorrencia: t.recorrencia,
       ordem: t.ordem ?? 0,
       checklist: (t.checklist ?? []).map((item) => ({ ...item, feito: false })),
-      status: STATUS_INICIAL,
+      status: statusInicial(),
       prazo: proximoPrazo(t.prazo, t.recorrencia),
     };
     await criarTarefa(input);
@@ -398,7 +398,7 @@ export async function pedirAlteracaoTarefa(
 
   const rec2 = (await col().update(id, {
     aprovacao: 'alteracao',
-    status: 'Em alteração',
+    status: statusDoPapel('em_alteracao') ?? 'Em alteração',
   })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, 'Cliente pediu alteração');
   try { await addComentario('tarefa', id, `🔁 Alteração solicitada: ${t}`, false); } catch { /* */ }

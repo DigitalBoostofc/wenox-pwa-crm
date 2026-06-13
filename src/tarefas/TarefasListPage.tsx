@@ -8,7 +8,7 @@ import { statusTarefaClass, tarefaConcluida } from './format';
 import { MinhaSemanaList } from './MinhaSemanaList';
 import type { TipoAgrupamento } from './MinhaSemanaList';
 import { QuickAddTarefa } from './QuickAddTarefa';
-import { STATUS_TAREFA, STATUS_CONCLUIDO, STATUS_INICIAL } from './status';
+import { useStatuses, statusConcluido, statusInicial } from './status';
 import { useAuth } from '@/auth/useAuth';
 import { ehCliente, canGerirEquipe } from '@/auth/perms';
 import { listOpcoes } from '@/opcoes/opcoesService';
@@ -102,6 +102,7 @@ function ViewToggleBtn({ ativo, onClick, icon: Icon, label }: {
 
 export function TarefasListPage() {
   const { user } = useAuth();
+  const statuses = useStatuses();
   const history = useHistory();
   const location = useLocation();
   const [busca, setBusca] = useState('');
@@ -230,9 +231,9 @@ export function TarefasListPage() {
   }
 
   async function handleConcluir(id: string) {
-    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: STATUS_CONCLUIDO } : t)));
+    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusConcluido() } : t)));
     try {
-      await concluirTarefa(id, STATUS_CONCLUIDO);
+      await concluirTarefa(id, statusConcluido());
       setRecarrega((n) => n + 1);
     } catch {
       setErro('Não foi possível concluir a tarefa.');
@@ -241,9 +242,9 @@ export function TarefasListPage() {
   }
 
   async function handleReabrir(id: string) {
-    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: STATUS_INICIAL } : t)));
+    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusInicial() } : t)));
     try {
-      await reabrirTarefa(id, STATUS_INICIAL);
+      await reabrirTarefa(id, statusInicial());
       setRecarrega((n) => n + 1);
     } catch {
       setErro('Não foi possível reabrir a tarefa.');
@@ -377,7 +378,7 @@ export function TarefasListPage() {
             </div>
           </Card>
         ) : (
-          <KanbanTarefas tarefas={tarefasExibidas} statuses={STATUS_TAREFA} onAbrir={abrir} onMover={mover} />
+          <KanbanTarefas tarefas={tarefasExibidas} statuses={statuses.map((s) => s.nome)} onAbrir={abrir} onMover={mover} />
         )
       ) : (
         <div className="flex flex-col gap-3">
@@ -390,7 +391,7 @@ export function TarefasListPage() {
             onConcluir={handleConcluir}
             onReabrir={handleReabrir}
             agrupar={agrupar}
-            statuses={[...STATUS_TAREFA]}
+            statuses={statuses.map((s) => s.nome)}
           />
         </div>
       )}

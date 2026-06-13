@@ -1,6 +1,10 @@
-/** Cor da pill/coluna de status — status é gerenciável, então mapeia
- *  por palavra-chave do nome (fallback neutro). */
+import { corStatusClass, statusConcluido } from './status';
+
+/** Cor da pill/coluna de status — usa a cor configurada do status; se o nome
+ *  não estiver na lista (ex.: status legado), cai no mapa por palavra-chave. */
 export function statusTarefaClass(status?: string): string {
+  const conf = corStatusClass(status);
+  if (conf) return conf;
   const s = (status ?? '').toLowerCase();
   if (s.includes('conclu')) return 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400';
   if (s.includes('aprova')) return 'border-amber-500/50 bg-amber-500/15 text-amber-400';
@@ -10,9 +14,12 @@ export function statusTarefaClass(status?: string): string {
   return 'border-border bg-secondary text-muted-foreground';
 }
 
-/** Uma tarefa conta como concluída quando o status contém "conclu". */
+/** Uma tarefa conta como concluída quando bate com o status de papel
+ *  "concluido" (ou, p/ dados legados, quando o nome contém "conclu"). */
 export function tarefaConcluida(status?: string): boolean {
-  return (status ?? '').toLowerCase().includes('conclu');
+  if (!status) return false;
+  if (status === statusConcluido()) return true;
+  return status.toLowerCase().includes('conclu');
 }
 
 /** Parse datetime por partes (data + hora opcional), LOCAL, ignorando o Z. */

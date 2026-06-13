@@ -4,7 +4,7 @@ import type { Tarefa } from './types';
 import { MinhaSemanaList } from './MinhaSemanaList';
 import { QuickAddTarefa } from './QuickAddTarefa';
 import { TarefaSheet } from './TarefaSheet';
-import { STATUS_CONCLUIDO, STATUS_INICIAL } from './status';
+import { statusConcluido, statusInicial } from './status';
 
 export function TarefasTabProjeto({
   projetoId, clienteId,
@@ -27,9 +27,9 @@ export function TarefasTabProjeto({
   }, [projetoId, recarrega]);
 
   async function handleConcluir(id: string) {
-    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: STATUS_CONCLUIDO } : t)));
+    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusConcluido() } : t)));
     try {
-      await concluirTarefa(id, STATUS_CONCLUIDO);
+      await concluirTarefa(id, statusConcluido());
       setRecarrega((n) => n + 1);
     } catch {
       setErro('Não foi possível concluir a tarefa.');
@@ -38,9 +38,9 @@ export function TarefasTabProjeto({
   }
 
   async function handleReabrir(id: string) {
-    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: STATUS_INICIAL } : t)));
+    setTarefas((lst) => lst.map((t) => (t.id === id ? { ...t, status: statusInicial() } : t)));
     try {
-      await reabrirTarefa(id, STATUS_INICIAL);
+      await reabrirTarefa(id, statusInicial());
       setRecarrega((n) => n + 1);
     } catch {
       setErro('Não foi possível reabrir a tarefa.');

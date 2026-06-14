@@ -106,7 +106,36 @@ export function fundoBoardStyle(q: Pick<Quadro, 'fundo_img' | 'fundo_cor'>): CSS
   return {};
 }
 
-/** Trello color name → classes Tailwind (pill). */
+/** Trello color name → classes de cor SÓLIDA (etiqueta estilo Trello). */
+export function corEtiquetaSolida(cor?: string): string {
+  const c = (cor ?? '').toLowerCase();
+  if (c.includes('green')) return 'bg-emerald-500 text-white';
+  if (c.includes('lime')) return 'bg-lime-400 text-black';
+  if (c.includes('yellow')) return 'bg-yellow-400 text-black';
+  if (c.includes('orange')) return 'bg-orange-400 text-black';
+  if (c.includes('red')) return 'bg-red-500 text-white';
+  if (c.includes('purple') || c.includes('violet')) return 'bg-violet-500 text-white';
+  if (c.includes('sky')) return 'bg-sky-400 text-black';
+  if (c.includes('blue')) return 'bg-blue-500 text-white';
+  if (c.includes('pink')) return 'bg-pink-400 text-white';
+  if (c.includes('black')) return 'bg-zinc-500 text-white';
+  return 'bg-slate-500 text-white';
+}
+
+/** Status do prazo do card (cor do badge, estilo Trello). */
+export function corPrazoCard(prazo?: string, concluido?: boolean): string {
+  if (!prazo) return '';
+  if (concluido) return 'bg-emerald-600 text-white';
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const d = new Date(prazo.replace(' ', 'T').slice(0, 10) + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return 'bg-secondary text-muted-foreground';
+  const diff = Math.round((d.getTime() - hoje.getTime()) / 86400000);
+  if (diff < 0) return 'bg-red-600 text-white';        // vencido
+  if (diff <= 2) return 'bg-yellow-500 text-black';    // hoje/em breve
+  return 'bg-secondary text-muted-foreground';
+}
+
+/** Trello color name → classes Tailwind (pill translúcida — usada onde cabe). */
 export function corEtiquetaClass(cor?: string): string {
   const c = (cor ?? '').toLowerCase();
   if (c.includes('green') || c.includes('lime')) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';

@@ -6,7 +6,7 @@ import {
   listComentariosCartao, addComentarioCartao, removerComentarioCartao,
 } from './quadrosService';
 import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
-import { progressoChecklist, corEtiquetaClass, capaCartao, CORES_ETIQUETA } from './types';
+import { progressoChecklist, corEtiquetaSolida, capaCartao, CORES_ETIQUETA } from './types';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
 import { useAuth } from '@/auth/useAuth';
@@ -232,31 +232,10 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                   )}
                 </Secao>
 
-                <Secao icon={MessageSquare} titulo={`Comentários (${comentarios.length})`}>
-                  <div className="flex gap-2">
-                    <textarea value={novoComent} onChange={(e) => setNovoComent(e.target.value)} rows={2}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComentario(); } }}
-                      placeholder="Escrever um comentário…" className="w-full resize-none rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
-                  </div>
-                  {novoComent.trim() && <Button size="sm" className="h-7 w-fit text-xs" onClick={enviarComentario}>Comentar</Button>}
-                  <div className="flex flex-col gap-2">
-                    {comentarios.map((cm) => (
-                      <div key={cm.id} className="rounded-md border border-border bg-background/40 p-2 text-sm">
-                        <div className="mb-0.5 flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground/80">{cm.expand?.autor?.nome ?? 'Alguém'}</span>
-                          {(cm.autor === user?.id || user?.role === 'Owner' || user?.role === 'Admin') && (
-                            <button onClick={() => apagarComentario(cm.id)} className="hover:text-destructive"><Trash2 className="size-3" /></button>
-                          )}
-                        </div>
-                        <p className="whitespace-pre-wrap">{cm.texto}</p>
-                      </div>
-                    ))}
-                  </div>
-                </Secao>
               </div>
 
-              {/* sidebar */}
-              <div className="flex w-full shrink-0 flex-col gap-4 md:w-52">
+              {/* coluna direita: props + comentários (estilo Trello) */}
+              <div className="flex w-full shrink-0 flex-col gap-4 md:w-80">
                 <Secao icon={Calendar} titulo="Data">
                   <input type="date" value={(c.prazo ?? '').slice(0, 10)} onChange={(e) => salvar({ prazo: e.target.value })}
                     className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
@@ -266,7 +245,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                 <Secao icon={Tag} titulo="Etiquetas">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {(c.etiquetas ?? []).filter((e) => e.nome || e.cor).map((e, i) => (
-                      <span key={i} className={cn('inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs font-medium', corEtiquetaClass(e.cor))}>
+                      <span key={i} className={cn('inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs font-medium', corEtiquetaSolida(e.cor))}>
                         {e.nome || '—'}<button onClick={() => removerEtiqueta(i)} className="opacity-60 hover:opacity-100"><X className="size-3" /></button>
                       </span>
                     ))}
@@ -277,7 +256,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                       <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
                         <DropdownMenuLabel>Etiquetas do quadro</DropdownMenuLabel><DropdownMenuSeparator />
                         {labelsRestantes.map((e, i) => (
-                          <DropdownMenuItem key={i} onClick={() => addEtiqueta(e)}><span className={cn('mr-2 inline-block h-3 w-6 rounded border', corEtiquetaClass(e.cor))} />{e.nome || '(sem nome)'}</DropdownMenuItem>
+                          <DropdownMenuItem key={i} onClick={() => addEtiqueta(e)}><span className={cn('mr-2 inline-block h-3 w-6 rounded border', corEtiquetaSolida(e.cor))} />{e.nome || '(sem nome)'}</DropdownMenuItem>
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -289,7 +268,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                     <div className="flex flex-wrap gap-1">
                       {CORES_ETIQUETA.map((cor) => (
                         <button key={cor} onClick={() => setNovaEtCor(cor)} title={cor}
-                          className={cn('h-5 w-5 rounded border', corEtiquetaClass(cor), novaEtCor === cor && 'ring-2 ring-primary ring-offset-1 ring-offset-card')} />
+                          className={cn('h-5 w-5 rounded border', corEtiquetaSolida(cor), novaEtCor === cor && 'ring-2 ring-primary ring-offset-1 ring-offset-card')} />
                       ))}
                     </div>
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={criarEtiqueta}>Criar e aplicar</Button>
@@ -308,7 +287,27 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                   </div>
                 </Secao>
 
-                <button onClick={excluirCard} className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 px-2.5 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10">
+                <Secao icon={MessageSquare} titulo={`Comentários (${comentarios.length})`}>
+                  <textarea value={novoComent} onChange={(e) => setNovoComent(e.target.value)} rows={2}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComentario(); } }}
+                    placeholder="Escrever um comentário…" className="w-full resize-none rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
+                  {novoComent.trim() && <Button size="sm" className="h-7 w-fit text-xs" onClick={enviarComentario}>Comentar</Button>}
+                  <div className="flex flex-col gap-2">
+                    {comentarios.map((cm) => (
+                      <div key={cm.id} className="rounded-md border border-border bg-background/40 p-2 text-sm">
+                        <div className="mb-0.5 flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground/80">{cm.expand?.autor?.nome ?? 'Alguém'}</span>
+                          {(cm.autor === user?.id || user?.role === 'Owner' || user?.role === 'Admin') && (
+                            <button onClick={() => apagarComentario(cm.id)} className="hover:text-destructive"><Trash2 className="size-3" /></button>
+                          )}
+                        </div>
+                        <p className="whitespace-pre-wrap">{cm.texto}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Secao>
+
+                <button onClick={excluirCard} className="inline-flex w-fit items-center gap-1.5 rounded-md border border-destructive/40 px-2.5 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10">
                   <Trash2 className="size-3.5" /> Excluir card
                 </button>
               </div>

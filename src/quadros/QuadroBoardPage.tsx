@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal, Clock } from 'lucide-react';
 import {
   getQuadro, listListas, listCartoes, moverCartao,
   criarCartao, criarLista, atualizarLista, arquivarLista,
@@ -9,7 +9,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
-import { capaCartao, progressoChecklist, corEtiquetaClass, fundoBoardStyle } from './types';
+import { capaCartao, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -47,13 +47,17 @@ function MiniCard({ c, onClick, onSoltarAntes }: {
         {(c.etiquetas?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-1">
             {c.etiquetas!.filter((e) => e.nome || e.cor).slice(0, 6).map((e, i) => (
-              <span key={i} className={cn('rounded border px-1.5 py-0.5 text-[9px] font-medium', corEtiquetaClass(e.cor))}>{e.nome || ' '}</span>
+              <span key={i} className={cn('rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight', corEtiquetaSolida(e.cor), !e.nome && 'min-w-9')}>{e.nome || ''}</span>
             ))}
           </div>
         )}
         <p className="text-sm leading-snug">{c.nome}</p>
         <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-          {c.prazo && <span className={cn(c.concluido && 'text-emerald-400')}>📅 {prazoBR(c.prazo)}</span>}
+          {c.prazo && (
+            <span className={cn('inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium', corPrazoCard(c.prazo, c.concluido))}>
+              <Clock className="size-3" />{prazoBR(c.prazo)}
+            </span>
+          )}
           {total > 0 && <span className="inline-flex items-center gap-0.5"><CheckSquare className="size-3" />{feitos}/{total}</span>}
           {nAnexos > 0 && <span className="inline-flex items-center gap-0.5"><Paperclip className="size-3" />{nAnexos}</span>}
           {(c.descricao ?? '').trim() && <AlignLeft className="size-3" />}
@@ -266,7 +270,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
                     autoFocus value={addTexto} rows={2}
                     onChange={(e) => setAddTexto(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); adicionarCard(l.id); } if (e.key === 'Escape') { setAddEm(null); setAddTexto(''); } }}
-                    placeholder="Título do card…"
+                    placeholder="Insira um título para o cartão…"
                     className="w-full resize-none rounded border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   />
                   <div className="flex items-center gap-2">
@@ -276,7 +280,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
                 </div>
               ) : (
                 <button onClick={() => { setAddEm(l.id); setAddTexto(''); }} className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
-                  <Plus className="size-3.5" /> Adicionar card
+                  <Plus className="size-3.5" /> Adicionar um cartão
                 </button>
               )}
             </div>
@@ -291,7 +295,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
                 autoFocus value={novaLista}
                 onChange={(e) => setNovaLista(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') adicionarLista(); if (e.key === 'Escape') setNovaLista(null); }}
-                placeholder="Título da lista…"
+                placeholder="Insira o nome da lista…"
                 className="h-8 rounded border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
               <div className="flex items-center gap-2">
@@ -301,7 +305,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
             </div>
           ) : (
             <button onClick={() => setNovaLista('')} className="flex w-full items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
-              <Plus className="size-4" /> Adicionar lista
+              <Plus className="size-4" /> Adicionar uma lista
             </button>
           )}
         </div>

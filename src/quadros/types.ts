@@ -154,6 +154,51 @@ export function corPrazoCard(prazo?: string, concluido?: boolean): string {
   return 'bg-secondary text-muted-foreground';
 }
 
+/** Status possíveis de um card-post (lista-mês), em ordem de fluxo. */
+export const STATUS_POST = [
+  { id: 'em_producao', label: 'Em produção' },
+  { id: 'agendar',     label: 'Agendar' },
+  { id: 'agendado',    label: 'Agendado' },
+  { id: 'postado',     label: 'Postado' },
+  { id: 'em_alteracao', label: 'Em alteração' },
+] as const;
+
+/** Cor sólida do chip de status do post (estilo corEtiquetaSolida). */
+export function corStatusPost(status?: string): string {
+  switch (status) {
+    case 'em_producao':  return 'bg-slate-500 text-white';
+    case 'agendar':      return 'bg-amber-500 text-black';
+    case 'agendado':     return 'bg-emerald-500 text-white';
+    case 'postado':      return 'bg-emerald-700 text-white';
+    case 'em_alteracao': return 'bg-red-500 text-white';
+    default:             return 'bg-secondary text-muted-foreground';
+  }
+}
+
+/** Formatos de post disponíveis. */
+export const FORMATOS_POST = ['feed', 'story', 'reels', 'carrossel'] as const;
+
+/** Redes sociais suportadas. */
+export const REDES_POST = [
+  'instagram', 'facebook', 'tiktok', 'linkedin',
+  'youtube', 'twitter', 'pinterest', 'google',
+] as const;
+
+/** true quando o card está em 'agendar' com data_post a ≤24h de distância
+ *  (inclui passado — post vencido sem agendar). Wall-clock, ignora Z. */
+export function alertaAgendar(c: Pick<Cartao, 'status_post' | 'data_post'>): boolean {
+  if (c.status_post !== 'agendar' || !c.data_post) return false;
+  const limpo = c.data_post.replace('T', ' ').replace('Z', '').trim();
+  const [dataPart, horaPart] = limpo.split(/\s+/);
+  const partes = (dataPart ?? '').split('-').map(Number);
+  if (partes.length !== 3 || partes.some(Number.isNaN)) return false;
+  const [ano, mes, dia] = partes;
+  let h = 0, mi = 0;
+  if (horaPart) { const hp = horaPart.split(':').map(Number); h = hp[0] ?? 0; mi = hp[1] ?? 0; }
+  const dataPost = new Date(ano, mes - 1, dia, h, mi, 0);
+  return dataPost.getTime() - Date.now() <= 24 * 60 * 60 * 1000;
+}
+
 /** Trello color name → classes Tailwind (pill translúcida — usada onde cabe). */
 export function corEtiquetaClass(cor?: string): string {
   const c = (cor ?? '').toLowerCase();

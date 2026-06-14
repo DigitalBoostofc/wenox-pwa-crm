@@ -17,7 +17,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
-import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle } from './types';
+import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -30,9 +30,15 @@ import { cn } from '@/lib/utils';
 let dragCardId: string | null = null;
 let dragListId: string | null = null;
 
-function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosMap }: {
+const REDES_SIGLA: Record<string, string> = {
+  instagram: 'IG', facebook: 'FB', tiktok: 'TK', linkedin: 'LI',
+  youtube: 'YT', twitter: 'TW', pinterest: 'PI', google: 'GO',
+};
+
+function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosMap, ehPost }: {
   c: Cartao; onClick: () => void; onSoltarAntes: (cardId: string) => void;
   expandidas: boolean; onToggleEt: () => void; usuariosMap: Record<string, Usuario>;
+  ehPost?: boolean;
 }) {
   const memU = (c.membros_ids ?? []).map((id) => usuariosMap[id]).filter(Boolean) as Usuario[];
   const capa = capaCartao(c);
@@ -87,6 +93,29 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
             </span>
           )}
         </div>
+        {/* Info compacta de post (só em listas-mês) */}
+        {ehPost && (c.status_post || c.formato || (c.redes?.length ?? 0) > 0) && (
+          <div className="flex flex-wrap items-center gap-1 border-t border-border/40 pt-1.5">
+            {c.status_post && (
+              <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-semibold', corStatusPost(c.status_post))}>
+                {STATUS_POST.find((s) => s.id === c.status_post)?.label ?? c.status_post}
+              </span>
+            )}
+            {c.formato && (
+              <span className="rounded border border-border bg-secondary px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                {c.formato}
+              </span>
+            )}
+            {(c.redes ?? []).slice(0, 4).map((r) => (
+              <span key={r} className="rounded bg-secondary/70 px-1 py-0.5 text-[8px] font-bold text-muted-foreground">
+                {REDES_SIGLA[r] ?? r.slice(0, 2).toUpperCase()}
+              </span>
+            ))}
+            {alertaAgendar(c) && (
+              <span className="ml-auto rounded border border-amber-500/40 bg-amber-500/15 px-1 py-0.5 text-[9px] font-medium text-amber-400" title="Agendar em breve!">⚠</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -381,7 +410,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
 
               <div className="flex flex-col gap-2 overflow-y-auto pr-0.5">
                 {cards.map((c) => (
-                  <MiniCard key={c.id} c={c} onClick={() => setAbertoId(c.id)} onSoltarAntes={soltarAntes} expandidas={etExpand} onToggleEt={toggleEtExpand} usuariosMap={usuariosMap} />
+                  <MiniCard key={c.id} c={c} onClick={() => setAbertoId(c.id)} onSoltarAntes={soltarAntes} expandidas={etExpand} onToggleEt={toggleEtExpand} usuariosMap={usuariosMap} ehPost={l.tipo === 'mes'} />
                 ))}
               </div>
 
@@ -488,6 +517,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
         labelsDisponiveis={labelsDisponiveis}
         clienteId={quadro.cliente}
         listaNome={listas.find((l) => l.id === cartoes.find((x) => x.id === abertoId)?.lista)?.nome}
+        ehPost={listas.find((l) => l.id === cartoes.find((x) => x.id === abertoId)?.lista)?.tipo === 'mes'}
         onClose={() => setAbertoId(null)}
         onMudou={recarregar}
       />

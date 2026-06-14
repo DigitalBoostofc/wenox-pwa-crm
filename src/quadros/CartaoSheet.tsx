@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   CheckSquare, Paperclip, Tag, Calendar, Users, X, Trash2, MessageSquare, ImageIcon,
-  FileText, Bold, Italic, List, Link2, ChevronDown, ExternalLink,
+  FileText, Bold, Italic, List, Link2, ChevronDown, ExternalLink, CalendarDays,
 } from 'lucide-react';
 import { Markdown } from './Markdown';
 import {
@@ -12,8 +12,8 @@ import {
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Archive } from 'lucide-react';
 import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
-import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA } from './types';
-import { prazoBR } from '@/tarefas/format';
+import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, STATUS_POST, corStatusPost, FORMATOS_POST, REDES_POST, alertaAgendar } from './types';
+import { prazoBR, parsePrazo } from '@/tarefas/format';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -31,9 +31,9 @@ function AcaoBtn({ icon: Icon, label, onClick }: { icon: typeof Tag; label: stri
   );
 }
 
-export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteId, listaNome, onClose, onMudou }: {
+export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteId, listaNome, ehPost, onClose, onMudou }: {
   cartaoId: string | null; aberto: boolean; labelsDisponiveis?: EtiquetaCartao[]; clienteId?: string; listaNome?: string;
-  onClose: () => void; onMudou?: () => void;
+  ehPost?: boolean; onClose: () => void; onMudou?: () => void;
 }) {
   const [c, setC] = useState<Cartao | null>(null);
   const [carregando, setCarregando] = useState(false);
@@ -135,6 +135,23 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     salvar({ anexos: [...(c.anexos ?? []), { nome: linkTexto.trim() || u, url: u }] });
     setLinkUrl(''); setLinkTexto(''); setAnexarAberto(false);
   }
+
+  function mudarStatusPost(status: Cartao['status_post']) {
+    if (!c) return;
+    const extras: Partial<Cartao> = { status_post: status };
+    if (status === 'agendado') {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      extras.agendado_em = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    }
+    salvar(extras);
+  }
+
+  // derivados de data_post para os inputs date+time (wall-clock, ignora Z)
+  const _dpParsed = parsePrazo(c?.data_post);
+  const _padN = (n: number) => String(n).padStart(2, '0');
+  const dpDateStr = _dpParsed ? `${_dpParsed.getFullYear()}-${_padN(_dpParsed.getMonth() + 1)}-${_padN(_dpParsed.getDate())}` : '';
+  const dpTimeStr = _dpParsed ? `${_padN(_dpParsed.getHours())}:${_padN(_dpParsed.getMinutes())}` : '';
 
   const ehImg = (n: string) => /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(n);
   const imgs: { url: string; nome?: string }[] = [
@@ -302,6 +319,112 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                         {c.capa && <button onClick={() => salvar({ capa: '' })} className="w-fit text-xs text-destructive hover:underline">Remover capa</button>}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Seção Post (apenas em cards de lista-mês) */}
+                {ehPost && (
+                  <div className="flex flex-col gap-3 rounded-md border border-border bg-background/40 p-3">
+                    <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <CalendarDays className="size-3.5" /> Post
+                    </span>
+
+                    {alertaAgendar(c) && (
+                      <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-400">
+                        ⚠ Falta agendar — publica em breve
+                      </div>
+                    )}
+
+                    {/* Data e hora do post */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Data e hora do post</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="date"
+                          value={dpDateStr}
+                          onChange={(e) => {
+                            const d = e.target.value;
+                            if (!d) { salvar({ data_post: '' }); return; }
+                            salvar({ data_post: `${d} ${dpTimeStr || '00:00'}:00` });
+                          }}
+                          className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                        />
+                        <input
+                          type="time"
+                          value={dpTimeStr}
+                          disabled={!dpDateStr}
+                          onChange={(e) => {
+                            if (!dpDateStr) return;
+                            salvar({ data_post: `${dpDateStr} ${e.target.value || '00:00'}:00` });
+                          }}
+                          className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
+                        />
+                        {dpDateStr && (
+                          <button onClick={() => salvar({ data_post: '' })} className="text-xs text-destructive hover:underline">Remover</button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Redes */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Redes</span>
+                      <div className="flex flex-wrap gap-1">
+                        {REDES_POST.map((r) => {
+                          const ativo = (c.redes ?? []).includes(r);
+                          return (
+                            <button
+                              key={r}
+                              onClick={() => {
+                                const atual = c.redes ?? [];
+                                salvar({ redes: ativo ? atual.filter((x) => x !== r) : [...atual, r] });
+                              }}
+                              className={cn(
+                                'rounded border px-2 py-0.5 text-[11px] font-medium transition-colors',
+                                ativo ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:bg-secondary',
+                              )}
+                            >
+                              {r === 'twitter' ? 'Twitter/X' : r === 'tiktok' ? 'TikTok' : r === 'linkedin' ? 'LinkedIn' : r.charAt(0).toUpperCase() + r.slice(1)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Formato */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Formato</span>
+                      <select
+                        value={c.formato ?? ''}
+                        onChange={(e) => salvar({ formato: e.target.value as Cartao['formato'] })}
+                        className="h-8 w-40 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      >
+                        <option value="">— selecione —</option>
+                        {FORMATOS_POST.map((f) => (
+                          <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Status do post */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Status do post</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {STATUS_POST.map((s) => (
+                          <button
+                            key={s.id}
+                            onClick={() => mudarStatusPost(s.id as Cartao['status_post'])}
+                            className={cn(
+                              'rounded border px-2.5 py-1 text-xs font-medium transition-colors',
+                              c.status_post === s.id
+                                ? corStatusPost(s.id)
+                                : 'border-border text-muted-foreground hover:bg-secondary',
+                            )}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
 

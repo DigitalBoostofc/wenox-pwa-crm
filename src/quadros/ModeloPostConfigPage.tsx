@@ -2,22 +2,19 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
 import { type ModeloPostCard, carregarModeloRemoto, getModelo, salvarModeloRemoto } from './modeloPost';
+import { FORMATOS_POST, REDES_POST } from './types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-const REDES_OPCOES = [
-  { valor: 'instagram', label: 'Instagram' },
-  { valor: 'facebook', label: 'Facebook' },
-  { valor: 'tiktok', label: 'TikTok' },
-  { valor: 'linkedin', label: 'LinkedIn' },
-  { valor: 'youtube', label: 'YouTube' },
-  { valor: 'twitter', label: 'Twitter/X' },
-  { valor: 'pinterest', label: 'Pinterest' },
-  { valor: 'google', label: 'Google' },
-];
-
-const FORMATOS = ['feed', 'story', 'reels', 'carrossel'] as const;
+function labelRede(r: string): string {
+  const map: Record<string, string> = {
+    instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok',
+    linkedin: 'LinkedIn', youtube: 'YouTube', twitter: 'Twitter/X',
+    pinterest: 'Pinterest', google: 'Google',
+  };
+  return map[r] ?? r.charAt(0).toUpperCase() + r.slice(1);
+}
 
 const selectCls =
   'h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
@@ -35,18 +32,18 @@ function RedesToggle({
   }
   return (
     <div className="flex flex-wrap gap-1">
-      {REDES_OPCOES.map((r) => (
+      {REDES_POST.map((r) => (
         <button
-          key={r.valor}
+          key={r}
           type="button"
-          onClick={() => toggle(r.valor)}
+          onClick={() => toggle(r)}
           className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors border ${
-            value.includes(r.valor)
+            value.includes(r)
               ? 'bg-primary text-primary-foreground border-primary'
               : 'border-border text-muted-foreground hover:bg-secondary'
           }`}
         >
-          {r.label}
+          {labelRede(r)}
         </button>
       ))}
     </div>
@@ -151,7 +148,7 @@ export function ModeloPostConfigPage() {
                   aria-label="Formato"
                 >
                   <option value="">Formato</option>
-                  {FORMATOS.map((f) => (
+                  {FORMATOS_POST.map((f) => (
                     <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
                   ))}
                 </select>

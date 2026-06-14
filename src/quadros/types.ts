@@ -5,7 +5,7 @@ import type { CSSProperties } from 'react';
 export interface EtiquetaCartao { nome: string; cor: string }
 export interface ItemChecklistCartao { texto: string; feito: boolean }
 export interface ChecklistCartao { nome: string; itens: ItemChecklistCartao[] }
-export interface AnexoCartao { nome?: string; url?: string; trello_url?: string; mime?: string; bytes?: number }
+export interface AnexoCartao { nome?: string; url?: string; trello_url?: string; mime?: string; bytes?: number; data?: string }
 
 export interface Quadro {
   id: string;

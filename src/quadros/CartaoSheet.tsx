@@ -6,7 +6,7 @@ import {
 import { Markdown } from './Markdown';
 import {
   getCartao, atualizarCartao, removerCartao, arquivarCartao,
-  subirAnexos, urlUpload,
+  subirAnexosMedia, urlUpload,
   listComentariosCartao, addComentarioCartao, removerComentarioCartao,
 } from './quadrosService';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
@@ -127,7 +127,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   async function apagarComentario(cid: string) { try { await removerComentarioCartao(cid); setComentarios((l) => l.filter((x) => x.id !== cid)); } catch { /* */ } }
   async function onUpload(files: FileList | null) {
     if (!c || !files || files.length === 0) return;
-    try { setC(await subirAnexos(c, Array.from(files))); onMudou?.(); } catch { /* */ } finally { if (fileRef.current) fileRef.current.value = ''; }
+    try { setC(await subirAnexosMedia(c, Array.from(files), clienteId)); onMudou?.(); } catch { /* */ } finally { if (fileRef.current) fileRef.current.value = ''; }
     setAnexarAberto(false);
   }
   function inserirLinkAnexo() {
@@ -155,7 +155,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   };
   type AnexoView = { url: string; nome?: string; img: boolean; created?: string };
   const anexosView: AnexoView[] = c ? [
-    ...(c.anexos ?? []).filter((a) => a.url).map((a) => ({ url: a.url!, nome: a.nome, img: (a.mime ?? '').startsWith('image') || ehImg(a.nome ?? a.url!), created: c.created })),
+    ...(c.anexos ?? []).filter((a) => a.url).map((a) => ({ url: a.url!, nome: a.nome, img: (a.mime ?? '').startsWith('image') || ehImg(a.nome ?? a.url!), created: a.data ?? c.created })),
     ...(c.uploads ?? []).map((fn) => ({ url: urlUpload(c, fn), nome: fn, img: ehImg(fn), created: c.created })),
   ] : [];
   const prog = c ? progressoChecklist(c) : { feitos: 0, total: 0 };

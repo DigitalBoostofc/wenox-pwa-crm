@@ -1,5 +1,5 @@
 import { pb } from '@/lib/pocketbase';
-import type { Quadro, Lista, Cartao, ComentarioCartao } from './types';
+import type { Quadro, Lista, Cartao, ComentarioCartao, AnexoCartao } from './types';
 
 const qcol = () => pb.collection('quadros');
 const lcol = () => pb.collection('listas');
@@ -96,11 +96,40 @@ export function urlUpload(card: Cartao, filename: string): string {
   return pb.files.getURL(card as unknown as Record<string, unknown>, filename);
 }
 
-/** Sobe arquivos novos pro card (append no campo `uploads`). */
+/** Sobe arquivos novos pro card (append no campo `uploads` do PocketBase). Legado. */
 export async function subirAnexos(card: Cartao, files: File[]): Promise<Cartao> {
   const fd = new FormData();
   for (const f of files) fd.append('uploads+', f); // '+' = adiciona sem remover os existentes
   return (await ccol().update(card.id, fd)) as unknown as Cartao;
+}
+
+/** Endpoint do servidor de mídia (grava no disco grande, mesmas pastas dos anexos do Trello). */
+const MEDIA_UPLOAD_URL = 'https://media.wenox.com.br/_up';
+
+/**
+ * Sobe arquivos pro servidor de mídia (media.wenox.com.br) e registra cada um
+ * no campo `anexos` (json) do card. Mantém o disco do PocketBase enxuto.
+ */
+export async function subirAnexosMedia(card: Cartao, files: File[], clienteId?: string): Promise<Cartao> {
+  const novos: AnexoCartao[] = [];
+  for (const f of files) {
+    const res = await fetch(MEDIA_UPLOAD_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: pb.authStore.token,
+        'Content-Type': f.type || 'application/octet-stream',
+        'X-File-Name': encodeURIComponent(f.name),
+        'X-Cliente': clienteId || card.quadro || 'geral',
+        'X-Card': card.id,
+      },
+      body: f,
+    });
+    if (!res.ok) throw new Error(`Falha no upload (${res.status})`);
+    const j = await res.json();
+    novos.push({ nome: j.nome, url: j.url, mime: j.mime, bytes: j.bytes, data: j.data });
+  }
+  const anexos = [...(card.anexos ?? []), ...novos];
+  return (await ccol().update(card.id, { anexos })) as unknown as Cartao;
 }
 
 export async function definirCapa(id: string, url: string): Promise<Cartao> {

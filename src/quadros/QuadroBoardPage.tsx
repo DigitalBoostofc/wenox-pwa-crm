@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal, Clock } from 'lucide-react';
+import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal, Clock, Search, SlidersHorizontal } from 'lucide-react';
 import {
   getQuadro, listListas, listCartoes, moverCartao,
   criarCartao, criarLista, atualizarLista, arquivarLista,
 } from './quadrosService';
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
 import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle } from './types';
@@ -22,8 +22,9 @@ import { cn } from '@/lib/utils';
 let dragCardId: string | null = null;
 let dragListId: string | null = null;
 
-function MiniCard({ c, onClick, onSoltarAntes }: {
+function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt }: {
   c: Cartao; onClick: () => void; onSoltarAntes: (cardId: string) => void;
+  expandidas: boolean; onToggleEt: () => void;
 }) {
   const capa = capaCartao(c);
   const { feitos, total } = progressoChecklist(c);
@@ -47,9 +48,11 @@ function MiniCard({ c, onClick, onSoltarAntes }: {
         : <img src={capa} alt="" loading="lazy" className="h-28 w-full object-cover" />)}
       <div className="flex flex-col gap-1.5 p-2.5">
         {(c.etiquetas?.length ?? 0) > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {c.etiquetas!.filter((e) => e.nome || e.cor).slice(0, 6).map((e, i) => (
-              <span key={i} className={cn('rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight', corEtiquetaSolida(e.cor), !e.nome && 'min-w-9')}>{e.nome || ''}</span>
+          <div className="flex flex-wrap gap-1" onClick={(e) => { e.stopPropagation(); onToggleEt(); }} role="button" title="Alternar etiquetas">
+            {c.etiquetas!.filter((e) => e.nome || e.cor).slice(0, 8).map((e, i) => (
+              expandidas
+                ? <span key={i} className={cn('rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight', corEtiquetaSolida(e.cor), !e.nome && 'min-w-9')}>{e.nome || ''}</span>
+                : <span key={i} title={e.nome} className={cn('h-2 w-9 rounded-full', corEtiquetaSolida(e.cor).split(' ')[0])} />
             ))}
           </div>
         )}
@@ -88,6 +91,14 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const [addTexto, setAddTexto] = useState('');
   const [novaLista, setNovaLista] = useState<string | null>(null); // '' = input aberto
   const [renomeando, setRenomeando] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
+  const [fEt, setFEt] = useState<Set<string>>(new Set());
+  const [fMem, setFMem] = useState<Set<string>>(new Set());
+  const [etExpand, setEtExpand] = useState<boolean>(() => { try { return localStorage.getItem('wenox-kanban-et') !== 'bar'; } catch { return true; } });
+  function toggleEtExpand() { setEtExpand((v) => { const n = !v; try { localStorage.setItem('wenox-kanban-et', n ? 'txt' : 'bar'); } catch { /* */ } return n; }); }
+  function toggleSet(setFn: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) {
+    setFn((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  }
 
   async function recarregar() {
     const [ls, cs] = await Promise.all([listListas(id), listCartoes(id)]);
@@ -118,6 +129,20 @@ export function QuadroBoardPage({ id }: { id: string }) {
     }
     return [...seen.values()];
   }, [cartoes]);
+
+  const membrosDisponiveis = useMemo<string[]>(() => {
+    const s = new Set<string>();
+    for (const c of cartoes) for (const m of c.membros ?? []) if (m) s.add(m);
+    return [...s].sort();
+  }, [cartoes]);
+
+  function passaFiltro(c: Cartao): boolean {
+    if (busca) { const t = busca.toLowerCase(); if (!((c.nome ?? '').toLowerCase().includes(t) || (c.descricao ?? '').toLowerCase().includes(t))) return false; }
+    if (fEt.size && !(c.etiquetas ?? []).some((e) => fEt.has((e.nome || '') + '|' + (e.cor || '')))) return false;
+    if (fMem.size && !(c.membros ?? []).some((m) => fMem.has(m))) return false;
+    return true;
+  }
+  const filtrando = !!busca || fEt.size > 0 || fMem.size > 0;
 
   async function persistirMover(cardId: string, listaId: string, ordem: number) {
     setCartoes((lst) => lst.map((x) => (x.id === cardId ? { ...x, lista: listaId, ordem } : x)));
@@ -218,9 +243,47 @@ export function QuadroBoardPage({ id }: { id: string }) {
         {erro && <span className="text-xs text-destructive">{erro}</span>}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-56">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar card"
+            className="h-8 w-full rounded-md border border-input bg-background/40 pl-8 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className={cn(filtrando && 'border-primary text-primary')}>
+              <SlidersHorizontal /> Filtros{(fEt.size + fMem.size) > 0 ? ` (${fEt.size + fMem.size})` : ''}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-80 w-60 overflow-y-auto">
+            {labelsDisponiveis.length > 0 && <DropdownMenuLabel>Etiquetas</DropdownMenuLabel>}
+            {labelsDisponiveis.map((e, i) => {
+              const k = (e.nome || '') + '|' + (e.cor || '');
+              return (
+                <DropdownMenuItem key={'e' + i} onSelect={(ev) => ev.preventDefault()} onClick={() => toggleSet(setFEt, k)}>
+                  <span className={cn('mr-2 grid size-4 place-items-center rounded text-[9px]', fEt.has(k) ? 'bg-primary text-primary-foreground' : 'border border-border')}>{fEt.has(k) ? '✓' : ''}</span>
+                  <span className={cn('mr-2 inline-block h-3 w-5 rounded', corEtiquetaSolida(e.cor).split(' ')[0])} />{e.nome || '(sem nome)'}
+                </DropdownMenuItem>
+              );
+            })}
+            {membrosDisponiveis.length > 0 && <><DropdownMenuSeparator /><DropdownMenuLabel>Membros</DropdownMenuLabel></>}
+            {membrosDisponiveis.map((m, i) => (
+              <DropdownMenuItem key={'m' + i} onSelect={(ev) => ev.preventDefault()} onClick={() => toggleSet(setFMem, m)}>
+                <span className={cn('mr-2 grid size-4 place-items-center rounded text-[9px]', fMem.has(m) ? 'bg-primary text-primary-foreground' : 'border border-border')}>{fMem.has(m) ? '✓' : ''}</span>{m}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {filtrando && (
+          <button onClick={() => { setBusca(''); setFEt(new Set()); setFMem(new Set()); }} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">
+            <X className="size-3.5" /> Limpar
+          </button>
+        )}
+      </div>
+
       <div style={fundoBoardStyle(quadro)} className="flex flex-1 items-start gap-3 overflow-x-auto rounded-xl border border-border/60 p-3">
         {listas.map((l) => {
-          const cards = porLista.get(l.id) ?? [];
+          const cards = (porLista.get(l.id) ?? []).filter(passaFiltro);
           return (
             <div
               key={l.id}
@@ -262,7 +325,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
 
               <div className="flex flex-col gap-2 overflow-y-auto pr-0.5">
                 {cards.map((c) => (
-                  <MiniCard key={c.id} c={c} onClick={() => setAbertoId(c.id)} onSoltarAntes={soltarAntes} />
+                  <MiniCard key={c.id} c={c} onClick={() => setAbertoId(c.id)} onSoltarAntes={soltarAntes} expandidas={etExpand} onToggleEt={toggleEtExpand} />
                 ))}
               </div>
 

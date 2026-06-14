@@ -23,13 +23,13 @@ import { SidebarNav } from '@/components/layout/Sidebar';
 import { NAV_ITEMS } from '@/components/layout/nav';
 
 describe('SidebarNav', () => {
-  it('renderiza os 11 módulos do Wenox OS', () => {
+  it('renderiza os 12 módulos do Wenox OS', () => {
     render(
       <MemoryRouter initialEntries={['/clientes']}>
         <SidebarNav />
       </MemoryRouter>,
     );
-    expect(NAV_ITEMS).toHaveLength(11);
+    expect(NAV_ITEMS).toHaveLength(12);
     for (const item of NAV_ITEMS) {
       expect(screen.getByText(item.label)).toBeInTheDocument();
     }

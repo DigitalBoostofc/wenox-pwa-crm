@@ -53,6 +53,10 @@ const MembroDetailPage = lazy(() =>
   import('@/equipe/MembroDetailPage').then((m) => ({ default: m.MembroDetailPage })));
 const MinhaAreaPage = lazy(() =>
   import('@/minha-area/MinhaAreaPage').then((m) => ({ default: m.MinhaAreaPage })));
+const QuadrosListPage = lazy(() =>
+  import('@/quadros/QuadrosListPage').then((m) => ({ default: m.QuadrosListPage })));
+const QuadroBoardPage = lazy(() =>
+  import('@/quadros/QuadroBoardPage').then((m) => ({ default: m.QuadroBoardPage })));
 
 function CarregandoTela() {
   return (
@@ -179,6 +183,18 @@ function AuthedApp() {
             render={(props) => (
               <Protegido modulo="tarefas">
                 <TarefaDetailPage id={(props.match.params as { id: string }).id} />
+              </Protegido>
+            )}
+          />
+          <Route exact path="/quadros">
+            <Protegido modulo="quadros"><QuadrosListPage /></Protegido>
+          </Route>
+          <Route
+            exact
+            path="/quadros/:id"
+            render={(props) => (
+              <Protegido modulo="quadros">
+                <QuadroBoardPage id={(props.match.params as { id: string }).id} />
               </Protegido>
             )}
           />

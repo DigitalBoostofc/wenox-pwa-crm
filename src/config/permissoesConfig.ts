@@ -1,6 +1,6 @@
 export type Modulo =
   | 'dashboard' | 'minha-area' | 'equipe' | 'clientes' | 'projetos'
-  | 'tarefas' | 'financeiro' | 'contratos' | 'agenda' | 'ia' | 'config';
+  | 'tarefas' | 'quadros' | 'financeiro' | 'contratos' | 'agenda' | 'ia' | 'config';
 
 export const MODULOS_INFO: { id: Modulo; label: string; disponivel: boolean }[] = [
   { id: 'dashboard',   label: 'Dashboard',             disponivel: true  },
@@ -9,6 +9,7 @@ export const MODULOS_INFO: { id: Modulo; label: string; disponivel: boolean }[] 
   { id: 'clientes',    label: 'Clientes',               disponivel: true  },
   { id: 'projetos',    label: 'Projetos',               disponivel: true  },
   { id: 'tarefas',     label: 'Tarefas',                disponivel: false },
+  { id: 'quadros',     label: 'Quadros (Kanban)',       disponivel: true  },
   { id: 'financeiro',  label: 'Financeiro',             disponivel: false },
   { id: 'contratos',   label: 'Contratos & Propostas',  disponivel: false },
   { id: 'agenda',      label: 'Agenda',                 disponivel: false },
@@ -22,10 +23,10 @@ export const ROLES_CONFIGURÁVEIS = ['Admin', 'Gestor', 'Membro', 'Visualizador'
 export type MatrizPermissoes = Record<string, Partial<Record<Modulo, boolean>>>;
 
 export const PERMISSOES_PADRAO: MatrizPermissoes = {
-  Admin:       { dashboard: true, 'minha-area': true, equipe: true, clientes: true, projetos: true, tarefas: true, financeiro: true, contratos: true, agenda: true, ia: true, config: true },
-  Gestor:      { dashboard: true, 'minha-area': true, equipe: true, clientes: true, projetos: true, tarefas: true, agenda: true },
-  Membro:      { dashboard: true, 'minha-area': true, clientes: true, projetos: true, tarefas: true },
-  Visualizador:{ dashboard: true, 'minha-area': true, clientes: true, projetos: true },
+  Admin:       { dashboard: true, 'minha-area': true, equipe: true, clientes: true, projetos: true, tarefas: true, quadros: true, financeiro: true, contratos: true, agenda: true, ia: true, config: true },
+  Gestor:      { dashboard: true, 'minha-area': true, equipe: true, clientes: true, projetos: true, tarefas: true, quadros: true, agenda: true },
+  Membro:      { dashboard: true, 'minha-area': true, clientes: true, projetos: true, tarefas: true, quadros: true },
+  Visualizador:{ dashboard: true, 'minha-area': true, clientes: true, projetos: true, quadros: true },
 };
 
 const KEY = 'wenox-permissoes-v1';
@@ -96,5 +97,7 @@ export function temPermissao(
   // (trocar senha, tema). A área de Administração dentro dela é que é
   // restrita a Owner/Admin (controlada à parte, por canGerirUsuarios).
   if (modulo === 'config') return true;
-  return permissoes[role]?.[modulo] ?? false;
+  // Cai no padrão quando o módulo ainda não existe na matriz salva (ex.: módulo
+  // novo lançado depois que o registro de permissões foi gravado).
+  return permissoes[role]?.[modulo] ?? PERMISSOES_PADRAO[role]?.[modulo] ?? false;
 }

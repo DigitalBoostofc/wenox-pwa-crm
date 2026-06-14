@@ -439,6 +439,28 @@ export function ClienteFormPage({ id: idProp }: { id?: string } = {}) {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader><CardTitle>Facebook / Instagram</CardTitle></CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Campo id="fbid" label="ID da Página do Facebook">
+                <Input id="fbid" value={form.facebook_page_id ?? ''}
+                  onChange={(e) => set('facebook_page_id', e.target.value)}
+                  placeholder="ex.: 102539062709078" />
+              </Campo>
+              <Campo id="fbnome" label="Nome da Página">
+                <Input id="fbnome" value={form.facebook_page_nome ?? ''}
+                  onChange={(e) => set('facebook_page_nome', e.target.value)}
+                  placeholder="ex.: Via Luxo Transportes" />
+              </Campo>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Usado nas automações de Social Media (publicação/métricas). O ID vem da
+              Página conectada à BM da Wenox.
+            </p>
+          </CardContent>
+        </Card>
+
         {erro && <p className="text-sm font-medium text-destructive">{erro}</p>}
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" size="lg" disabled={salvando}>

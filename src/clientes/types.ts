@@ -26,6 +26,9 @@ export interface Cliente {
   url_dashboard?: string;
   url_drive?: string;
   url_trello?: string;
+  /** Página do Facebook do cliente (Graph API) — usada nas automações de Social Media. */
+  facebook_page_id?: string;
+  facebook_page_nome?: string;
   observacoes?: string;
   logo?: string;
   created_by?: string;

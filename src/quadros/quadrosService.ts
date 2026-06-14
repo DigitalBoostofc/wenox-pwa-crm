@@ -46,3 +46,22 @@ export async function moverCartao(id: string, listaId: string, ordem: number): P
 export async function atualizarCartao(id: string, dados: Partial<Cartao>): Promise<Cartao> {
   return (await ccol().update(id, dados)) as unknown as Cartao;
 }
+
+export async function criarCartao(quadroId: string, listaId: string, nome: string, ordem: number): Promise<Cartao> {
+  return (await ccol().create({
+    quadro: quadroId, lista: listaId, nome: nome.trim(), ordem,
+    descricao: '', concluido: false, etiquetas: [], checklists: [], anexos: [], membros: [],
+  })) as unknown as Cartao;
+}
+
+export async function removerCartao(id: string): Promise<void> {
+  await ccol().delete(id);
+}
+
+export async function criarLista(quadroId: string, nome: string, ordem: number): Promise<Lista> {
+  return (await lcol().create({ quadro: quadroId, nome: nome.trim(), ordem, fechada: false })) as unknown as Lista;
+}
+
+export async function atualizarLista(id: string, dados: Partial<Lista>): Promise<Lista> {
+  return (await lcol().update(id, dados)) as unknown as Lista;
+}

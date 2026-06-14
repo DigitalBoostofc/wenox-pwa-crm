@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   CheckSquare, Paperclip, Tag, Calendar, Users, X, Trash2, MessageSquare, ImageIcon,
+  FileText, Bold, Italic, List, Link2, ChevronDown,
 } from 'lucide-react';
+import { Markdown } from './Markdown';
 import {
   getCartao, atualizarCartao, removerCartao, arquivarCartao,
   subirAnexos, urlUpload,
@@ -45,11 +47,50 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const [comentarios, setComentarios] = useState<ComentarioCartao[]>([]);
   const [novoComent, setNovoComent] = useState('');
   const [painel, setPainel] = useState<Painel>(null);
+  const [descExpandida, setDescExpandida] = useState(false);
+  const [descTransborda, setDescTransborda] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLDivElement>(null);
+  const descTextRef = useRef<HTMLTextAreaElement>(null);
+
+  // detecta se a descrição transborda (pra mostrar "Mostrar mais")
+  useEffect(() => {
+    if (editandoDesc) return;
+    const el = descRef.current;
+    if (el) setDescTransborda(el.scrollHeight > 296);
+  }, [c?.descricao, editandoDesc, c?.id]);
+
+  function envolverSel(prefixo: string, sufixo = '') {
+    const ta = descTextRef.current; if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd, v = descRasc;
+    const novo = v.slice(0, s) + prefixo + v.slice(s, e) + sufixo + v.slice(e);
+    setDescRasc(novo);
+    requestAnimationFrame(() => { ta.focus(); ta.selectionStart = s + prefixo.length; ta.selectionEnd = e + prefixo.length; });
+  }
+  function prefixarLinhas(prefixo: string) {
+    const ta = descTextRef.current; if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd, v = descRasc;
+    const ini = v.lastIndexOf('\n', s - 1) + 1;
+    const bloco = v.slice(ini, e);
+    const novo = v.slice(0, ini) + bloco.split('\n').map((l) => prefixo + l).join('\n') + v.slice(e);
+    setDescRasc(novo);
+    requestAnimationFrame(() => ta.focus());
+  }
+  function definirTitulo(n: number) {
+    const ta = descTextRef.current; if (!ta) return;
+    const s = ta.selectionStart, v = descRasc;
+    const ini = v.lastIndexOf('\n', s - 1) + 1;
+    let fim = v.indexOf('\n', ini); if (fim < 0) fim = v.length;
+    let linha = v.slice(ini, fim).replace(/^#{1,6}\s*/, '');
+    if (n > 0) linha = '#'.repeat(n) + ' ' + linha;
+    setDescRasc(v.slice(0, ini) + linha + v.slice(fim));
+    requestAnimationFrame(() => ta.focus());
+  }
+  function inserirLink() { const url = prompt('URL do link:'); if (url) envolverSel('[', '](' + url + ')'); }
 
   useEffect(() => {
     if (!cartaoId) { setC(null); setComentarios([]); return; }
-    setPainel(null); setEditandoDesc(false);
+    setPainel(null); setEditandoDesc(false); setDescExpandida(false);
     setCarregando(true);
     getCartao(cartaoId).then((r) => { setC(r); setDescRasc(r.descricao ?? ''); }).catch(() => setC(null)).finally(() => setCarregando(false));
     listComentariosCartao(cartaoId).then(setComentarios).catch(() => setComentarios([]));
@@ -244,19 +285,48 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
 
                 {/* Descrição */}
                 <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><MessageSquare className="size-3.5 opacity-0" /> Descrição</div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><FileText className="size-3.5" /> Descrição</span>
+                    {!editandoDesc && (c.descricao ?? '').trim() && (
+                      <button onClick={() => { setDescRasc(c.descricao ?? ''); setEditandoDesc(true); }} className="rounded-md bg-secondary px-3 py-1 text-xs font-medium hover:bg-secondary/70">Editar</button>
+                    )}
+                  </div>
                   {editandoDesc ? (
                     <div className="flex flex-col gap-2">
-                      <textarea autoFocus value={descRasc} rows={6} onChange={(e) => setDescRasc(e.target.value)} className="w-full rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
+                      <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-background/60 p-1">
+                        <select defaultValue="" onChange={(e) => { if (e.target.value !== '') definirTitulo(Number(e.target.value)); e.target.value = ''; }}
+                          className="h-7 rounded border border-input bg-background px-1 text-xs" title="Título">
+                          <option value="" disabled>Aa</option>
+                          <option value="0">Texto normal</option>
+                          <option value="1">Título 1</option>
+                          <option value="2">Título 2</option>
+                          <option value="3">Título 3</option>
+                        </select>
+                        <button onClick={() => envolverSel('**', '**')} title="Negrito" className="grid size-7 place-items-center rounded hover:bg-secondary"><Bold className="size-3.5" /></button>
+                        <button onClick={() => envolverSel('*', '*')} title="Itálico" className="grid size-7 place-items-center rounded hover:bg-secondary"><Italic className="size-3.5" /></button>
+                        <button onClick={() => prefixarLinhas('- ')} title="Lista" className="grid size-7 place-items-center rounded hover:bg-secondary"><List className="size-3.5" /></button>
+                        <button onClick={inserirLink} title="Link" className="grid size-7 place-items-center rounded hover:bg-secondary"><Link2 className="size-3.5" /></button>
+                      </div>
+                      <textarea ref={descTextRef} autoFocus value={descRasc} rows={10} onChange={(e) => setDescRasc(e.target.value)} className="w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
                       <div className="flex gap-2">
                         <Button size="sm" className="h-7 text-xs" onClick={() => { salvar({ descricao: descRasc }); setEditandoDesc(false); }}>Salvar</Button>
                         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setDescRasc(c.descricao ?? ''); setEditandoDesc(false); }}>Cancelar</Button>
                       </div>
                     </div>
+                  ) : (c.descricao ?? '').trim() ? (
+                    <div className="relative">
+                      <div ref={descRef} className={cn('rounded-md', !descExpandida && 'max-h-[296px] overflow-hidden')}>
+                        <Markdown>{c.descricao!}</Markdown>
+                      </div>
+                      {!descExpandida && descTransborda && <div className="pointer-events-none absolute inset-x-0 bottom-9 h-12 bg-gradient-to-t from-card to-transparent" />}
+                      {descTransborda && (
+                        <button onClick={() => setDescExpandida((v) => !v)} className="mt-1 flex w-full items-center justify-center gap-1 rounded-md border border-border bg-background/40 py-1.5 text-xs text-muted-foreground hover:bg-secondary">
+                          <ChevronDown className={cn('size-4 transition-transform', descExpandida && 'rotate-180')} /> {descExpandida ? 'Mostrar menos' : 'Mostrar mais'}
+                        </button>
+                      )}
+                    </div>
                   ) : (
-                    <button onClick={() => setEditandoDesc(true)} className="rounded-md border border-border bg-background/40 p-2 text-left text-sm hover:border-primary/40">
-                      {(c.descricao ?? '').trim() ? <span className="whitespace-pre-wrap text-foreground/90">{c.descricao}</span> : <span className="text-muted-foreground">Adicionar uma descrição…</span>}
-                    </button>
+                    <button onClick={() => { setDescRasc(''); setEditandoDesc(true); }} className="rounded-md border border-border bg-background/40 p-3 text-left text-sm text-muted-foreground hover:border-primary/40">Adicionar uma descrição…</button>
                   )}
                 </div>
 

@@ -57,6 +57,8 @@ const QuadrosListPage = lazy(() =>
   import('@/quadros/QuadrosListPage').then((m) => ({ default: m.QuadrosListPage })));
 const QuadroBoardPage = lazy(() =>
   import('@/quadros/QuadroBoardPage').then((m) => ({ default: m.QuadroBoardPage })));
+const ModeloPostConfigPage = lazy(() =>
+  import('@/quadros/ModeloPostConfigPage').then((m) => ({ default: m.ModeloPostConfigPage })));
 
 function CarregandoTela() {
   return (
@@ -230,6 +232,9 @@ function AuthedApp() {
           </Route>
           <Route exact path="/config/automacoes">
             <SomenteAdmin><AutomacoesPage /></SomenteAdmin>
+          </Route>
+          <Route exact path="/config/modelo-post">
+            <SomenteAdmin><ModeloPostConfigPage /></SomenteAdmin>
           </Route>
           <Route exact path="/config">
             <Protegido modulo="config"><ConfigPage /></Protegido>

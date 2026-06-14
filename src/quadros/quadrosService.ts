@@ -1,5 +1,9 @@
 import { pb } from '@/lib/pocketbase';
 import type { Quadro, Lista, Cartao, ComentarioCartao, AnexoCartao } from './types';
+import { carregarModeloRemoto } from './modeloPost';
+import { criarTarefa } from '@/tarefas/tarefasService';
+import { statusInicial } from '@/tarefas/status';
+import type { EtapaTarefa } from '@/tarefas/types';
 
 const qcol = () => pb.collection('quadros');
 const lcol = () => pb.collection('listas');
@@ -157,4 +161,96 @@ export async function addComentarioCartao(cardId: string, texto: string, cliente
 
 export async function removerComentarioCartao(id: string): Promise<void> {
   await pb.collection('comentarios').delete(id);
+}
+
+/* -------------------- Social Media / Calendário de posts ------------------ */
+
+export const MESES_PT = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+] as const;
+
+let _smSeq = 0;
+function smUuid(): string {
+  try {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  } catch { /* */ }
+  return `sm_${Date.now().toString(36)}_${(_smSeq++).toString(36)}`;
+}
+
+/** Cria uma lista especial do tipo "mês" no quadro. */
+export async function criarListaMes(
+  quadroId: string,
+  mes: number,
+  ano: number,
+  ordem: number,
+): Promise<Lista> {
+  return (await lcol().create({
+    quadro: quadroId,
+    nome: `${MESES_PT[mes - 1]}/${ano}`,
+    tipo: 'mes',
+    mes,
+    ano,
+    ordem,
+    fechada: false,
+  })) as unknown as Lista;
+}
+
+/** Popula a lista-mês com 1 card por item do modelo global de post. */
+export async function seedTemplateMes(quadroId: string, listaId: string): Promise<void> {
+  const modelo = await carregarModeloRemoto();
+  const cards = modelo.cards;
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    await ccol().create({
+      quadro: quadroId,
+      lista: listaId,
+      nome: card.nome,
+      descricao: card.descricao ?? '',
+      formato: card.formato ?? '',
+      redes: card.redes ?? [],
+      status_post: 'em_producao',
+      ordem: i + 1,
+      concluido: false,
+      etiquetas: [],
+      checklists: [],
+      anexos: [],
+      membros: [],
+    });
+  }
+}
+
+/** Vincula uma tarefa à lista (campo relation). */
+export async function vincularTarefaLista(listaId: string, tarefaId: string): Promise<Lista> {
+  return (await lcol().update(listaId, { tarefa: tarefaId })) as unknown as Lista;
+}
+
+/** Cria a tarefa "Social Media" para o mês/ano com as 6 etapas padrão. */
+export async function criarTarefaSocialMedia(
+  clienteId: string,
+  mes: number,
+  ano: number,
+): Promise<import('@/tarefas/types').Tarefa> {
+  const etapas: EtapaTarefa[] = [
+    { id: smUuid(), texto: 'Briefing', tipo: 'interna', feito: false },
+    { id: smUuid(), texto: 'Copy', tipo: 'interna', feito: false },
+    { id: smUuid(), texto: 'Layout', tipo: 'interna', feito: false },
+    { id: smUuid(), texto: 'Aprovação do cliente', tipo: 'aprovacao_cliente', feito: false },
+    { id: smUuid(), texto: 'Agendamento', tipo: 'interna', feito: false },
+    { id: smUuid(), texto: 'Publicação', tipo: 'interna', feito: false },
+  ];
+  return criarTarefa({
+    nome: `Social Media — ${MESES_PT[mes - 1]}/${ano}`,
+    cliente: clienteId,
+    lado: 'wenox',
+    status: statusInicial(),
+    etapas,
+    projeto: '',
+    responsaveis: [],
+    contato: '',
+    etiquetas: [],
+    ordem: 0,
+    checklist: [],
+    aprovacao: '',
+  });
 }

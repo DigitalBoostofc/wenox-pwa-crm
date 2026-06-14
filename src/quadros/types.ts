@@ -32,6 +32,10 @@ export interface Lista {
   nome: string;
   ordem?: number;
   fechada?: boolean;
+  tipo?: 'mes' | '';
+  mes?: number;
+  ano?: number;
+  tarefa?: string;
 }
 
 export interface Cartao {
@@ -52,6 +56,11 @@ export interface Cartao {
   arquivado?: boolean;
   capa?: string;
   uploads?: string[];
+  data_post?: string;
+  redes?: string[];
+  formato?: 'feed' | 'story' | 'reels' | 'carrossel' | '';
+  status_post?: 'em_producao' | 'agendar' | 'agendado' | 'postado' | 'em_alteracao' | '';
+  agendado_em?: string;
   collectionId?: string;
   collectionName?: string;
   created?: string;

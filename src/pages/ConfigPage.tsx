@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Palette, SlidersHorizontal, Lock, MessageCircle, ListChecks, Workflow } from 'lucide-react';
+import { ShieldCheck, Palette, SlidersHorizontal, Lock, MessageCircle, ListChecks, Workflow, CalendarDays } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/useAuth';
@@ -74,6 +74,11 @@ export function ConfigPage() {
             <Button asChild variant="outline">
               <Link to="/config/automacoes">
                 <MessageCircle /> Automações &amp; WhatsApp
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/config/modelo-post">
+                <CalendarDays /> Modelo de post
               </Link>
             </Button>
           </CardContent>

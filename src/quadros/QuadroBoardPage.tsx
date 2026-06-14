@@ -320,9 +320,19 @@ export function QuadroBoardPage({ id }: { id: string }) {
         {logo && <img src={logo} alt="" className="size-7 rounded-md object-cover" />}
         <h2 className="text-lg font-semibold">{quadro.nome}</h2>
         <Badge variant="muted" className="text-[10px]">{cartoes.length} cards</Badge>
-        <button onClick={abrirArquivados} className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary">
-          <Archive className="size-3.5" /> Arquivados
-        </button>
+        <div className="ml-auto flex items-center gap-1.5">
+          {listas.some(l => l.tipo === 'mes') && (
+            <Link
+              to={`/quadros/${id}/calendario`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary"
+            >
+              <CalendarDays className="size-3.5" /> Calendário
+            </Link>
+          )}
+          <button onClick={abrirArquivados} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary">
+            <Archive className="size-3.5" /> Arquivados
+          </button>
+        </div>
         {erro && <span className="text-xs text-destructive">{erro}</span>}
       </div>
 

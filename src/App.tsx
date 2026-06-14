@@ -59,6 +59,8 @@ const QuadroBoardPage = lazy(() =>
   import('@/quadros/QuadroBoardPage').then((m) => ({ default: m.QuadroBoardPage })));
 const ModeloPostConfigPage = lazy(() =>
   import('@/quadros/ModeloPostConfigPage').then((m) => ({ default: m.ModeloPostConfigPage })));
+const CalendarioPage = lazy(() =>
+  import('@/quadros/CalendarioPage').then((m) => ({ default: m.CalendarioPage })));
 
 function CarregandoTela() {
   return (
@@ -197,6 +199,15 @@ function AuthedApp() {
             render={(props) => (
               <Protegido modulo="quadros">
                 <QuadroBoardPage id={(props.match.params as { id: string }).id} />
+              </Protegido>
+            )}
+          />
+          <Route
+            exact
+            path="/quadros/:id/calendario"
+            render={(props) => (
+              <Protegido modulo="quadros">
+                <CalendarioPage id={(props.match.params as { id: string }).id} />
               </Protegido>
             )}
           />

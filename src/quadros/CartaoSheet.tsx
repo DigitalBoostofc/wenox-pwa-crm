@@ -29,8 +29,8 @@ function AcaoBtn({ icon: Icon, label, onClick }: { icon: typeof Tag; label: stri
   );
 }
 
-export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteId, onClose, onMudou }: {
-  cartaoId: string | null; aberto: boolean; labelsDisponiveis?: EtiquetaCartao[]; clienteId?: string;
+export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteId, listaNome, onClose, onMudou }: {
+  cartaoId: string | null; aberto: boolean; labelsDisponiveis?: EtiquetaCartao[]; clienteId?: string; listaNome?: string;
   onClose: () => void; onMudou?: () => void;
 }) {
   const [c, setC] = useState<Cartao | null>(null);
@@ -114,16 +114,26 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
           </div>
         ) : (
           <>
-            {capa && (capaEhCor(capa)
-              ? <div style={{ background: capa }} className="h-24 w-full shrink-0" />
-              : <img src={capa} alt="" className="max-h-48 w-full shrink-0 object-cover" />)}
+            {/* capa em banner (cor ou imagem) com etiqueta da lista + botão de capa */}
+            <div className="relative w-full shrink-0">
+              {capa
+                ? (capaEhCor(capa)
+                    ? <div style={{ background: capa }} className="h-32 w-full" />
+                    : <img src={capa} alt="" className="h-44 w-full object-cover" />)
+                : <div className="h-12 w-full bg-secondary/40" />}
+              {listaNome && (
+                <span className="absolute left-4 top-3 inline-flex items-center rounded-md bg-black/55 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">{listaNome}</span>
+              )}
+              <button onClick={() => setPainel(painel === 'capa' ? null : 'capa')} title="Capa"
+                className="absolute right-12 top-3 grid size-7 place-items-center rounded-md bg-black/55 text-white backdrop-blur-sm hover:bg-black/75"><ImageIcon className="size-4" /></button>
+            </div>
 
-            <div className="flex flex-col gap-4 overflow-y-auto p-5 md:flex-row">
+            <div className="flex flex-col gap-5 overflow-y-auto p-6 md:flex-row">
               {/* principal */}
-              <div className="flex min-w-0 flex-1 flex-col gap-4">
+              <div className="flex min-w-0 flex-1 flex-col gap-5">
                 <DialogTitle className="pr-8">
                   <input defaultValue={c.nome} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== c.nome) salvar({ nome: v }); }}
-                    className="w-full rounded-md bg-transparent text-lg font-semibold leading-snug outline-none focus:bg-secondary/40 focus:px-2 focus:py-1" />
+                    className="w-full rounded-md bg-transparent text-xl font-semibold leading-snug outline-none focus:bg-secondary/40 focus:px-2 focus:py-1" />
                 </DialogTitle>
 
                 {/* chips de props (quando preenchidos) */}

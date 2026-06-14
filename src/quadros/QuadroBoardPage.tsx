@@ -407,6 +407,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
         aberto={abertoId !== null}
         labelsDisponiveis={labelsDisponiveis}
         clienteId={quadro.cliente}
+        listaNome={listas.find((l) => l.id === cartoes.find((x) => x.id === abertoId)?.lista)?.nome}
         onClose={() => setAbertoId(null)}
         onMudou={recarregar}
       />

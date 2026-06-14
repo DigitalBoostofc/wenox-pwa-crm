@@ -6,7 +6,7 @@ import {
   criarCartao, criarLista, atualizarLista,
 } from './quadrosService';
 import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
-import { capaCartao, progressoChecklist, corEtiquetaClass } from './types';
+import { capaCartao, progressoChecklist, corEtiquetaClass, fundoBoardStyle } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -203,7 +203,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
         {erro && <span className="text-xs text-destructive">{erro}</span>}
       </div>
 
-      <div className="flex flex-1 items-start gap-3 overflow-x-auto pb-3">
+      <div style={fundoBoardStyle(quadro)} className="flex flex-1 items-start gap-3 overflow-x-auto rounded-xl border border-border/60 p-3">
         {listas.map((l) => {
           const cards = porLista.get(l.id) ?? [];
           return (

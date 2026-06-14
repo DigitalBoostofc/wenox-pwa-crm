@@ -78,6 +78,18 @@ export function fundoStyle(q: Pick<Quadro, 'fundo_img' | 'fundo_cor'>): CSSPrope
   return { background: 'hsl(var(--secondary))' };
 }
 
+/** Fundo do BOARD (atrás das colunas) — imagem/gradiente escurecido p/ legibilidade. */
+export function fundoBoardStyle(q: Pick<Quadro, 'fundo_img' | 'fundo_cor'>): CSSProperties {
+  const scrim = 'linear-gradient(rgba(9,9,13,0.86), rgba(9,9,13,0.92))';
+  if (q.fundo_img) {
+    return { backgroundImage: `${scrim}, url(${q.fundo_img})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+  }
+  const cores = (q.fundo_cor ?? '').split(',').map((c) => c.trim()).filter(Boolean);
+  if (cores.length >= 2) return { backgroundImage: `${scrim}, linear-gradient(135deg, ${cores[0]}, ${cores[1]})` };
+  if (cores.length === 1) return { backgroundImage: `${scrim}, linear-gradient(${cores[0]}, ${cores[0]})` };
+  return {};
+}
+
 /** Trello color name → classes Tailwind (pill). */
 export function corEtiquetaClass(cor?: string): string {
   const c = (cor ?? '').toLowerCase();

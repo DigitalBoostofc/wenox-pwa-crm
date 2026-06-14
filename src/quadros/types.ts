@@ -78,6 +78,9 @@ export function fundoStyle(q: Pick<Quadro, 'fundo_img' | 'fundo_cor'>): CSSPrope
   return { background: 'hsl(var(--secondary))' };
 }
 
+/** Paleta de cores de etiqueta (nomes estilo Trello). */
+export const CORES_ETIQUETA = ['green', 'yellow', 'orange', 'red', 'purple', 'blue', 'sky', 'lime', 'pink', 'black'] as const;
+
 /** Fundo do BOARD (atrás das colunas) — imagem/gradiente escurecido p/ legibilidade. */
 export function fundoBoardStyle(q: Pick<Quadro, 'fundo_img' | 'fundo_cor'>): CSSProperties {
   const scrim = 'linear-gradient(rgba(9,9,13,0.86), rgba(9,9,13,0.92))';

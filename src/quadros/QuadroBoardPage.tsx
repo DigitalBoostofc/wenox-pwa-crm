@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical } from 'lucide-react';
+import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal } from 'lucide-react';
 import {
   getQuadro, listListas, listCartoes, moverCartao,
-  criarCartao, criarLista, atualizarLista,
+  criarCartao, criarLista, atualizarLista, arquivarLista,
 } from './quadrosService';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
 import { capaCartao, progressoChecklist, corEtiquetaClass, fundoBoardStyle } from './types';
 import { CartaoSheet } from './CartaoSheet';
@@ -177,6 +180,12 @@ export function QuadroBoardPage({ id }: { id: string }) {
     } catch { setErro('Não foi possível criar a lista.'); }
   }
 
+  async function arquivar(listaId: string) {
+    if (!confirm('Arquivar esta lista? Ela some do quadro (os dados ficam guardados).')) return;
+    setListas((lst) => lst.filter((l) => l.id !== listaId));
+    try { await arquivarLista(listaId); } catch { setErro('Não foi possível arquivar a lista.'); }
+  }
+
   async function renomearLista(listaId: string, nome: string) {
     setRenomeando(null);
     const n = nome.trim();
@@ -231,7 +240,18 @@ export function QuadroBoardPage({ id }: { id: string }) {
                     <GripVertical className="size-3.5 text-muted-foreground/40" />{l.nome}
                   </span>
                 )}
-                <Badge variant="muted" className="text-[10px]">{cards.length}</Badge>
+                <div className="flex items-center gap-1">
+                  <Badge variant="muted" className="text-[10px]">{cards.length}</Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button onClick={(e) => e.stopPropagation()} className="rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Ações da lista"><MoreHorizontal className="size-4" /></button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setRenomeando(l.id)}>Renomear</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => arquivar(l.id)} className="text-destructive">Arquivar lista</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
 
               <div className="flex flex-col gap-2 overflow-y-auto pr-0.5">

@@ -65,3 +65,12 @@ export async function criarLista(quadroId: string, nome: string, ordem: number):
 export async function atualizarLista(id: string, dados: Partial<Lista>): Promise<Lista> {
   return (await lcol().update(id, dados)) as unknown as Lista;
 }
+
+/** Arquiva a lista (some do quadro; dados preservados). */
+export async function arquivarLista(id: string): Promise<Lista> {
+  return (await lcol().update(id, { fechada: true })) as unknown as Lista;
+}
+
+export async function removerLista(id: string): Promise<void> {
+  await lcol().delete(id);
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   CheckSquare, Paperclip, Tag, Calendar, Users, X, Trash2, MessageSquare, ImageIcon,
-  FileText, Bold, Italic, List, Link2, ChevronDown,
+  FileText, Bold, Italic, List, Link2, ChevronDown, ExternalLink,
 } from 'lucide-react';
 import { Markdown } from './Markdown';
 import {
@@ -47,6 +47,9 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const [comentarios, setComentarios] = useState<ComentarioCartao[]>([]);
   const [novoComent, setNovoComent] = useState('');
   const [painel, setPainel] = useState<Painel>(null);
+  const [anexarAberto, setAnexarAberto] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkTexto, setLinkTexto] = useState('');
   const [descExpandida, setDescExpandida] = useState(false);
   const [descTransborda, setDescTransborda] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -125,6 +128,12 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   async function onUpload(files: FileList | null) {
     if (!c || !files || files.length === 0) return;
     try { setC(await subirAnexos(c, Array.from(files))); onMudou?.(); } catch { /* */ } finally { if (fileRef.current) fileRef.current.value = ''; }
+    setAnexarAberto(false);
+  }
+  function inserirLinkAnexo() {
+    if (!c) return; const u = linkUrl.trim(); if (!u) return;
+    salvar({ anexos: [...(c.anexos ?? []), { nome: linkTexto.trim() || u, url: u }] });
+    setLinkUrl(''); setLinkTexto(''); setAnexarAberto(false);
   }
 
   const ehImg = (n: string) => /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(n);
@@ -132,10 +141,23 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     ...(c?.anexos ?? []).filter((a) => (a.mime ?? '').startsWith('image') && a.url).map((a) => ({ url: a.url!, nome: a.nome })),
     ...(c?.uploads ?? []).filter(ehImg).map((fn) => ({ url: urlUpload(c!, fn), nome: fn })),
   ];
-  const outros: { url: string; nome?: string }[] = [
-    ...(c?.anexos ?? []).filter((a) => !(a.mime ?? '').startsWith('image') && a.url).map((a) => ({ url: a.url!, nome: a.nome })),
-    ...(c?.uploads ?? []).filter((fn) => !ehImg(fn)).map((fn) => ({ url: urlUpload(c!, fn), nome: fn })),
-  ];
+  // lista unificada de anexos pra exibição estilo Trello (miniatura + nome + data)
+  const extDe = (nome?: string, url?: string) => {
+    const s = (nome || url || '').split('?')[0];
+    const m = s.match(/\.([a-z0-9]{1,5})$/i);
+    return m ? m[1].toUpperCase() : 'LINK';
+  };
+  const fmtData = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+  type AnexoView = { url: string; nome?: string; img: boolean; created?: string };
+  const anexosView: AnexoView[] = c ? [
+    ...(c.anexos ?? []).filter((a) => a.url).map((a) => ({ url: a.url!, nome: a.nome, img: (a.mime ?? '').startsWith('image') || ehImg(a.nome ?? a.url!), created: c.created })),
+    ...(c.uploads ?? []).map((fn) => ({ url: urlUpload(c, fn), nome: fn, img: ehImg(fn), created: c.created })),
+  ] : [];
   const prog = c ? progressoChecklist(c) : { feitos: 0, total: 0 };
   const labelsRestantes = labelsDisponiveis.filter((d) => !(c?.etiquetas ?? []).some((x) => x.nome === d.nome && x.cor === d.cor));
   const capa = c ? capaCartao(c) : null;
@@ -359,25 +381,51 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                   </div>
                 )}
 
-                {/* Anexos */}
-                {(imgs.length + outros.length) > 0 && (
+                {/* Anexos — estilo Trello: miniatura + nome + data, com botão Adicionar */}
+                {anexosView.length > 0 && (
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><Paperclip className="size-3.5" /> Anexos ({imgs.length + outros.length})</div>
-                    {imgs.length > 0 && (
-                      <div className="grid grid-cols-3 gap-2">
-                        {imgs.map((a, i) => (
-                          <div key={i} className="group relative overflow-hidden rounded-md border border-border">
-                            <a href={a.url} target="_blank" rel="noreferrer"><img src={a.url} alt={a.nome ?? ''} loading="lazy" className={cn('aspect-square w-full object-cover', c.capa === a.url && 'ring-2 ring-primary')} /></a>
-                            <button onClick={() => salvar({ capa: a.url })} title="Definir como capa" className="absolute bottom-1 right-1 grid size-6 place-items-center rounded bg-black/60 text-white opacity-0 transition group-hover:opacity-100 hover:bg-black/80"><ImageIcon className="size-3.5" /></button>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><Paperclip className="size-3.5" /> Anexos</div>
+                      <div className="relative">
+                        <button onClick={() => setAnexarAberto((v) => !v)} className="rounded-md bg-secondary px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary/70">Adicionar</button>
+                        {anexarAberto && (
+                          <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-lg border border-border bg-popover p-3 shadow-xl">
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="text-sm font-semibold">Anexar</span>
+                              <button onClick={() => setAnexarAberto(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+                            </div>
+                            <p className="mb-1 text-xs font-medium">Anexe um arquivo do seu computador</p>
+                            <button onClick={() => fileRef.current?.click()} className="mb-3 w-full rounded-md border border-border py-1.5 text-sm transition-colors hover:bg-secondary">Escolher um arquivo</button>
+                            <div className="mb-1 text-xs font-medium">Cole um link</div>
+                            <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="Cole um link aqui…" className={inputCls} />
+                            <div className="mb-1 mt-2 text-xs font-medium">Texto para exibição (opcional)</div>
+                            <input value={linkTexto} onChange={(e) => setLinkTexto(e.target.value)} placeholder="Texto a ser exibido" className={inputCls} />
+                            <div className="mt-3 flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setAnexarAberto(false); setLinkUrl(''); setLinkTexto(''); }}>Cancelar</Button>
+                              <Button size="sm" className="h-7 text-xs" disabled={!linkUrl.trim()} onClick={inserirLinkAnexo}>Inserir</Button>
+                            </div>
                           </div>
-                        ))}
+                        )}
                       </div>
-                    )}
-                    {outros.length > 0 && (
-                      <div className="flex flex-col gap-1">
-                        {outros.map((a, i) => <a key={i} href={a.url} target="_blank" rel="noreferrer" className="truncate text-sm text-primary hover:underline">{a.nome || a.url}</a>)}
-                      </div>
-                    )}
+                    </div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">Arquivos</div>
+                    <div className="flex flex-col gap-0.5">
+                      {anexosView.map((a, i) => (
+                        <div key={i} className="group flex items-center gap-3 rounded-md p-1.5 transition-colors hover:bg-secondary/40">
+                          {a.img ? (
+                            <a href={a.url} target="_blank" rel="noreferrer" className="shrink-0"><img src={a.url} alt={a.nome ?? ''} loading="lazy" className={cn('size-12 rounded-md border border-border object-cover', c.capa === a.url && 'ring-2 ring-primary')} /></a>
+                          ) : (
+                            <a href={a.url} target="_blank" rel="noreferrer" className="grid size-12 shrink-0 place-items-center rounded-md border border-border bg-secondary text-[10px] font-bold text-muted-foreground">{extDe(a.nome, a.url)}</a>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <a href={a.url} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium hover:underline">{a.nome || a.url}</a>
+                            {a.created && <div className="text-xs text-muted-foreground">Adicionado em {fmtData(a.created)}</div>}
+                          </div>
+                          <a href={a.url} target="_blank" rel="noreferrer" title="Abrir" className="shrink-0 rounded p-1.5 text-muted-foreground opacity-0 transition hover:bg-secondary hover:text-foreground group-hover:opacity-100"><ExternalLink className="size-4" /></a>
+                          {a.img && <button onClick={() => salvar({ capa: a.url })} title="Usar como capa" className={cn('shrink-0 rounded p-1.5 text-muted-foreground opacity-0 transition hover:bg-secondary hover:text-foreground group-hover:opacity-100', c.capa === a.url && 'text-primary opacity-100')}><ImageIcon className="size-4" /></button>}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

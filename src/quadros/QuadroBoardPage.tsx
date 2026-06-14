@@ -9,7 +9,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
-import { capaCartao, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle } from './types';
+import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -42,7 +42,9 @@ function MiniCard({ c, onClick, onSoltarAntes }: {
         over ? 'border-primary border-t-2' : 'border-border',
       )}
     >
-      {capa && <img src={capa} alt="" loading="lazy" className="h-28 w-full object-cover" />}
+      {capa && (capaEhCor(capa)
+        ? <div style={{ background: capa }} className="h-20 w-full" />
+        : <img src={capa} alt="" loading="lazy" className="h-28 w-full object-cover" />)}
       <div className="flex flex-col gap-1.5 p-2.5">
         {(c.etiquetas?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-1">

@@ -94,6 +94,14 @@ export function fundoStyle(q: Pick<Quadro, 'fundo_img' | 'fundo_cor'>): CSSPrope
 /** Paleta de cores de etiqueta (nomes estilo Trello). */
 export const CORES_ETIQUETA = ['green', 'yellow', 'orange', 'red', 'purple', 'blue', 'sky', 'lime', 'pink', 'black'] as const;
 
+/** Paleta de cores de capa (hex, estilo Trello). */
+export const CORES_CAPA = ['#4bce97', '#f5cd47', '#fea362', '#f87168', '#9f8fef', '#579dff', '#6cc3e0', '#94c748', '#e774bb', '#8590a2'] as const;
+
+/** true se a capa é uma cor sólida (hex) em vez de imagem. */
+export function capaEhCor(capa?: string | null): boolean {
+  return !!capa && capa.startsWith('#');
+}
+
 /** Fundo do BOARD (atrás das colunas) — imagem/gradiente escurecido p/ legibilidade. */
 export function fundoBoardStyle(q: Pick<Quadro, 'fundo_img' | 'fundo_cor'>): CSSProperties {
   const scrim = 'linear-gradient(rgba(9,9,13,0.86), rgba(9,9,13,0.92))';

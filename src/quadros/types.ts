@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 /** Modelos do Kanban (réplica do Trello) — coleções quadros/listas/cartoes. */
 
 export interface EtiquetaCartao { nome: string; cor: string }
@@ -12,6 +14,8 @@ export interface Quadro {
   nome: string;
   descricao?: string;
   url?: string;
+  fundo_img?: string;
+  fundo_cor?: string;
   fechado?: boolean;
   ordem?: number;
   created?: string;
@@ -61,6 +65,17 @@ export function progressoChecklist(c: Pick<Cartao, 'checklists'>): { feitos: num
     for (const i of ch.itens ?? []) { total++; if (i.feito) feitos++; }
   }
   return { feitos, total };
+}
+
+/** Estilo CSS de fundo do tile do quadro (imagem de capa ou gradiente das cores). */
+export function fundoStyle(q: Pick<Quadro, 'fundo_img' | 'fundo_cor'>): CSSProperties {
+  if (q.fundo_img) {
+    return { backgroundImage: `url(${q.fundo_img})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+  }
+  const cores = (q.fundo_cor ?? '').split(',').map((c) => c.trim()).filter(Boolean);
+  if (cores.length >= 2) return { backgroundImage: `linear-gradient(135deg, ${cores[0]}, ${cores[1]})` };
+  if (cores.length === 1) return { background: cores[0] };
+  return { background: 'hsl(var(--secondary))' };
 }
 
 /** Trello color name → classes Tailwind (pill). */

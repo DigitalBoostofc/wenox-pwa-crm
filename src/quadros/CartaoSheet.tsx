@@ -40,6 +40,7 @@ export function CartaoSheet({ cartaoId, aberto, onClose }: {
       <SheetContent side="right" className="flex w-full flex-col gap-4 overflow-y-auto sm:max-w-xl">
         {carregando || !c ? (
           <div className="flex flex-col gap-3 pt-6">
+            <SheetTitle className="sr-only">Carregando card</SheetTitle>
             <Skeleton className="h-6 w-2/3" /><Skeleton className="h-40 w-full" /><Skeleton className="h-20 w-full" />
           </div>
         ) : (

@@ -3,11 +3,10 @@ import { useHistory } from 'react-router-dom';
 import { Search, Columns3 as TrelloIcon } from 'lucide-react';
 import { listQuadros } from './quadrosService';
 import type { Quadro } from './types';
+import { fundoStyle } from './types';
 import { logoUrl } from '@/clientes/clientesService';
-import { corAvatar, inicial } from '@/clientes/format';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
 function nomeCliente(q: Quadro): string {
   return q.expand?.cliente?.nome_fantasia ?? q.expand?.cliente?.nome ?? '';
@@ -57,7 +56,7 @@ export function QuadrosListPage() {
           </div>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {filtrados.map((q) => {
             const cli = q.expand?.cliente;
             const nome = nomeCliente(q);
@@ -66,19 +65,23 @@ export function QuadrosListPage() {
               <button
                 key={q.id}
                 onClick={() => history.push(`/quadros/${q.id}`)}
-                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-secondary/40"
+                className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-all hover:border-primary/50 hover:shadow-lg"
               >
-                {logo ? (
-                  <img src={logo} alt={nome} className="size-10 shrink-0 rounded-lg object-cover" />
-                ) : (
-                  <div className={cn('grid size-10 shrink-0 place-items-center rounded-lg text-sm font-bold text-white', corAvatar(nome || q.nome))}>
-                    {inicial(nome || q.nome)}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{q.nome}</p>
-                  {nome && <p className="truncate text-xs text-muted-foreground">{nome}</p>}
+                <div
+                  style={fundoStyle(q)}
+                  className="relative flex aspect-[16/9] w-full items-end p-3"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                  {logo && (
+                    <img src={logo} alt="" className="absolute right-2 top-2 size-7 rounded-md object-cover ring-1 ring-white/30" />
+                  )}
+                  <span className="relative line-clamp-2 text-sm font-semibold text-white drop-shadow">
+                    {q.nome}
+                  </span>
                 </div>
+                {nome && (
+                  <span className="truncate px-3 py-2 text-xs text-muted-foreground">{nome}</span>
+                )}
               </button>
             );
           })}

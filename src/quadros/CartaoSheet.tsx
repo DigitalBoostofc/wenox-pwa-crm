@@ -128,9 +128,9 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                 className="absolute right-12 top-3 grid size-7 place-items-center rounded-md bg-black/55 text-white backdrop-blur-sm hover:bg-black/75"><ImageIcon className="size-4" /></button>
             </div>
 
-            <div className="flex flex-col gap-5 overflow-y-auto p-6 md:flex-row">
-              {/* principal */}
-              <div className="flex min-w-0 flex-1 flex-col gap-5">
+            <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+              {/* principal (scroll próprio) */}
+              <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-6">
                 <DialogTitle className="pr-8">
                   <input defaultValue={c.nome} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== c.nome) salvar({ nome: v }); }}
                     className="w-full rounded-md bg-transparent text-xl font-semibold leading-snug outline-none focus:bg-secondary/40 focus:px-2 focus:py-1" />
@@ -317,12 +317,12 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                 </div>
               </div>
 
-              {/* coluna direita: comentários/atividade (estilo Trello) */}
-              <div className="flex w-full shrink-0 flex-col gap-3 md:w-80">
+              {/* coluna direita: comentários/atividade (input fixo, lista rola — estilo Trello) */}
+              <div className="flex max-h-full w-full shrink-0 flex-col gap-3 border-t border-border p-5 md:w-80 md:border-l md:border-t-0">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><MessageSquare className="size-3.5" /> Comentários ({comentarios.length})</div>
                 <textarea value={novoComent} onChange={(e) => setNovoComent(e.target.value)} rows={2} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComentario(); } }} placeholder="Escrever um comentário…" className="w-full resize-none rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
                 {novoComent.trim() && <Button size="sm" className="h-7 w-fit text-xs" onClick={enviarComentario}>Comentar</Button>}
-                <div className="flex flex-col gap-2">
+                <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                   {comentarios.map((cm) => (
                     <div key={cm.id} className="rounded-md border border-border bg-background/40 p-2 text-sm">
                       <div className="mb-0.5 flex items-center justify-between text-xs text-muted-foreground">

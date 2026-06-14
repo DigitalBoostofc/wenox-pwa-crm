@@ -3,10 +3,12 @@ import {
   CheckSquare, Paperclip, Tag, Calendar, Users, X, Trash2, MessageSquare, ImageIcon,
 } from 'lucide-react';
 import {
-  getCartao, atualizarCartao, removerCartao,
+  getCartao, atualizarCartao, removerCartao, arquivarCartao,
   subirAnexos, urlUpload,
   listComentariosCartao, addComentarioCartao, removerComentarioCartao,
 } from './quadrosService';
+import { AvatarMembro } from '@/dashboard/AvatarMembro';
+import { Archive } from 'lucide-react';
 import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
 import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA } from './types';
 import { prazoBR } from '@/tarefas/format';
@@ -74,8 +76,9 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   function removerEtiqueta(idx: number) { if (c) salvar({ etiquetas: (c.etiquetas ?? []).filter((_, i) => i !== idx) }); }
   function addEtiqueta(e: EtiquetaCartao) { if (c && !(c.etiquetas ?? []).some((x) => x.nome === e.nome && x.cor === e.cor)) salvar({ etiquetas: [...(c.etiquetas ?? []), e] }); }
   function criarEtiqueta() { const n = novaEtNome.trim(); addEtiqueta({ nome: n, cor: novaEtCor }); setNovaEtNome(''); }
-  function toggleMembro(nome: string) { if (!c) return; const a = c.membros ?? []; salvar({ membros: a.includes(nome) ? a.filter((m) => m !== nome) : [...a, nome] }); }
+  function toggleMembro(uid: string) { if (!c) return; const a = c.membros_ids ?? []; salvar({ membros_ids: a.includes(uid) ? a.filter((m) => m !== uid) : [...a, uid] }); }
   async function excluirCard() { if (!c || !confirm('Excluir este card? Esta ação não pode ser desfeita.')) return; try { await removerCartao(c.id); onMudou?.(); onClose(); } catch { /* */ } }
+  async function arquivar() { if (!c) return; try { await arquivarCartao(c.id, true); onMudou?.(); onClose(); } catch { /* */ } }
   async function enviarComentario() { if (!c) return; const t = novoComent.trim(); if (!t) return; setNovoComent(''); try { await addComentarioCartao(c.id, t, clienteId); setComentarios(await listComentariosCartao(c.id)); } catch { /* */ } }
   async function apagarComentario(cid: string) { try { await removerComentarioCartao(cid); setComentarios((l) => l.filter((x) => x.id !== cid)); } catch { /* */ } }
   async function onUpload(files: FileList | null) {
@@ -96,7 +99,8 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const labelsRestantes = labelsDisponiveis.filter((d) => !(c?.etiquetas ?? []).some((x) => x.nome === d.nome && x.cor === d.cor));
   const capa = c ? capaCartao(c) : null;
   const temEt = (c?.etiquetas ?? []).filter((e) => e.nome || e.cor).length > 0;
-  const temMem = (c?.membros ?? []).length > 0;
+  const memUsuarios = (c?.membros_ids ?? []).map((id) => equipe.find((u) => u.id === id)).filter(Boolean) as Usuario[];
+  const temMem = memUsuarios.length > 0;
 
   const inputCls = 'w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
@@ -129,9 +133,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                       <div className="flex flex-col gap-1">
                         <span className="text-[10px] uppercase text-muted-foreground">Membros</span>
                         <div className="flex flex-wrap gap-1">
-                          {(c.membros ?? []).map((m, i) => (
-                            <span key={i} title={m} className="grid size-7 place-items-center rounded-full bg-secondary text-[11px] font-bold">{(m || '?').trim().charAt(0).toUpperCase()}</span>
-                          ))}
+                          {memUsuarios.map((u) => <AvatarMembro key={u.id} membro={u} className="size-7 text-[11px]" />)}
                         </div>
                       </div>
                     )}
@@ -175,8 +177,12 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                         <span className="text-xs font-semibold">Membros</span>
                         <div className="flex flex-wrap gap-1.5">
                           {equipe.map((u) => {
-                            const ativo = (c.membros ?? []).includes(u.nome ?? '');
-                            return <button key={u.id} onClick={() => toggleMembro(u.nome ?? '')} className={cn('rounded-full border px-2.5 py-1 text-xs transition-colors', ativo ? 'border-primary bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:bg-secondary')}>{u.nome}</button>;
+                            const ativo = (c.membros_ids ?? []).includes(u.id);
+                            return (
+                              <button key={u.id} onClick={() => toggleMembro(u.id)} className={cn('inline-flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs transition-colors', ativo ? 'border-primary bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:bg-secondary')}>
+                                <AvatarMembro membro={u} className="size-5 text-[9px]" />{u.nome}
+                              </button>
+                            );
                           })}
                         </div>
                       </div>
@@ -295,7 +301,10 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                   </div>
                 )}
 
-                <button onClick={excluirCard} className="inline-flex w-fit items-center gap-1.5 rounded-md border border-destructive/40 px-2.5 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"><Trash2 className="size-3.5" /> Excluir card</button>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={arquivar} className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary"><Archive className="size-3.5" /> Arquivar</button>
+                  <button onClick={excluirCard} className="inline-flex w-fit items-center gap-1.5 rounded-md border border-destructive/40 px-2.5 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"><Trash2 className="size-3.5" /> Excluir</button>
+                </div>
               </div>
 
               {/* coluna direita: comentários/atividade (estilo Trello) */}

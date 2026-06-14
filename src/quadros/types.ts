@@ -48,6 +48,8 @@ export interface Cartao {
   checklists?: ChecklistCartao[];
   anexos?: AnexoCartao[];
   membros?: string[];
+  membros_ids?: string[];
+  arquivado?: boolean;
   capa?: string;
   uploads?: string[];
   collectionId?: string;

@@ -4,7 +4,13 @@ import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, Mo
 import {
   getQuadro, listListas, listCartoes, moverCartao,
   criarCartao, criarLista, atualizarLista, arquivarLista,
+  listCartoesArquivados, arquivarCartao,
 } from './quadrosService';
+import { listUsuarios } from '@/usuarios/usuariosService';
+import type { Usuario } from '@/usuarios/types';
+import { AvatarMembro } from '@/dashboard/AvatarMembro';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Archive } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
@@ -22,10 +28,11 @@ import { cn } from '@/lib/utils';
 let dragCardId: string | null = null;
 let dragListId: string | null = null;
 
-function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt }: {
+function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosMap }: {
   c: Cartao; onClick: () => void; onSoltarAntes: (cardId: string) => void;
-  expandidas: boolean; onToggleEt: () => void;
+  expandidas: boolean; onToggleEt: () => void; usuariosMap: Record<string, Usuario>;
 }) {
+  const memU = (c.membros_ids ?? []).map((id) => usuariosMap[id]).filter(Boolean) as Usuario[];
   const capa = capaCartao(c);
   const { feitos, total } = progressoChecklist(c);
   const nAnexos = (c.anexos ?? []).length;
@@ -40,7 +47,7 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt }: {
       onClick={onClick}
       className={cn(
         'cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40',
-        over ? 'border-primary border-t-2' : 'border-border',
+        over ? 'border-primary border-t-[3px] mt-1.5 shadow-[0_-3px_0_0_hsl(var(--primary))]' : 'border-border',
       )}
     >
       {capa && (capaEhCor(capa)
@@ -66,10 +73,14 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt }: {
           {total > 0 && <span className="inline-flex items-center gap-0.5"><CheckSquare className="size-3" />{feitos}/{total}</span>}
           {nAnexos > 0 && <span className="inline-flex items-center gap-0.5"><Paperclip className="size-3" />{nAnexos}</span>}
           {(c.descricao ?? '').trim() && <AlignLeft className="size-3" />}
-          {(c.membros?.length ?? 0) > 0 && (
+          {memU.length > 0 ? (
+            <span className="ml-auto inline-flex -space-x-1.5">
+              {memU.slice(0, 4).map((u) => <AvatarMembro key={u.id} membro={u} className="size-5 border border-card text-[8px]" />)}
+            </span>
+          ) : (c.membros?.length ?? 0) > 0 && (
             <span className="ml-auto inline-flex -space-x-1">
               {c.membros!.slice(0, 3).map((m, i) => (
-                <span key={i} title={m} className="grid size-4 place-items-center rounded-full bg-secondary text-[8px] font-bold ring-1 ring-card">{(m || '?').trim().charAt(0).toUpperCase()}</span>
+                <span key={i} title={m} className="grid size-5 place-items-center rounded-full bg-secondary text-[8px] font-bold ring-1 ring-card">{(m || '?').trim().charAt(0).toUpperCase()}</span>
               ))}
             </span>
           )}
@@ -98,6 +109,18 @@ export function QuadroBoardPage({ id }: { id: string }) {
   function toggleEtExpand() { setEtExpand((v) => { const n = !v; try { localStorage.setItem('wenox-kanban-et', n ? 'txt' : 'bar'); } catch { /* */ } return n; }); }
   function toggleSet(setFn: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) {
     setFn((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  }
+  const [usuariosMap, setUsuariosMap] = useState<Record<string, Usuario>>({});
+  const [verArq, setVerArq] = useState(false);
+  const [arquivados, setArquivados] = useState<Cartao[]>([]);
+  useEffect(() => { listUsuarios().then((us) => { const m: Record<string, Usuario> = {}; for (const u of us) m[u.id] = u; setUsuariosMap(m); }).catch(() => { /* */ }); }, []);
+
+  async function abrirArquivados() {
+    setVerArq(true);
+    try { setArquivados(await listCartoesArquivados(id)); } catch { /* */ }
+  }
+  async function restaurarCard(cid: string) {
+    try { await arquivarCartao(cid, false); setArquivados((l) => l.filter((x) => x.id !== cid)); await recarregar(); } catch { /* */ }
   }
 
   async function recarregar() {
@@ -240,6 +263,9 @@ export function QuadroBoardPage({ id }: { id: string }) {
         {logo && <img src={logo} alt="" className="size-7 rounded-md object-cover" />}
         <h2 className="text-lg font-semibold">{quadro.nome}</h2>
         <Badge variant="muted" className="text-[10px]">{cartoes.length} cards</Badge>
+        <button onClick={abrirArquivados} className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary">
+          <Archive className="size-3.5" /> Arquivados
+        </button>
         {erro && <span className="text-xs text-destructive">{erro}</span>}
       </div>
 
@@ -325,7 +351,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
 
               <div className="flex flex-col gap-2 overflow-y-auto pr-0.5">
                 {cards.map((c) => (
-                  <MiniCard key={c.id} c={c} onClick={() => setAbertoId(c.id)} onSoltarAntes={soltarAntes} expandidas={etExpand} onToggleEt={toggleEtExpand} />
+                  <MiniCard key={c.id} c={c} onClick={() => setAbertoId(c.id)} onSoltarAntes={soltarAntes} expandidas={etExpand} onToggleEt={toggleEtExpand} usuariosMap={usuariosMap} />
                 ))}
               </div>
 
@@ -384,6 +410,22 @@ export function QuadroBoardPage({ id }: { id: string }) {
         onClose={() => setAbertoId(null)}
         onMudou={recarregar}
       />
+
+      <Dialog open={verArq} onOpenChange={setVerArq}>
+        <DialogContent className="max-w-md">
+          <div className="flex max-h-[80vh] flex-col gap-3 overflow-y-auto p-5">
+            <DialogTitle className="flex items-center gap-2"><Archive className="size-4" /> Cartões arquivados</DialogTitle>
+            {arquivados.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Nenhum cartão arquivado.</p>
+            ) : arquivados.map((a) => (
+              <div key={a.id} className="flex items-center gap-2 rounded-md border border-border p-2">
+                <span className="min-w-0 flex-1 truncate text-sm">{a.nome}</span>
+                <button onClick={() => restaurarCard(a.id)} className="shrink-0 rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">Restaurar</button>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

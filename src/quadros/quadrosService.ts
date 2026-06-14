@@ -24,14 +24,28 @@ export async function listListas(quadroId: string): Promise<Lista[]> {
   return res as unknown as Lista[];
 }
 
-/** Todos os cartões de um quadro (agrupar por lista no cliente). */
+/** Cartões ATIVOS de um quadro (não arquivados). */
 export async function listCartoes(quadroId: string): Promise<Cartao[]> {
   const res = await ccol().getFullList({
-    filter: `quadro = "${quadroId}"`,
+    filter: `quadro = "${quadroId}" && arquivado != true`,
     sort: 'ordem',
     batch: 1000,
   });
   return res as unknown as Cartao[];
+}
+
+/** Cartões arquivados de um quadro. */
+export async function listCartoesArquivados(quadroId: string): Promise<Cartao[]> {
+  const res = await ccol().getFullList({
+    filter: `quadro = "${quadroId}" && arquivado = true`,
+    sort: '-updated', batch: 1000,
+  });
+  return res as unknown as Cartao[];
+}
+
+/** Arquiva/desarquiva um cartão. */
+export async function arquivarCartao(id: string, arquivado: boolean): Promise<Cartao> {
+  return (await ccol().update(id, { arquivado })) as unknown as Cartao;
 }
 
 export async function getCartao(id: string): Promise<Cartao> {

@@ -1,5 +1,5 @@
 import { pb } from '@/lib/pocketbase';
-import type { Quadro, Lista, Cartao } from './types';
+import type { Quadro, Lista, Cartao, ComentarioCartao } from './types';
 
 const qcol = () => pb.collection('quadros');
 const lcol = () => pb.collection('listas');
@@ -73,4 +73,45 @@ export async function arquivarLista(id: string): Promise<Lista> {
 
 export async function removerLista(id: string): Promise<void> {
   await lcol().delete(id);
+}
+
+/* ----------------------------- Anexos / capa ----------------------------- */
+
+/** URL pública de um arquivo enviado (campo file `uploads`). */
+export function urlUpload(card: Cartao, filename: string): string {
+  return pb.files.getURL(card as unknown as Record<string, unknown>, filename);
+}
+
+/** Sobe arquivos novos pro card (append no campo `uploads`). */
+export async function subirAnexos(card: Cartao, files: File[]): Promise<Cartao> {
+  const fd = new FormData();
+  for (const f of files) fd.append('uploads+', f); // '+' = adiciona sem remover os existentes
+  return (await ccol().update(card.id, fd)) as unknown as Cartao;
+}
+
+export async function definirCapa(id: string, url: string): Promise<Cartao> {
+  return (await ccol().update(id, { capa: url })) as unknown as Cartao;
+}
+
+/* ------------------------------- Comentários ----------------------------- */
+
+export async function listComentariosCartao(cardId: string): Promise<ComentarioCartao[]> {
+  const res = await pb.collection('comentarios').getFullList({
+    filter: `entidade = "cartao" && ref_id = "${cardId}"`,
+    sort: '-created', expand: 'autor',
+  });
+  return res as unknown as ComentarioCartao[];
+}
+
+export async function addComentarioCartao(cardId: string, texto: string, clienteId?: string): Promise<void> {
+  const t = texto.trim();
+  if (!t) return;
+  await pb.collection('comentarios').create({
+    entidade: 'cartao', ref_id: cardId, texto: t,
+    autor: pb.authStore?.record?.id, cliente: clienteId || '',
+  });
+}
+
+export async function removerComentarioCartao(id: string): Promise<void> {
+  await pb.collection('comentarios').delete(id);
 }

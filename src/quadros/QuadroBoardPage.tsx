@@ -311,6 +311,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
         cartaoId={abertoId}
         aberto={abertoId !== null}
         labelsDisponiveis={labelsDisponiveis}
+        clienteId={quadro.cliente}
         onClose={() => setAbertoId(null)}
         onMudou={recarregar}
       />

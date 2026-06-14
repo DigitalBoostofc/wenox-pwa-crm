@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react';
-import { CheckSquare, Paperclip, Tag, Calendar, Users, FileText, Plus, X, Trash2 } from 'lucide-react';
-import { getCartao, atualizarCartao, removerCartao } from './quadrosService';
-import type { Cartao, EtiquetaCartao } from './types';
+import { useEffect, useRef, useState } from 'react';
+import { CheckSquare, Paperclip, Tag, Calendar, Users, FileText, Plus, X, Trash2, MessageSquare, Upload, ImageIcon } from 'lucide-react';
+import {
+  getCartao, atualizarCartao, removerCartao,
+  subirAnexos, urlUpload,
+  listComentariosCartao, addComentarioCartao, removerComentarioCartao,
+} from './quadrosService';
+import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
 import { progressoChecklist, corEtiquetaClass, capaCartao, CORES_ETIQUETA } from './types';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
+import { useAuth } from '@/auth/useAuth';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,10 +27,11 @@ function Secao({ icon: Icon, titulo, children }: { icon: typeof Tag; titulo: str
   );
 }
 
-export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], onClose, onMudou }: {
-  cartaoId: string | null; aberto: boolean; labelsDisponiveis?: EtiquetaCartao[];
+export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteId, onClose, onMudou }: {
+  cartaoId: string | null; aberto: boolean; labelsDisponiveis?: EtiquetaCartao[]; clienteId?: string;
   onClose: () => void; onMudou?: () => void;
 }) {
+  const { user } = useAuth();
   const [c, setC] = useState<Cartao | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [equipe, setEquipe] = useState<Usuario[]>([]);
@@ -35,11 +41,16 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], onClose,
   const [novaCl, setNovaCl] = useState('');
   const [novaEtNome, setNovaEtNome] = useState('');
   const [novaEtCor, setNovaEtCor] = useState<string>('green');
+  const [comentarios, setComentarios] = useState<ComentarioCartao[]>([]);
+  const [novoComent, setNovoComent] = useState('');
+  const [subindo, setSubindo] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!cartaoId) { setC(null); return; }
+    if (!cartaoId) { setC(null); setComentarios([]); return; }
     setCarregando(true);
     getCartao(cartaoId).then((r) => { setC(r); setDescRasc(r.descricao ?? ''); }).catch(() => setC(null)).finally(() => setCarregando(false));
+    listComentariosCartao(cartaoId).then(setComentarios).catch(() => setComentarios([]));
   }, [cartaoId]);
   useEffect(() => { listUsuarios().then((us) => setEquipe(us.filter((u) => u.role !== 'Cliente'))).catch(() => { /* */ }); }, []);
 
@@ -48,6 +59,23 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], onClose,
     setC({ ...c, ...dados });
     try { await atualizarCartao(c.id, dados); onMudou?.(); } catch { /* */ }
   }
+
+  async function enviarComentario() {
+    if (!c) return;
+    const t = novoComent.trim(); if (!t) return;
+    setNovoComent('');
+    try { await addComentarioCartao(c.id, t, clienteId); setComentarios(await listComentariosCartao(c.id)); } catch { /* */ }
+  }
+  async function apagarComentario(cid: string) {
+    try { await removerComentarioCartao(cid); setComentarios((l) => l.filter((x) => x.id !== cid)); } catch { /* */ }
+  }
+  async function onUpload(files: FileList | null) {
+    if (!c || !files || files.length === 0) return;
+    setSubindo(true);
+    try { const atualizado = await subirAnexos(c, Array.from(files)); setC(atualizado); onMudou?.(); }
+    catch { /* */ } finally { setSubindo(false); if (fileRef.current) fileRef.current.value = ''; }
+  }
+  async function escolherCapa(url: string) { await salvar({ capa: url }); }
 
   // checklists
   function toggleItem(ci: number, ii: number) {
@@ -97,8 +125,15 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], onClose,
     try { await removerCartao(c.id); onMudou?.(); onClose(); } catch { /* */ }
   }
 
-  const imgs = (c?.anexos ?? []).filter((a) => (a.mime ?? '').startsWith('image') && a.url);
-  const outros = (c?.anexos ?? []).filter((a) => !(a.mime ?? '').startsWith('image') && a.url);
+  const ehImg = (n: string) => /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(n);
+  const imgs: { url: string; nome?: string }[] = [
+    ...(c?.anexos ?? []).filter((a) => (a.mime ?? '').startsWith('image') && a.url).map((a) => ({ url: a.url!, nome: a.nome })),
+    ...(c?.uploads ?? []).filter(ehImg).map((fn) => ({ url: urlUpload(c!, fn), nome: fn })),
+  ];
+  const outros: { url: string; nome?: string }[] = [
+    ...(c?.anexos ?? []).filter((a) => !(a.mime ?? '').startsWith('image') && a.url).map((a) => ({ url: a.url!, nome: a.nome })),
+    ...(c?.uploads ?? []).filter((fn) => !ehImg(fn)).map((fn) => ({ url: urlUpload(c!, fn), nome: fn })),
+  ];
   const prog = c ? progressoChecklist(c) : { feitos: 0, total: 0 };
   const labelsRestantes = labelsDisponiveis.filter((d) => !(c?.etiquetas ?? []).some((x) => x.nome === d.nome && x.cor === d.cor));
   const capa = c ? capaCartao(c) : null;
@@ -174,24 +209,50 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], onClose,
                   </div>
                 </Secao>
 
-                {imgs.length > 0 && (
-                  <Secao icon={Paperclip} titulo={`Imagens (${imgs.length})`}>
+                <Secao icon={Paperclip} titulo={`Anexos (${imgs.length + outros.length})`}>
+                  <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
+                  <Button size="sm" variant="outline" className="h-7 w-fit text-xs" disabled={subindo} onClick={() => fileRef.current?.click()}>
+                    <Upload className="size-3.5" /> {subindo ? 'Enviando…' : 'Adicionar anexo'}
+                  </Button>
+                  {imgs.length > 0 && (
                     <div className="grid grid-cols-3 gap-2">
                       {imgs.map((a, i) => (
-                        <a key={i} href={a.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-md border border-border">
-                          <img src={a.url} alt={a.nome ?? ''} loading="lazy" className="aspect-square w-full object-cover transition-transform hover:scale-105" />
-                        </a>
+                        <div key={i} className="group relative overflow-hidden rounded-md border border-border">
+                          <a href={a.url} target="_blank" rel="noreferrer"><img src={a.url} alt={a.nome ?? ''} loading="lazy" className={cn('aspect-square w-full object-cover', c.capa === a.url && 'ring-2 ring-primary')} /></a>
+                          <button onClick={() => escolherCapa(a.url)} title="Definir como capa"
+                            className="absolute bottom-1 right-1 grid size-6 place-items-center rounded bg-black/60 text-white opacity-0 transition group-hover:opacity-100 hover:bg-black/80"><ImageIcon className="size-3.5" /></button>
+                        </div>
                       ))}
                     </div>
-                  </Secao>
-                )}
-                {outros.length > 0 && (
-                  <Secao icon={Paperclip} titulo={`Anexos (${outros.length})`}>
+                  )}
+                  {outros.length > 0 && (
                     <div className="flex flex-col gap-1">
                       {outros.map((a, i) => <a key={i} href={a.url} target="_blank" rel="noreferrer" className="truncate text-sm text-primary hover:underline">{a.nome || a.url}</a>)}
                     </div>
-                  </Secao>
-                )}
+                  )}
+                </Secao>
+
+                <Secao icon={MessageSquare} titulo={`Comentários (${comentarios.length})`}>
+                  <div className="flex gap-2">
+                    <textarea value={novoComent} onChange={(e) => setNovoComent(e.target.value)} rows={2}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComentario(); } }}
+                      placeholder="Escrever um comentário…" className="w-full resize-none rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
+                  </div>
+                  {novoComent.trim() && <Button size="sm" className="h-7 w-fit text-xs" onClick={enviarComentario}>Comentar</Button>}
+                  <div className="flex flex-col gap-2">
+                    {comentarios.map((cm) => (
+                      <div key={cm.id} className="rounded-md border border-border bg-background/40 p-2 text-sm">
+                        <div className="mb-0.5 flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground/80">{cm.expand?.autor?.nome ?? 'Alguém'}</span>
+                          {(cm.autor === user?.id || user?.role === 'Owner' || user?.role === 'Admin') && (
+                            <button onClick={() => apagarComentario(cm.id)} className="hover:text-destructive"><Trash2 className="size-3" /></button>
+                          )}
+                        </div>
+                        <p className="whitespace-pre-wrap">{cm.texto}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Secao>
               </div>
 
               {/* sidebar */}

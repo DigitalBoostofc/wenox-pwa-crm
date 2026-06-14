@@ -48,12 +48,25 @@ export interface Cartao {
   checklists?: ChecklistCartao[];
   anexos?: AnexoCartao[];
   membros?: string[];
+  capa?: string;
+  uploads?: string[];
+  collectionId?: string;
+  collectionName?: string;
   created?: string;
   updated?: string;
 }
 
-/** Primeira imagem do card (capa). */
-export function capaCartao(c: Pick<Cartao, 'anexos'>): string | null {
+export interface ComentarioCartao {
+  id: string;
+  texto: string;
+  autor?: string;
+  created?: string;
+  expand?: { autor?: { id: string; nome?: string; foto?: string; collectionId?: string; collectionName?: string } };
+}
+
+/** Capa do card: campo `capa` explícito, senão a 1ª imagem dos anexos. */
+export function capaCartao(c: Pick<Cartao, 'anexos' | 'capa'>): string | null {
+  if (c.capa) return c.capa;
   const a = (c.anexos ?? []).find((x) => (x.mime ?? '').startsWith('image') && x.url);
   return a?.url ?? null;
 }

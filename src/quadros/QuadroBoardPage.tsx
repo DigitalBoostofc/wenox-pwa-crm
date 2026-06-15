@@ -17,7 +17,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
-import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST } from './types';
+import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, statusDaEsteira } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -96,11 +96,22 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
         {/* Info compacta de post (só em listas-mês) */}
         {ehPost && (c.status_post || c.formato || (c.redes?.length ?? 0) > 0) && (
           <div className="flex flex-wrap items-center gap-1 border-t border-border/40 pt-1.5">
-            {c.status_post && (
-              <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-semibold', corStatusPost(c.status_post))}>
-                {STATUS_POST.find((s) => s.id === c.status_post)?.label ?? c.status_post}
-              </span>
-            )}
+            {c.status_post && (() => {
+              // Mostra a etapa atual da esteira quando disponível
+              const etapas = c.etapas_card;
+              const etapaAtualTexto = etapas?.length
+                ? (() => { const idx = etapas.findIndex((e) => !e.feito); return idx >= 0 ? etapas[idx].texto : null; })()
+                : null;
+              const statusExibido = etapaAtualTexto
+                ? statusDaEsteira(etapas)
+                : c.status_post;
+              return (
+                <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-semibold', corStatusPost(statusExibido))}
+                  title={etapaAtualTexto ?? undefined}>
+                  {etapaAtualTexto ?? (STATUS_POST.find((s) => s.id === c.status_post)?.label ?? c.status_post)}
+                </span>
+              );
+            })()}
             {c.formato && (
               <span className="rounded border border-border bg-secondary px-1.5 py-0.5 text-[9px] text-muted-foreground">
                 {TIPO_POST_LABEL[c.formato] ?? c.formato}

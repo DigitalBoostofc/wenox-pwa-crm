@@ -7,6 +7,39 @@ export interface ItemChecklistCartao { texto: string; feito: boolean }
 export interface ChecklistCartao { nome: string; itens: ItemChecklistCartao[] }
 export interface AnexoCartao { nome?: string; url?: string; trello_url?: string; mime?: string; bytes?: number; data?: string }
 
+/** Etapa da esteira de produção de um card-post. */
+export interface EtapaCard {
+  id: string;
+  texto: string;
+  tipo: 'interna' | 'aprovacao_cliente';
+  responsavel?: string;
+  feito: boolean;
+  feito_por?: string;
+  feito_em?: string;
+  veredito?: 'aprovado' | 'reprovado';
+  motivo?: string;
+}
+
+/** Esteira de produção padrão de Social Media (5 etapas). */
+export const ESTEIRA_SOCIAL = [
+  { texto: 'Copy',                         tipo: 'interna'           as const },
+  { texto: 'Layout',                       tipo: 'interna'           as const },
+  { texto: 'Revisão interna',              tipo: 'interna'           as const },
+  { texto: 'Aprovação do cliente',         tipo: 'aprovacao_cliente' as const },
+  { texto: 'Confirmação de agendamento',   tipo: 'interna'           as const },
+] as const;
+
+/** Deriva status_post a partir das etapas_card de um card. */
+export function statusDaEsteira(etapas_card?: EtapaCard[]): 'em_producao' | 'agendar' | 'agendado' | 'em_alteracao' {
+  if (!etapas_card?.length) return 'em_producao';
+  const idx = etapas_card.findIndex((e) => !e.feito);
+  if (idx === -1) return 'agendado';
+  const atual = etapas_card[idx];
+  if (atual.veredito === 'reprovado') return 'em_alteracao';
+  if (atual.texto === 'Confirmação de agendamento') return 'agendar';
+  return 'em_producao';
+}
+
 export interface Quadro {
   id: string;
   trello_id?: string;
@@ -36,6 +69,7 @@ export interface Lista {
   mes?: number;
   ano?: number;
   tarefa?: string;
+  review_token?: string;
 }
 
 export interface Cartao {
@@ -67,6 +101,7 @@ export interface Cartao {
   legenda?: string;
   hashtags?: string;
   briefing?: Record<string, unknown>;
+  etapas_card?: EtapaCard[];
   collectionId?: string;
   collectionName?: string;
   created?: string;

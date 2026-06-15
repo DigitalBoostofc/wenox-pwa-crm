@@ -6,7 +6,7 @@ import {
   criarCartao, atualizarCartao,
 } from './quadrosService';
 import type { Quadro, Lista, Cartao } from './types';
-import { corStatusPost, STATUS_POST, alertaAgendar } from './types';
+import { corStatusPost, STATUS_POST, alertaAgendar, statusDaEsteira } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { parsePrazo } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -248,11 +248,19 @@ export function CalendarioPage({ id }: { id: string }) {
                       className="flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1 text-sm transition-colors hover:border-primary/40"
                     >
                       <span className="max-w-[200px] truncate">{c.nome}</span>
-                      {c.status_post && (
-                        <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold', corStatusPost(c.status_post))}>
-                          {STATUS_POST.find(s => s.id === c.status_post)?.label ?? c.status_post}
-                        </span>
-                      )}
+                      {c.status_post && (() => {
+                        const etapas = c.etapas_card;
+                        const etapaAtualTexto = etapas?.length
+                          ? (() => { const idx = etapas.findIndex(e => !e.feito); return idx >= 0 ? etapas[idx].texto : null; })()
+                          : null;
+                        const statusExibido = etapaAtualTexto ? statusDaEsteira(etapas) : c.status_post;
+                        return (
+                          <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold', corStatusPost(statusExibido))}
+                            title={etapaAtualTexto ?? undefined}>
+                            {etapaAtualTexto ?? (STATUS_POST.find(s => s.id === c.status_post)?.label ?? c.status_post)}
+                          </span>
+                        );
+                      })()}
                       {alertaAgendar(c) && <span className="shrink-0 text-[10px] text-amber-400">⚠</span>}
                     </div>
                   ))}

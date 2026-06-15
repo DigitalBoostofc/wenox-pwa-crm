@@ -1,7 +1,8 @@
 import { pb } from '@/lib/pocketbase';
-import type { Quadro, Lista, Cartao, ComentarioCartao, AnexoCartao } from './types';
+import type { Quadro, Lista, Cartao, ComentarioCartao, AnexoCartao, EtapaCard } from './types';
+import { ESTEIRA_SOCIAL, statusDaEsteira } from './types';
 import { carregarModeloRemoto } from './modeloPost';
-import { criarTarefa } from '@/tarefas/tarefasService';
+import { criarTarefa, concluirEtapa, getTarefa } from '@/tarefas/tarefasService';
 import { statusInicial } from '@/tarefas/status';
 import type { EtapaTarefa } from '@/tarefas/types';
 
@@ -331,6 +332,12 @@ export async function gerarPostsMes(
       nome: `${dd} ${DIAS_SEMANA_CURTO[dt.getDay()]}: `,
       data_post: `${ano}-${mm}-${dd} 12:00:00`,
       status_post: 'em_producao',
+      etapas_card: ESTEIRA_SOCIAL.map((e) => ({
+        id: smUuid(),
+        texto: e.texto,
+        tipo: e.tipo,
+        feito: false,
+      })),
       ordem: i + 1,
       descricao: '',
       concluido: false,
@@ -348,20 +355,18 @@ export async function vincularTarefaLista(listaId: string, tarefaId: string): Pr
   return (await lcol().update(listaId, { tarefa: tarefaId })) as unknown as Lista;
 }
 
-/** Cria a tarefa "Social Media" para o mês/ano com as 6 etapas padrão. */
+/** Cria a tarefa "Social Media" para o mês/ano com a ESTEIRA_SOCIAL (5 etapas). */
 export async function criarTarefaSocialMedia(
   clienteId: string,
   mes: number,
   ano: number,
 ): Promise<import('@/tarefas/types').Tarefa> {
-  const etapas: EtapaTarefa[] = [
-    { id: smUuid(), texto: 'Briefing', tipo: 'interna', feito: false },
-    { id: smUuid(), texto: 'Copy', tipo: 'interna', feito: false },
-    { id: smUuid(), texto: 'Layout', tipo: 'interna', feito: false },
-    { id: smUuid(), texto: 'Aprovação do cliente', tipo: 'aprovacao_cliente', feito: false },
-    { id: smUuid(), texto: 'Agendamento', tipo: 'interna', feito: false },
-    { id: smUuid(), texto: 'Publicação', tipo: 'interna', feito: false },
-  ];
+  const etapas: EtapaTarefa[] = ESTEIRA_SOCIAL.map((e) => ({
+    id: smUuid(),
+    texto: e.texto,
+    tipo: e.tipo,
+    feito: false,
+  }));
   return criarTarefa({
     nome: `Social Media — ${MESES_PT[mes - 1]}/${ano}`,
     cliente: clienteId,
@@ -376,4 +381,58 @@ export async function criarTarefaSocialMedia(
     checklist: [],
     aprovacao: '',
   });
+}
+
+function wallclock(): string {
+  const d = new Date();
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+    + ' ' + [String(d.getHours()).padStart(2, '0'), String(d.getMinutes()).padStart(2, '0'), String(d.getSeconds()).padStart(2, '0')].join(':');
+}
+
+/**
+ * Confirma a etapa idx de um card-post.
+ * Atualiza etapas_card + status_post; depois faz gating: se todos os cards
+ * da lista já têm a etapa idx feita, conclui a etapa de mesmo índice na tarefa.
+ */
+export async function confirmarEtapaCard(
+  card: Cartao,
+  idx: number,
+  uid: string,
+  opts?: { veredito?: 'aprovado' | 'reprovado'; motivo?: string },
+): Promise<Cartao> {
+  const etapas = (card.etapas_card ?? []).map((e, i) =>
+    i !== idx ? e : {
+      ...e,
+      feito: true,
+      feito_por: uid,
+      feito_em: wallclock(),
+      ...(opts?.veredito ? { veredito: opts.veredito } : {}),
+      ...(opts?.motivo ? { motivo: opts.motivo } : {}),
+    } as EtapaCard,
+  );
+  const status_post = statusDaEsteira(etapas);
+  const updated = await atualizarCartao(card.id, { etapas_card: etapas, status_post });
+
+  // Gating: verifica se todos os cards da lista completaram esta etapa
+  try {
+    const todos = (await listCartoes(card.quadro)).filter(
+      (c) => c.lista === card.lista && (c.etapas_card?.length ?? 0) > 0,
+    );
+    const todosFeitos = todos.length > 0 && todos.every((c) => {
+      const eCard = c.id === card.id ? etapas : (c.etapas_card ?? []);
+      return eCard[idx]?.feito === true;
+    });
+    if (todosFeitos) {
+      const lista = (await pb.collection('listas').getOne(card.lista!)) as unknown as Lista;
+      if (lista.tarefa) {
+        const tarefa = await getTarefa(lista.tarefa);
+        const etapaTarefa = tarefa.etapas?.[idx];
+        if (etapaTarefa && !etapaTarefa.feito) {
+          await concluirEtapa(tarefa, etapaTarefa.id);
+        }
+      }
+    }
+  } catch { /* gating best-effort */ }
+
+  return updated;
 }

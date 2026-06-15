@@ -166,6 +166,20 @@ export function capaEhCor(capa?: string | null): boolean {
   return !!capa && capa.startsWith('#');
 }
 
+/**
+ * Para capa de COR sólida: decide se o texto por cima deve ser escuro
+ * (cor clara) ou claro (cor escura), pela luminância — igual ao Trello.
+ */
+export function capaCorClara(capa?: string | null): boolean {
+  if (!capa || !capa.startsWith('#')) return false;
+  let h = capa.slice(1);
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  if (h.length < 6) return false;
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6;
+}
+
 /** Fundo do BOARD (atrás das colunas) — imagem/gradiente escurecido p/ legibilidade. */
 export function fundoBoardStyle(q: Pick<Quadro, 'fundo_img' | 'fundo_cor'>): CSSProperties {
   const scrim = 'linear-gradient(rgba(9,9,13,0.86), rgba(9,9,13,0.92))';

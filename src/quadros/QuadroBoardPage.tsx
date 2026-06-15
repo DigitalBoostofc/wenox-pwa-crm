@@ -17,7 +17,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
-import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, statusDaEsteira, thumbUrl } from './types';
+import { capaCartao, capaEhCor, capaCorClara, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, statusDaEsteira, thumbUrl } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -59,15 +59,25 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
       )}
     >
       {capa && (capaEhCor(capa)
-        ? <div style={{ background: capa }} className="h-20 w-full" />
-        : <img
-            src={thumbUrl(capa)}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            onError={(e) => { const img = e.currentTarget; if (img.src !== capa) img.src = capa; }}
-            className="h-28 w-full object-cover"
-          />)}
+        ? (
+          <div style={{ background: capa }} className="relative h-24 w-full">
+            <p className={cn('absolute inset-x-0 bottom-0 line-clamp-2 px-2.5 pb-2 text-sm font-semibold leading-snug', capaCorClara(capa) ? 'text-zinc-900' : 'text-white')}>{c.nome}</p>
+          </div>
+        )
+        : (
+          <div className="relative w-full">
+            <img
+              src={thumbUrl(capa)}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              onError={(e) => { const img = e.currentTarget; if (img.src !== capa) img.src = capa; }}
+              className="h-32 w-full object-cover"
+            />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+            <p className="absolute inset-x-0 bottom-0 line-clamp-2 px-2.5 pb-2 text-sm font-semibold leading-snug text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{c.nome}</p>
+          </div>
+        ))}
       <div className="flex flex-col gap-1.5 p-2.5">
         {(c.etiquetas?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-1" onClick={(e) => { e.stopPropagation(); onToggleEt(); }} role="button" title="Alternar etiquetas">
@@ -78,7 +88,7 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
             ))}
           </div>
         )}
-        <p className="text-sm leading-snug">{c.nome}</p>
+        {!capa && <p className="text-sm leading-snug">{c.nome}</p>}
         <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
           {c.prazo && (
             <span className={cn('inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium', corPrazoCard(c.prazo, c.concluido))}>

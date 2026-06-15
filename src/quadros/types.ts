@@ -123,6 +123,18 @@ export function capaCartao(c: Pick<Cartao, 'anexos' | 'capa'>): string | null {
   return a?.url ?? null;
 }
 
+/**
+ * Reescreve a URL de uma imagem para passar pelo imgproxy (img.wenox.com.br),
+ * devolvendo uma versão WebP redimensionada (muito mais leve) para usar em
+ * miniaturas/capas. Só processa fontes permitidas no imgproxy
+ * (media/api.wenox.com.br); qualquer outra URL é devolvida intacta.
+ */
+export function thumbUrl(url?: string | null, largura = 600): string {
+  if (!url) return url ?? '';
+  if (!/^https?:\/\/(media|api)\.wenox\.com\.br\//.test(url)) return url;
+  return `https://img.wenox.com.br/insecure/rs:fit:${largura}:0/q:72/plain/${url}@webp`;
+}
+
 /** Progresso agregado dos checklists do card. */
 export function progressoChecklist(c: Pick<Cartao, 'checklists'>): { feitos: number; total: number } {
   let feitos = 0, total = 0;

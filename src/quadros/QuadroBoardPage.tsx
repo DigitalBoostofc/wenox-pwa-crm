@@ -17,7 +17,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
-import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, statusDaEsteira } from './types';
+import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, statusDaEsteira, thumbUrl } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -60,7 +60,14 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
     >
       {capa && (capaEhCor(capa)
         ? <div style={{ background: capa }} className="h-20 w-full" />
-        : <img src={capa} alt="" loading="lazy" className="h-28 w-full object-cover" />)}
+        : <img
+            src={thumbUrl(capa)}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onError={(e) => { const img = e.currentTarget; if (img.src !== capa) img.src = capa; }}
+            className="h-28 w-full object-cover"
+          />)}
       <div className="flex flex-col gap-1.5 p-2.5">
         {(c.etiquetas?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-1" onClick={(e) => { e.stopPropagation(); onToggleEt(); }} role="button" title="Alternar etiquetas">

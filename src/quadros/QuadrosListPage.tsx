@@ -45,8 +45,8 @@ export function QuadrosListPage() {
       </div>
 
       {carregando ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
         </div>
       ) : filtrados.length === 0 ? (
         <Card>
@@ -56,7 +56,7 @@ export function QuadrosListPage() {
           </div>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filtrados.map((q) => {
             const cli = q.expand?.cliente;
             const nome = nomeCliente(q);
@@ -65,22 +65,22 @@ export function QuadrosListPage() {
               <button
                 key={q.id}
                 onClick={() => history.push(`/quadros/${q.id}`)}
-                className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-all hover:border-primary/50 hover:shadow-lg"
+                className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left transition-all hover:border-primary/50 hover:shadow-md"
               >
                 <div
                   style={fundoStyle(q)}
-                  className="relative flex aspect-[16/9] w-full items-end p-3"
+                  className="relative flex aspect-[16/9] w-full items-end p-2"
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
                   {logo && (
-                    <img src={logo} alt="" className="absolute right-2 top-2 size-7 rounded-md object-cover ring-1 ring-white/30" />
+                    <img src={logo} alt="" className="absolute right-1.5 top-1.5 size-5 rounded object-cover ring-1 ring-white/30" />
                   )}
-                  <span className="relative line-clamp-2 text-sm font-semibold text-white drop-shadow">
+                  <span className="relative line-clamp-2 text-xs font-semibold leading-tight text-white drop-shadow">
                     {q.nome}
                   </span>
                 </div>
                 {nome && (
-                  <span className="truncate px-3 py-2 text-xs text-muted-foreground">{nome}</span>
+                  <span className="truncate px-2 py-1 text-[11px] text-muted-foreground">{nome}</span>
                 )}
               </button>
             );

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   CheckSquare, Paperclip, Tag, Calendar, Users, X, Trash2, MessageSquare, ImageIcon,
-  FileText, Bold, Italic, List, Link2, ChevronDown, ExternalLink, CalendarDays,
+  FileText, Bold, Italic, List, Link2, ChevronDown, ExternalLink, CalendarDays, History,
 } from 'lucide-react';
 import { Markdown } from './Markdown';
 import {
@@ -9,6 +9,7 @@ import {
   subirAnexosMedia, urlUpload,
   listComentariosCartao, addComentarioCartao, removerComentarioCartao,
   confirmarEtapaCard, getOuCriarReviewToken,
+  registrarAtividadeCartao, ehAtividade, textoAtividade, ATIV_MARK,
 } from './quadrosService';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Archive } from 'lucide-react';
@@ -108,10 +109,61 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   // auto-cresce a caixa de orientações (etapa Copy) conforme o conteúdo carrega/muda
   useEffect(() => { if (ehPost) autoGrow(descTextRef.current); }, [descRasc, ehPost, c?.id]);
 
+  // Registra uma atividade no histórico (aparece junto dos comentários)
+  function logAtividade(msg: string) {
+    if (!c || !msg) return;
+    const rec = pb.authStore.record as { id?: string; nome?: string } | null;
+    const entry: ComentarioCartao = {
+      id: `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      texto: ATIV_MARK + msg,
+      autor: rec?.id,
+      created: new Date().toISOString(),
+      expand: { autor: { id: rec?.id ?? '', nome: rec?.nome } },
+    };
+    setComentarios((l) => [entry, ...l]);
+    registrarAtividadeCartao(c.id, msg, clienteId).catch(() => { /* */ });
+  }
+
+  // Descreve, em PT, o que mudou num salvar() para o histórico de atividades
+  function descreverMudanca(dados: Partial<Cartao>): string | null {
+    const partes: string[] = [];
+    const ignoraNome = 'data_post' in dados; // renomeação do título por data já é coberta pela data
+    for (const k of Object.keys(dados) as (keyof Cartao)[]) {
+      switch (k) {
+        case 'nome': if (!ignoraNome) partes.push(`renomeou para "${dados.nome}"`); break;
+        case 'descricao': partes.push('editou a descrição'); break;
+        case 'formato': partes.push(dados.formato ? `definiu o tipo de post: ${TIPO_POST_LABEL[dados.formato] ?? dados.formato}` : 'limpou o tipo de post'); break;
+        case 'data_post': {
+          const p = parsePrazo(dados.data_post as string);
+          partes.push(dados.data_post ? `definiu a data do post: ${p ? p.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : dados.data_post}` : 'removeu a data do post');
+          break;
+        }
+        case 'prazo': partes.push(dados.prazo ? 'definiu a data de entrega' : 'removeu a data de entrega'); break;
+        case 'concluido': partes.push(dados.concluido ? 'marcou como concluído' : 'reabriu o card'); break;
+        case 'membros_ids': partes.push('atualizou os membros'); break;
+        case 'etiquetas': partes.push('atualizou as etiquetas'); break;
+        case 'checklists': partes.push('atualizou os checklists'); break;
+        case 'capa': partes.push(dados.capa ? 'alterou a capa' : 'removeu a capa'); break;
+        case 'anexos': partes.push('atualizou os anexos'); break;
+        case 'legenda': partes.push('editou a legenda'); break;
+        case 'hashtags': partes.push('editou as hashtags'); break;
+        case 'referencia': partes.push('editou a referência'); break;
+        case 'redes': partes.push('atualizou as redes'); break;
+        case 'objetivo': partes.push('definiu o objetivo'); break;
+        case 'tema': partes.push('definiu o tema'); break;
+        case 'status_post': partes.push('mudou o status do post'); break;
+        case 'briefing': partes.push('editou o briefing'); break;
+        default: break;
+      }
+    }
+    return partes.length ? partes.join('; ') : null;
+  }
+
   async function salvar(dados: Partial<Cartao>) {
     if (!c) return;
+    const desc = descreverMudanca(dados);
     setC({ ...c, ...dados });
-    try { await atualizarCartao(c.id, dados); onMudou?.(); } catch { /* */ }
+    try { await atualizarCartao(c.id, dados); onMudou?.(); if (desc) logAtividade(desc); } catch { /* */ }
   }
   function toggleItem(ci: number, ii: number) { if (c) salvar({ checklists: (c.checklists ?? []).map((ch, i) => i !== ci ? ch : { ...ch, itens: ch.itens.map((it, j) => (j === ii ? { ...it, feito: !it.feito } : it)) }) }); }
   function removerItem(ci: number, ii: number) { if (c) salvar({ checklists: (c.checklists ?? []).map((ch, i) => i !== ci ? ch : { ...ch, itens: ch.itens.filter((_, j) => j !== ii) }) }); }
@@ -135,7 +187,8 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   async function apagarComentario(cid: string) { try { await removerComentarioCartao(cid); setComentarios((l) => l.filter((x) => x.id !== cid)); } catch { /* */ } }
   async function onUpload(files: FileList | null) {
     if (!c || !files || files.length === 0) return;
-    try { setC(await subirAnexosMedia(c, Array.from(files), clienteId)); onMudou?.(); } catch { /* */ } finally { if (fileRef.current) fileRef.current.value = ''; }
+    const qtd = files.length;
+    try { setC(await subirAnexosMedia(c, Array.from(files), clienteId)); onMudou?.(); logAtividade(`anexou ${qtd} arquivo${qtd > 1 ? 's' : ''}`); } catch { /* */ } finally { if (fileRef.current) fileRef.current.value = ''; }
     setAnexarAberto(false);
   }
   function inserirLinkAnexo() {
@@ -182,12 +235,16 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   ) {
     if (!c) return;
     const uid = (pb.authStore.record as { id?: string } | null)?.id ?? '';
+    const etapaNome = c.etapas_card?.[idx]?.texto ?? 'etapa';
     try {
       const atualizado = await confirmarEtapaCard(c, idx, uid, opts);
       setC(atualizado);
       setLegendaLocal(atualizado.legenda ?? '');
       setHashtagsLocal(atualizado.hashtags ?? '');
       onMudou?.();
+      logAtividade(opts?.veredito === 'reprovado'
+        ? `reprovou a etapa "${etapaNome}"${opts?.motivo ? `: ${opts.motivo}` : ''}`
+        : `confirmou a etapa "${etapaNome}"`);
     } catch { /* */ }
   }
 
@@ -826,18 +883,28 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
 
               {/* coluna direita: comentários/atividade (input fixo, lista rola — estilo Trello) */}
               <div className="flex max-h-full w-full shrink-0 flex-col gap-3 border-t border-border p-5 md:w-80 md:border-l md:border-t-0">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><MessageSquare className="size-3.5" /> Comentários ({comentarios.length})</div>
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><MessageSquare className="size-3.5" /> Comentários e atividade ({comentarios.filter((cm) => !ehAtividade(cm.texto)).length})</div>
                 <textarea value={novoComent} onChange={(e) => setNovoComent(e.target.value)} rows={2} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComentario(); } }} placeholder="Escrever um comentário…" className="w-full resize-none rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
                 {novoComent.trim() && <Button size="sm" className="h-7 w-fit text-xs" onClick={enviarComentario}>Comentar</Button>}
                 <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                   {comentarios.map((cm) => (
-                    <div key={cm.id} className="rounded-md border border-border bg-background/40 p-2 text-sm">
-                      <div className="mb-0.5 flex items-center justify-between text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground/80">{cm.expand?.autor?.nome ?? 'Alguém'}</span>
-                        <button onClick={() => apagarComentario(cm.id)} className="hover:text-destructive"><Trash2 className="size-3" /></button>
+                    ehAtividade(cm.texto) ? (
+                      <div key={cm.id} className="flex items-start gap-2 px-1 py-0.5 text-xs text-muted-foreground">
+                        <History className="mt-0.5 size-3.5 shrink-0 opacity-60" />
+                        <p className="leading-snug">
+                          <span className="font-medium text-foreground/70">{cm.expand?.autor?.nome ?? 'Alguém'}</span> {textoAtividade(cm.texto)}
+                          {cm.created && <span className="opacity-60"> · {fmtData(cm.created)}</span>}
+                        </p>
                       </div>
-                      <p className="whitespace-pre-wrap">{cm.texto}</p>
-                    </div>
+                    ) : (
+                      <div key={cm.id} className="rounded-md border border-border bg-background/40 p-2 text-sm">
+                        <div className="mb-0.5 flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground/80">{cm.expand?.autor?.nome ?? 'Alguém'}</span>
+                          <button onClick={() => apagarComentario(cm.id)} className="hover:text-destructive"><Trash2 className="size-3" /></button>
+                        </div>
+                        <p className="whitespace-pre-wrap">{cm.texto}</p>
+                      </div>
+                    )
                   ))}
                 </div>
               </div>

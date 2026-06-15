@@ -217,6 +217,26 @@ export async function removerComentarioCartao(id: string): Promise<void> {
   await pb.collection('comentarios').delete(id);
 }
 
+/* -------------------------- Histórico de atividades ----------------------- */
+/* Atividades são armazenadas como comentários (mesma coleção/ref_id) com um
+   caractere invisível como marcador no início do texto, para aparecerem junto
+   na área de comentários sem exigir mudança de schema no servidor. */
+
+export const ATIV_MARK = '⁣'; // INVISIBLE SEPARATOR (U+2063)
+export function ehAtividade(texto?: string): boolean {
+  return !!texto && texto.startsWith(ATIV_MARK);
+}
+export function textoAtividade(texto: string): string {
+  return texto.startsWith(ATIV_MARK) ? texto.slice(ATIV_MARK.length) : texto;
+}
+export async function registrarAtividadeCartao(cardId: string, texto: string, clienteId?: string): Promise<ComentarioCartao> {
+  const rec = await pb.collection('comentarios').create({
+    entidade: 'cartao', ref_id: cardId, texto: ATIV_MARK + texto,
+    autor: pb.authStore?.record?.id, cliente: clienteId || '',
+  });
+  return rec as unknown as ComentarioCartao;
+}
+
 /* -------------------- Social Media / Calendário de posts ------------------ */
 
 export const MESES_PT = [

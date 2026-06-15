@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal, Clock, Search, SlidersHorizontal, CalendarDays } from 'lucide-react';
+import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal, Clock, Search, SlidersHorizontal, CalendarDays, ChevronsRightLeft, ChevronsLeftRight } from 'lucide-react';
 import {
   getQuadro, listListas, listCartoes, moverCartao,
   criarCartao, criarLista, atualizarLista, arquivarLista,
@@ -196,6 +196,17 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const [fMem, setFMem] = useState<Set<string>>(new Set());
   const [etExpand, setEtExpand] = useState<boolean>(() => { try { return localStorage.getItem('wenox-kanban-et') !== 'bar'; } catch { return true; } });
   function toggleEtExpand() { setEtExpand((v) => { const n = !v; try { localStorage.setItem('wenox-kanban-et', n ? 'txt' : 'bar'); } catch { /* */ } return n; }); }
+  const [colapsadas, setColapsadas] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('wenox-kanban-colapsadas') || '[]')); } catch { return new Set(); }
+  });
+  function toggleColapsar(listaId: string) {
+    setColapsadas((s) => {
+      const n = new Set(s);
+      if (n.has(listaId)) n.delete(listaId); else n.add(listaId);
+      try { localStorage.setItem('wenox-kanban-colapsadas', JSON.stringify([...n])); } catch { /* */ }
+      return n;
+    });
+  }
   function toggleSet(setFn: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) {
     setFn((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   }
@@ -444,6 +455,21 @@ export function QuadroBoardPage({ id }: { id: string }) {
       <div className="flex min-h-0 flex-1 items-stretch gap-3 overflow-x-auto overflow-y-hidden">
         {listas.map((l) => {
           const cards = (porLista.get(l.id) ?? []).filter(passaFiltro);
+          if (colapsadas.has(l.id)) {
+            return (
+              <div
+                key={l.id}
+                onClick={() => toggleColapsar(l.id)}
+                title="Expandir lista"
+                className="flex h-full w-10 shrink-0 cursor-pointer flex-col items-center gap-2 rounded-xl border border-border bg-background/40 p-2 transition-colors hover:bg-secondary/40"
+              >
+                <ChevronsLeftRight className="size-4 shrink-0 text-muted-foreground" />
+                <Badge variant="muted" className="text-[10px]">{cards.length}</Badge>
+                {l.tipo === 'mes' && <CalendarDays className="size-3.5 shrink-0 text-primary/70" />}
+                <span className="mt-1 [writing-mode:vertical-rl] rotate-180 truncate text-sm font-semibold">{l.nome}</span>
+              </div>
+            );
+          }
           return (
             <div
               key={l.id}
@@ -473,11 +499,13 @@ export function QuadroBoardPage({ id }: { id: string }) {
                 )}
                 <div className="flex items-center gap-1">
                   <Badge variant="muted" className="text-[10px]">{cards.length}</Badge>
+                  <button onClick={(e) => { e.stopPropagation(); toggleColapsar(l.id); }} title="Recolher lista" aria-label="Recolher lista" className="rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronsRightLeft className="size-4" /></button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button onClick={(e) => e.stopPropagation()} className="rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Ações da lista"><MoreHorizontal className="size-4" /></button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => toggleColapsar(l.id)}>Recolher lista</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setRenomeando(l.id)}>Renomear</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => arquivar(l.id)} className="text-destructive">Arquivar lista</DropdownMenuItem>
                     </DropdownMenuContent>

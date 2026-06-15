@@ -466,7 +466,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
                 <ChevronsLeftRight className="size-4 shrink-0 text-muted-foreground" />
                 <Badge variant="muted" className="text-[10px]">{cards.length}</Badge>
                 {l.tipo === 'mes' && <CalendarDays className="size-3.5 shrink-0 text-primary/70" />}
-                <span className="mt-1 [writing-mode:vertical-rl] rotate-180 truncate text-sm font-semibold">{l.nome}</span>
+                <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }} className="mt-1 truncate text-sm font-semibold">{l.nome}</span>
               </div>
             );
           }

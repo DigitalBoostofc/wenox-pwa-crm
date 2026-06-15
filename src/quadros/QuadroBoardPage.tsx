@@ -11,6 +11,7 @@ import {
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
+import { HeaderSlot } from '@/components/layout/HeaderSlot';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Archive } from 'lucide-react';
 import {
@@ -377,64 +378,63 @@ export function QuadroBoardPage({ id }: { id: string }) {
 
   return (
     <div style={fundoBoardStyle(quadro)} className="-mx-4 -my-6 flex min-h-0 flex-1 flex-col gap-3 bg-cover bg-center px-4 py-6 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-      <div className="flex items-center gap-2">
-        <Link to="/quadros" className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"><ArrowLeft className="size-5" /></Link>
-        {logo && <img src={logo} alt="" className="size-7 rounded-md object-cover" />}
-        <h2 className="text-lg font-semibold">{quadro.nome}</h2>
-        <Badge variant="muted" className="text-[10px]">{cartoes.length} cards</Badge>
-        <div className="ml-auto flex items-center gap-1.5">
-          {listas.some(l => l.tipo === 'mes') && (
-            <Link
-              to={`/quadros/${id}/calendario`}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary"
-            >
-              <CalendarDays className="size-3.5" /> Calendário
-            </Link>
-          )}
-          <button onClick={abrirArquivados} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary">
-            <Archive className="size-3.5" /> Arquivados
-          </button>
-        </div>
-        {erro && <span className="text-xs text-destructive">{erro}</span>}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-56">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar card"
-            className="h-8 w-full rounded-md border border-input bg-background/40 pl-8 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className={cn(filtrando && 'border-primary text-primary')}>
-              <SlidersHorizontal /> Filtros{(fEt.size + fMem.size) > 0 ? ` (${fEt.size + fMem.size})` : ''}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-80 w-60 overflow-y-auto">
-            {labelsDisponiveis.length > 0 && <DropdownMenuLabel>Etiquetas</DropdownMenuLabel>}
-            {labelsDisponiveis.map((e, i) => {
-              const k = (e.nome || '') + '|' + (e.cor || '');
-              return (
-                <DropdownMenuItem key={'e' + i} onSelect={(ev) => ev.preventDefault()} onClick={() => toggleSet(setFEt, k)}>
-                  <span className={cn('mr-2 grid size-4 place-items-center rounded text-[9px]', fEt.has(k) ? 'bg-primary text-primary-foreground' : 'border border-border')}>{fEt.has(k) ? '✓' : ''}</span>
-                  <span className={cn('mr-2 inline-block h-3 w-5 rounded', corEtiquetaSolida(e.cor).split(' ')[0])} />{e.nome || '(sem nome)'}
+      <HeaderSlot>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <Link to="/quadros" className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"><ArrowLeft className="size-5" /></Link>
+          {logo && <img src={logo} alt="" className="size-6 rounded object-cover" />}
+          <h2 className="truncate text-base font-semibold">{quadro.nome}</h2>
+          <Badge variant="muted" className="text-[10px]">{cartoes.length} cards</Badge>
+          <div className="relative w-32 sm:w-48">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar card"
+              className="h-8 w-full rounded-md border border-input bg-background/40 pl-8 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className={cn(filtrando && 'border-primary text-primary')}>
+                <SlidersHorizontal /> Filtros{(fEt.size + fMem.size) > 0 ? ` (${fEt.size + fMem.size})` : ''}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-80 w-60 overflow-y-auto">
+              {labelsDisponiveis.length > 0 && <DropdownMenuLabel>Etiquetas</DropdownMenuLabel>}
+              {labelsDisponiveis.map((e, i) => {
+                const k = (e.nome || '') + '|' + (e.cor || '');
+                return (
+                  <DropdownMenuItem key={'e' + i} onSelect={(ev) => ev.preventDefault()} onClick={() => toggleSet(setFEt, k)}>
+                    <span className={cn('mr-2 grid size-4 place-items-center rounded text-[9px]', fEt.has(k) ? 'bg-primary text-primary-foreground' : 'border border-border')}>{fEt.has(k) ? '✓' : ''}</span>
+                    <span className={cn('mr-2 inline-block h-3 w-5 rounded', corEtiquetaSolida(e.cor).split(' ')[0])} />{e.nome || '(sem nome)'}
+                  </DropdownMenuItem>
+                );
+              })}
+              {membrosDisponiveis.length > 0 && <><DropdownMenuSeparator /><DropdownMenuLabel>Membros</DropdownMenuLabel></>}
+              {membrosDisponiveis.map((m, i) => (
+                <DropdownMenuItem key={'m' + i} onSelect={(ev) => ev.preventDefault()} onClick={() => toggleSet(setFMem, m)}>
+                  <span className={cn('mr-2 grid size-4 place-items-center rounded text-[9px]', fMem.has(m) ? 'bg-primary text-primary-foreground' : 'border border-border')}>{fMem.has(m) ? '✓' : ''}</span>{m}
                 </DropdownMenuItem>
-              );
-            })}
-            {membrosDisponiveis.length > 0 && <><DropdownMenuSeparator /><DropdownMenuLabel>Membros</DropdownMenuLabel></>}
-            {membrosDisponiveis.map((m, i) => (
-              <DropdownMenuItem key={'m' + i} onSelect={(ev) => ev.preventDefault()} onClick={() => toggleSet(setFMem, m)}>
-                <span className={cn('mr-2 grid size-4 place-items-center rounded text-[9px]', fMem.has(m) ? 'bg-primary text-primary-foreground' : 'border border-border')}>{fMem.has(m) ? '✓' : ''}</span>{m}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {filtrando && (
-          <button onClick={() => { setBusca(''); setFEt(new Set()); setFMem(new Set()); }} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">
-            <X className="size-3.5" /> Limpar
-          </button>
-        )}
-      </div>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {filtrando && (
+            <button onClick={() => { setBusca(''); setFEt(new Set()); setFMem(new Set()); }} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">
+              <X className="size-3.5" /> Limpar
+            </button>
+          )}
+          {erro && <span className="text-xs text-destructive">{erro}</span>}
+          <div className="ml-auto flex items-center gap-1.5">
+            {listas.some(l => l.tipo === 'mes') && (
+              <Link
+                to={`/quadros/${id}/calendario`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary"
+              >
+                <CalendarDays className="size-3.5" /> Calendário
+              </Link>
+            )}
+            <button onClick={abrirArquivados} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary">
+              <Archive className="size-3.5" /> Arquivados
+            </button>
+          </div>
+        </div>
+      </HeaderSlot>
 
       <div className="flex min-h-0 flex-1 items-stretch gap-3 overflow-x-auto overflow-y-hidden">
         {listas.map((l) => {

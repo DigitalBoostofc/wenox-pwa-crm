@@ -50,6 +50,9 @@ export const NAV_ITEMS_CLIENTE: NavItem[] = [
 
 /** Resolve o título da área atual a partir do pathname. */
 export function titleForPath(pathname: string): string {
+  // Dentro de um quadro específico (/quadros/:id…) o próprio quadro mostra o
+  // nome no header — não repetir "Quadros".
+  if (/^\/quadros\/[^/]+/.test(pathname)) return '';
   if (pathname.startsWith('/usuarios')) return 'Usuários';
   if (pathname.startsWith('/novo-cliente')) return 'Novo cliente';
   if (pathname.startsWith('/minha-empresa')) return 'Minha Empresa';

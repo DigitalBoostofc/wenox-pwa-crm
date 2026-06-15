@@ -36,7 +36,7 @@ export function Header() {
         </SheetContent>
       </Sheet>
 
-      <h1 className="shrink-0 text-base font-semibold tracking-tight sm:text-lg">{title}</h1>
+      {title && <h1 className="shrink-0 text-base font-semibold tracking-tight sm:text-lg">{title}</h1>}
 
       {/* Slot: páginas podem projetar controles aqui, ao lado do título. */}
       <HeaderSlotTarget className="flex min-w-0 flex-1 items-center justify-end" />

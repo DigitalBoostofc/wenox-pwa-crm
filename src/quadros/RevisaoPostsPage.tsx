@@ -4,10 +4,12 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { pb } from '@/lib/pocketbase';
+import { useAuth } from '@/auth/useAuth';
 
 const REVIEW_BASE = 'https://media.wenox.com.br/_up/review';
 
 interface ApiCliente {
+  id: string;
   handle: string;
   logo: string;
 }
@@ -160,8 +162,29 @@ function VerediBadge({ veredito, motivo }: { veredito: 'aprovado' | 'reprovado';
   );
 }
 
+function AgendadoBadge({ dataPost }: { dataPost?: string }) {
+  const dataFormatada = dataPost
+    ? new Date(dataPost.replace(' ', 'T')).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : '';
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-400">
+      <span className="text-lg">✓</span>
+      <div>
+        <p className="font-semibold">Agendado</p>
+        {dataFormatada && <p className="text-xs text-emerald-300/80">{dataFormatada}</p>}
+      </div>
+    </div>
+  );
+}
+
+function parseDateParts(dataPost: string): { data: string; hora: string } {
+  const [d = '', t = ''] = dataPost.split(' ');
+  return { data: d, hora: t.substring(0, 5) || '12:00' };
+}
+
 export function RevisaoPostsPage() {
   const { token } = useParams<{ token: string }>();
+  const { user } = useAuth();
 
   const [listaNome, setListaNome] = useState('');
   const [idxEtapa, setIdxEtapa] = useState(2);
@@ -173,6 +196,10 @@ export function RevisaoPostsPage() {
   const [reprovando, setReprovando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [salvando, setSalvando] = useState(false);
+
+  // Estado para etapa de agendamento (idx 4)
+  const [agendData, setAgendData] = useState('');
+  const [agendHora, setAgendHora] = useState('12:00');
 
   useEffect(() => {
     if (!token) return;
@@ -190,23 +217,48 @@ export function RevisaoPostsPage() {
         setCliente(data.cliente);
         setPosts(data.posts);
         const idx = data.idxEtapa;
-        const pend = data.posts.findIndex((p) => !p.etapas_card?.[idx]?.veredito);
-        setPosicao(pend >= 0 ? pend : 0);
+        const isAgend = idx === 4;
+        const pend = data.posts.findIndex((p) =>
+          isAgend ? !p.etapas_card?.[idx]?.feito : !p.etapas_card?.[idx]?.veredito
+        );
+        const pos = pend >= 0 ? pend : 0;
+        setPosicao(pos);
+        if (isAgend && data.posts[pos]) {
+          const parts = parseDateParts(data.posts[pos].data_post ?? '');
+          setAgendData(parts.data);
+          setAgendHora(parts.hora);
+        }
       })
       .catch(() => setErro('Link de revisão inválido ou expirado.'))
       .finally(() => setLoading(false));
   }, [token]);
 
+  // Sincroniza campos de agendamento ao navegar entre posts
   const postAtual = posts[posicao] ?? null;
+  useEffect(() => {
+    if (idxEtapa === 4 && postAtual) {
+      const parts = parseDateParts(postAtual.data_post ?? '');
+      setAgendData(parts.data);
+      setAgendHora(parts.hora);
+    }
+  }, [posicao, idxEtapa, postAtual?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isAgendamento = idxEtapa === 4;
   const etapaAtual = postAtual?.etapas_card?.[idxEtapa];
-  const jaDecidido = !!etapaAtual?.veredito;
-  const decididos = posts.filter((p) => !!p.etapas_card?.[idxEtapa]?.veredito).length;
+  const jaDecidido = isAgendamento ? !!etapaAtual?.feito : !!etapaAtual?.veredito;
+  const decididos = posts.filter((p) => {
+    const e = p.etapas_card?.[idxEtapa];
+    return isAgendamento ? !!e?.feito : !!e?.veredito;
+  }).length;
   const total = posts.length;
   const todosDecididos = total > 0 && decididos === total;
   const aprovados = posts.filter((p) => p.etapas_card?.[idxEtapa]?.veredito === 'aprovado').length;
   const reprovados = decididos - aprovados;
 
-  const nomeEtapa = idxEtapa === 2 ? 'Revisão interna' : 'Aprovação do cliente';
+  const nomeEtapa =
+    idxEtapa === 2 ? 'Revisão interna'
+    : idxEtapa === 3 ? 'Aprovação do cliente'
+    : 'Confirmação de agendamento';
 
   function atualizarPostLocal(postId: string, veredito: 'aprovado' | 'reprovado', motivoTexto?: string) {
     setPosts((prev) =>
@@ -225,16 +277,42 @@ export function RevisaoPostsPage() {
     );
   }
 
+  function atualizarPostAgendado(postId: string, dataPostAgendada: string) {
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id !== postId
+          ? p
+          : {
+              ...p,
+              data_post: dataPostAgendada,
+              etapas_card: p.etapas_card.map((e, i) =>
+                i === 4 ? { ...e, feito: true } : e,
+              ),
+            },
+      ),
+    );
+  }
+
+  const ator = pb.authStore.record?.id ?? '';
+
   async function enviarDecisao(
     post: ApiPost,
     veredito: 'aprovado' | 'reprovado',
     motivoTexto?: string,
   ) {
-    const ator = (pb.authStore.record as { id?: string } | null)?.id ?? 'cliente';
     const res = await fetch(`${REVIEW_BASE}/decisao`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, cardId: post.id, idx: idxEtapa, veredito, motivo: motivoTexto, ator }),
+    });
+    if (!res.ok) throw new Error('decisao_falhou');
+  }
+
+  async function enviarAgendamento(post: ApiPost, dataPostStr: string) {
+    const res = await fetch(`${REVIEW_BASE}/decisao`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, cardId: post.id, idx: 4, veredito: 'agendar', ator, data_post: dataPostStr }),
     });
     if (!res.ok) throw new Error('decisao_falhou');
   }
@@ -263,6 +341,18 @@ export function RevisaoPostsPage() {
     setSalvando(false);
   }
 
+  async function agendar() {
+    if (!postAtual || salvando || !agendData) return;
+    const dataPostStr = `${agendData} ${agendHora}:00`;
+    setSalvando(true);
+    try {
+      await enviarAgendamento(postAtual, dataPostStr);
+      atualizarPostAgendado(postAtual.id, dataPostStr);
+      if (posicao < posts.length - 1) setPosicao((p) => p + 1);
+    } catch { /* */ }
+    setSalvando(false);
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
@@ -280,6 +370,16 @@ export function RevisaoPostsPage() {
     );
   }
 
+  // Acesso restrito: usuário Cliente só vê revisão do seu cliente
+  if (user?.role === 'Cliente' && cliente?.id && user.cliente !== cliente.id) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center">
+        <p className="text-base font-semibold">Sem acesso a esta revisão.</p>
+        <p className="text-sm text-muted-foreground">Este link pertence a outro cliente.</p>
+      </div>
+    );
+  }
+
   if (!posts.length) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center">
@@ -288,6 +388,8 @@ export function RevisaoPostsPage() {
       </div>
     );
   }
+
+  const labelDecididos = isAgendamento ? 'agendados' : 'decididos';
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -305,7 +407,7 @@ export function RevisaoPostsPage() {
             />
           </div>
           <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
-            {decididos}/{total} decididos
+            {decididos}/{total} {labelDecididos}
           </span>
         </div>
       </div>
@@ -313,7 +415,13 @@ export function RevisaoPostsPage() {
       {todosDecididos ? (
         /* Estado final */
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
-          {reprovados === 0 ? (
+          {isAgendamento ? (
+            <>
+              <span className="text-5xl">📅</span>
+              <h2 className="text-xl font-bold">Tudo agendado!</h2>
+              <p className="text-sm text-muted-foreground">Todos os {total} posts foram confirmados para agendamento.</p>
+            </>
+          ) : reprovados === 0 ? (
             <>
               <span className="text-5xl">🎉</span>
               <h2 className="text-xl font-bold">Tudo aprovado!</h2>
@@ -334,8 +442,10 @@ export function RevisaoPostsPage() {
           {/* Resumo dos posts */}
           <div className="mt-4 w-full max-w-sm space-y-2">
             {posts.map((p, i) => {
-              const v = p.etapas_card?.[idxEtapa]?.veredito;
-              const m = p.etapas_card?.[idxEtapa]?.motivo;
+              const e = p.etapas_card?.[idxEtapa];
+              const concluido = isAgendamento ? !!e?.feito : !!e?.veredito;
+              const v = e?.veredito;
+              const m = e?.motivo;
               return (
                 <button
                   key={p.id}
@@ -344,13 +454,24 @@ export function RevisaoPostsPage() {
                 >
                   <span className={cn(
                     'mt-0.5 shrink-0 text-base',
-                    v === 'aprovado' ? 'text-emerald-500' : 'text-red-400',
+                    concluido
+                      ? (isAgendamento || v === 'aprovado') ? 'text-emerald-500' : 'text-red-400'
+                      : 'text-muted-foreground',
                   )}>
-                    {v === 'aprovado' ? '✓' : '✗'}
+                    {concluido
+                      ? (isAgendamento || v === 'aprovado') ? '✓' : '✗'
+                      : '○'}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{p.nome}</p>
-                    {v === 'reprovado' && m && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{m}</p>}
+                    {!isAgendamento && v === 'reprovado' && m && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{m}</p>
+                    )}
+                    {isAgendamento && e?.feito && p.data_post && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(p.data_post.replace(' ', 'T')).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
                   </div>
                 </button>
               );
@@ -386,63 +507,103 @@ export function RevisaoPostsPage() {
               <>
                 <PostVisual post={postAtual} cliente={cliente} />
 
-                {/* Veredito atual (se já decidido) */}
-                {jaDecidido && etapaAtual && (
+                {/* Veredito atual (revisão/aprovação) */}
+                {!isAgendamento && jaDecidido && etapaAtual && (
                   <VerediBadge
                     veredito={etapaAtual.veredito!}
                     motivo={etapaAtual.motivo}
                   />
                 )}
 
-                {/* Ações */}
-                {reprovando ? (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium">O que alterar? <span className="text-destructive">*</span></label>
-                      <textarea
-                        autoFocus
-                        rows={3}
-                        value={motivo}
-                        onChange={(e) => setMotivo(e.target.value)}
-                        placeholder="Descreva o que precisa ser alterado…"
-                        className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                      />
+                {/* Agendado (etapa 4) */}
+                {isAgendamento && jaDecidido && (
+                  <AgendadoBadge dataPost={postAtual.data_post} />
+                )}
+
+                {/* Ações — revisão/aprovação (idx 2/3) */}
+                {!isAgendamento && (
+                  reprovando ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm font-medium">O que alterar? <span className="text-destructive">*</span></label>
+                        <textarea
+                          autoFocus
+                          rows={3}
+                          value={motivo}
+                          onChange={(e) => setMotivo(e.target.value)}
+                          placeholder="Descreva o que precisa ser alterado…"
+                          className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="destructive"
+                          className="flex-1 h-12 text-base font-semibold rounded-xl"
+                          disabled={!motivo.trim() || salvando}
+                          onClick={reprovar}
+                        >
+                          ✗ Confirmar reprovação
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-12 rounded-xl px-4"
+                          onClick={() => { setReprovando(false); setMotivo(''); }}
+                          disabled={salvando}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                  ) : (
+                    <div className="flex gap-3">
                       <Button
-                        variant="destructive"
-                        className="flex-1 h-12 text-base font-semibold rounded-xl"
-                        disabled={!motivo.trim() || salvando}
-                        onClick={reprovar}
+                        className="flex-1 h-14 text-base font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                        disabled={salvando}
+                        onClick={aprovar}
                       >
-                        ✗ Confirmar reprovação
+                        ✓ Aprovado
                       </Button>
                       <Button
                         variant="outline"
-                        className="h-12 rounded-xl px-4"
-                        onClick={() => { setReprovando(false); setMotivo(''); }}
+                        className="flex-1 h-14 text-base font-bold rounded-xl border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500"
                         disabled={salvando}
+                        onClick={() => setReprovando(true)}
                       >
-                        Cancelar
+                        ✗ Reprovar
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-3">
+                  )
+                )}
+
+                {/* Ações — agendamento (idx 4) */}
+                {isAgendamento && !jaDecidido && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex gap-3">
+                      <div className="flex flex-col gap-1.5 flex-1">
+                        <label className="text-sm font-medium">Data</label>
+                        <input
+                          type="date"
+                          value={agendData}
+                          onChange={(e) => setAgendData(e.target.value)}
+                          className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5 w-28">
+                        <label className="text-sm font-medium">Hora</label>
+                        <input
+                          type="time"
+                          value={agendHora}
+                          onChange={(e) => setAgendHora(e.target.value)}
+                          className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                        />
+                      </div>
+                    </div>
                     <Button
-                      className="flex-1 h-14 text-base font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border-0"
-                      disabled={salvando}
-                      onClick={aprovar}
+                      className="h-14 text-base font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                      disabled={salvando || !agendData}
+                      onClick={agendar}
                     >
-                      ✓ Aprovado
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 h-14 text-base font-bold rounded-xl border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500"
-                      disabled={salvando}
-                      onClick={() => setReprovando(true)}
-                    >
-                      ✗ Reprovar
+                      ✓ Agendar
                     </Button>
                   </div>
                 )}
@@ -454,7 +615,9 @@ export function RevisaoPostsPage() {
           <div className="border-t border-border bg-card px-3 py-2 overflow-x-auto">
             <div className="flex gap-1.5 min-w-max">
               {posts.map((p, i) => {
-                const v = p.etapas_card?.[idxEtapa]?.veredito;
+                const e = p.etapas_card?.[idxEtapa];
+                const concluido = isAgendamento ? !!e?.feito : !!e?.veredito;
+                const v = e?.veredito;
                 const thumb = p.artes?.[0] ?? null;
                 return (
                   <button
@@ -470,12 +633,12 @@ export function RevisaoPostsPage() {
                       ? <img src={thumb} alt="" className="h-full w-full object-cover" />
                       : <div className="flex h-full w-full items-center justify-center bg-secondary text-[9px] font-bold text-muted-foreground">{i + 1}</div>
                     }
-                    {v && (
+                    {concluido && (
                       <div className={cn(
                         'absolute bottom-0 right-0 grid size-4 place-items-center rounded-tl-md text-[9px] font-bold text-white',
-                        v === 'aprovado' ? 'bg-emerald-500' : 'bg-red-500',
+                        (isAgendamento || v === 'aprovado') ? 'bg-emerald-500' : 'bg-red-500',
                       )}>
-                        {v === 'aprovado' ? '✓' : '✗'}
+                        {(isAgendamento || v === 'aprovado') ? '✓' : '✗'}
                       </div>
                     )}
                   </button>

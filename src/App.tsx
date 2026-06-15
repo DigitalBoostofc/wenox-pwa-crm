@@ -107,6 +107,8 @@ function UnauthedApp() {
       <Suspense fallback={<CarregandoTela />}>
         <Switch>
           <Route exact path="/login" component={LoginPage} />
+          {/* Preserve the /revisao URL so Root re-routes correctly after login */}
+          <Route path="/revisao/:token" component={LoginPage} />
           <Route>
             <Redirect to="/login" />
           </Route>
@@ -307,7 +309,7 @@ function ClienteApp({ clienteId }: { clienteId: string }) {
   );
 }
 
-function PublicRevisaoApp() {
+function RevisaoAutenticadaApp() {
   return (
     <BrowserRouter>
       <Suspense fallback={<CarregandoTela />}>
@@ -321,9 +323,9 @@ function PublicRevisaoApp() {
 
 function Root() {
   const { user } = useAuth();
-  // Rota pública: abre sem login, sem AppShell
-  if (window.location.pathname.startsWith('/revisao/')) return <PublicRevisaoApp />;
   if (!user) return <UnauthedApp />;
+  // Revisão: tela cheia sem AppShell, acessível a todos os perfis logados
+  if (window.location.pathname.startsWith('/revisao/')) return <RevisaoAutenticadaApp />;
   // Qualquer conta logada carrega a matriz de permissões do servidor.
   return (
     <PermissoesProvider>

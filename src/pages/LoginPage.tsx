@@ -4,6 +4,30 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 
+// Converte o erro do PocketBase numa mensagem útil. Antes mostrava sempre
+// "Credenciais inválidas", o que escondia problemas de rede/timeout/bloqueio
+// — fundamental para diagnosticar falhas que não são senha errada.
+function mensagemErroLogin(err: unknown): string {
+  const e = err as { message?: string; status?: number };
+  const msg = e?.message ?? '';
+  if (msg.includes('desativada')) return msg;
+  switch (e?.status) {
+    case 0:
+      return 'Sem conexão com o servidor. Verifique sua internet ou tente outra rede (Wi-Fi/4G).';
+    case 429:
+      return 'Muitas tentativas seguidas. Aguarde 1 minuto e tente novamente.';
+    case 400:
+    case 401:
+      return 'Email ou senha incorretos.';
+    case 403:
+      return 'Acesso bloqueado. Fale com um administrador.';
+    default:
+      return e?.status
+        ? `Não foi possível entrar (erro ${e.status}). Tente novamente.`
+        : 'Não foi possível entrar. Verifique sua conexão e tente novamente.';
+  }
+}
+
 export function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
@@ -18,9 +42,7 @@ export function LoginPage() {
     try {
       await login(email, senha);
     } catch (err) {
-      // Mensagem específica de conta desativada; senão, erro genérico.
-      const msg = (err as { message?: string })?.message ?? '';
-      setErro(msg.includes('desativada') ? msg : 'Credenciais inválidas');
+      setErro(mensagemErroLogin(err));
     } finally {
       setCarregando(false);
     }

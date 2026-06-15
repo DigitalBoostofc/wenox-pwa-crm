@@ -48,7 +48,8 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
   const imgAnexo = !capaExplicita
     ? ((c.anexos ?? []).find((a) => (a.mime ?? '').startsWith('image') && a.url)?.url ?? '')
     : '';
-  const temArte = ehCorCapa || !!imgCapa || !!imgAnexo;
+  // Overlay do título só na CAPA (cor ou imagem-capa). Anexo-sem-capa não sobrepõe.
+  const tituloSobreposto = ehCorCapa || !!imgCapa;
   const { feitos, total } = progressoChecklist(c);
   const nAnexos = (c.anexos ?? []).length;
   const [over, setOver] = useState(false);
@@ -86,19 +87,15 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
         </div>
       )}
       {imgAnexo && (
-        // Imagem só anexada (sem ser capa): mostra a imagem INTEIRA (card maior).
-        <div className="relative w-full">
-          <img
-            src={thumbUrl(imgAnexo)}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            onError={(e) => { const img = e.currentTarget; if (img.src !== imgAnexo) img.src = imgAnexo; }}
-            className="block max-h-[26rem] w-full object-contain"
-          />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
-          <p className="absolute inset-x-0 bottom-0 line-clamp-2 px-2.5 pb-2 text-base font-semibold leading-snug text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{c.nome}</p>
-        </div>
+        // Imagem só anexada (sem ser capa): mostra a imagem INTEIRA, SEM título sobreposto.
+        <img
+          src={thumbUrl(imgAnexo)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={(e) => { const img = e.currentTarget; if (img.src !== imgAnexo) img.src = imgAnexo; }}
+          className="block max-h-[26rem] w-full object-contain"
+        />
       )}
       <div className="flex flex-col gap-1.5 p-2.5">
         {(c.etiquetas?.length ?? 0) > 0 && (
@@ -110,7 +107,7 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
             ))}
           </div>
         )}
-        {!temArte && <p className="text-base leading-snug">{c.nome}</p>}
+        {!tituloSobreposto && <p className="text-base leading-snug">{c.nome}</p>}
         <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
           {c.prazo && (
             <span className={cn('inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium', corPrazoCard(c.prazo, c.concluido))}>

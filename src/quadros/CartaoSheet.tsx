@@ -884,7 +884,15 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                             {a.created && <div className="text-xs text-muted-foreground">Adicionado em {fmtData(a.created)}</div>}
                           </div>
                           <a href={a.url} target="_blank" rel="noreferrer" title="Abrir" className="shrink-0 rounded p-1.5 text-muted-foreground opacity-0 transition hover:bg-secondary hover:text-foreground group-hover:opacity-100"><ExternalLink className="size-4" /></a>
-                          {a.img && <button onClick={() => salvar({ capa: a.url })} title="Usar como capa" className={cn('shrink-0 rounded p-1.5 text-muted-foreground opacity-0 transition hover:bg-secondary hover:text-foreground group-hover:opacity-100', c.capa === a.url && 'text-primary opacity-100')}><ImageIcon className="size-4" /></button>}
+                          {a.img && (
+                            <button
+                              onClick={() => salvar({ capa: c.capa === a.url ? '' : a.url })}
+                              title={c.capa === a.url ? 'Remover como capa' : 'Definir como capa'}
+                              className={cn('inline-flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition', c.capa === a.url ? 'bg-primary text-primary-foreground' : 'border border-border text-muted-foreground hover:bg-secondary hover:text-foreground')}
+                            >
+                              <ImageIcon className="size-3.5" />{c.capa === a.url ? 'Capa ✓' : 'Definir capa'}
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>

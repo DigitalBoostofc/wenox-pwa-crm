@@ -54,7 +54,7 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
       onDrop={(e) => { if (dragCardId) { e.preventDefault(); e.stopPropagation(); setOver(false); onSoltarAntes(c.id); } }}
       onClick={onClick}
       className={cn(
-        'cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40',
+        'shrink-0 cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40',
         over ? 'border-primary border-t-[3px] mt-1.5 shadow-[0_-3px_0_0_hsl(var(--primary))]' : 'border-border',
       )}
     >

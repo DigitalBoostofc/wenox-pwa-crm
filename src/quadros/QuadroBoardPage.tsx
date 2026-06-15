@@ -98,6 +98,10 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
           className="block max-h-[26rem] w-full object-contain"
         />
       )}
+      {/* Corpo (etiquetas, badges, status). NÃO aparece quando há capa (cor ou
+          imagem-capa): nesse caso o card fica só com a imagem + título, como o
+          Trello (capa "cheia"/limpa). */}
+      {!tituloSobreposto && (
       <div className="flex flex-col gap-1.5 p-2.5">
         {(c.etiquetas?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-1" onClick={(e) => { e.stopPropagation(); onToggleEt(); }} role="button" title="Alternar etiquetas">
@@ -108,7 +112,7 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
             ))}
           </div>
         )}
-        {!tituloSobreposto && <p className="text-base leading-snug">{c.nome}</p>}
+        <p className="text-base leading-snug">{c.nome}</p>
         <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
           {c.prazo && (
             <span className={cn('inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium', corPrazoCard(c.prazo, c.concluido))}>
@@ -170,6 +174,7 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -8,8 +8,9 @@ import {
   getCartao, atualizarCartao, removerCartao, arquivarCartao,
   subirAnexosMedia, urlUpload,
   listComentariosCartao, addComentarioCartao, removerComentarioCartao,
-  confirmarEtapaCard,
+  confirmarEtapaCard, getOuCriarReviewToken,
 } from './quadrosService';
+import { useHistory } from 'react-router-dom';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Archive } from 'lucide-react';
 import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
@@ -39,6 +40,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   cartaoId: string | null; aberto: boolean; labelsDisponiveis?: EtiquetaCartao[]; clienteId?: string; listaNome?: string;
   ehPost?: boolean; onClose: () => void; onMudou?: () => void;
 }) {
+  const history = useHistory();
   const [c, setC] = useState<Cartao | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [equipe, setEquipe] = useState<Usuario[]>([]);
@@ -60,8 +62,6 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const [hashtagsLocal, setHashtagsLocal] = useState('');
   const [copiado, setCopiado] = useState(false);
   const [previewAberto, setPreviewAberto] = useState(false);
-  const [reprovandoIdx, setReprovandoIdx] = useState<number | null>(null);
-  const [motivoLocal, setMotivoLocal] = useState('');
   const [detalhesAbertos, setDetalhesAbertos] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLDivElement>(null);
@@ -158,6 +158,15 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     salvar(extras);
   }
 
+  async function abrirRevisao() {
+    if (!c?.lista) return;
+    try {
+      const token = await getOuCriarReviewToken(c.lista);
+      onClose();
+      history.push(`/revisao/${token}`);
+    } catch { /* */ }
+  }
+
   async function handleConfirmarEtapa(
     idx: number,
     opts?: { veredito?: 'aprovado' | 'reprovado'; motivo?: string },
@@ -171,8 +180,6 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
       setHashtagsLocal(atualizado.hashtags ?? '');
       onMudou?.();
     } catch { /* */ }
-    setReprovandoIdx(null);
-    setMotivoLocal('');
   }
 
   // derivados de data_post para os inputs date+time (wall-clock, ignora Z)
@@ -485,59 +492,21 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                         </>
                                       )}
 
-                                      {/* REVISÃO INTERNA / APROVAÇÃO DO CLIENTE → aprovar/reprovar */}
+                                      {/* REVISÃO INTERNA / APROVAÇÃO DO CLIENTE → abrir tela de revisão */}
                                       {(etapa.texto === 'Revisão interna' || etapa.texto === 'Aprovação do cliente') && (
-                                        <>
-                                          {etapa.texto === 'Aprovação do cliente' && (
-                                            <p className="text-[10px] text-muted-foreground/70">🔗 também via link de revisão (em breve)</p>
-                                          )}
-                                          {reprovandoIdx === idx ? (
-                                            <div className="flex flex-col gap-1.5">
-                                              <textarea
-                                                autoFocus
-                                                rows={2}
-                                                value={motivoLocal}
-                                                onChange={(e) => setMotivoLocal(e.target.value)}
-                                                placeholder="Motivo da reprovação…"
-                                                className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                                              />
-                                              <div className="flex gap-2">
-                                                <Button
-                                                  size="sm"
-                                                  variant="destructive"
-                                                  className="h-7 text-xs"
-                                                  onClick={() => handleConfirmarEtapa(idx, { veredito: 'reprovado', motivo: motivoLocal })}
-                                                >
-                                                  ✗ Confirmar reprovação
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-7 text-xs"
-                                                  onClick={() => { setReprovandoIdx(null); setMotivoLocal(''); }}
-                                                >
-                                                  Cancelar
-                                                </Button>
-                                              </div>
-                                            </div>
-                                          ) : (
-                                            <div className="flex gap-2">
-                                              <Button
-                                                size="sm"
-                                                className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white border-0"
-                                                onClick={() => handleConfirmarEtapa(idx, { veredito: 'aprovado' })}
-                                              >
-                                                ✓ Aprovar
-                                              </Button>
-                                              <button
-                                                onClick={() => setReprovandoIdx(idx)}
-                                                className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2.5 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10"
-                                              >
-                                                ✗ Reprovar
-                                              </button>
-                                            </div>
-                                          )}
-                                        </>
+                                        <div className="flex flex-col gap-1.5">
+                                          <p className="text-xs text-muted-foreground">
+                                            Use a tela de revisão para aprovar ou reprovar todos os posts do mês de uma vez.
+                                          </p>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 w-fit text-xs gap-1.5"
+                                            onClick={abrirRevisao}
+                                          >
+                                            🔗 Abrir tela de revisão
+                                          </Button>
+                                        </div>
                                       )}
 
                                       {/* CONFIRMAÇÃO DE AGENDAMENTO → data/hora */}

@@ -61,6 +61,8 @@ const ModeloPostConfigPage = lazy(() =>
   import('@/quadros/ModeloPostConfigPage').then((m) => ({ default: m.ModeloPostConfigPage })));
 const CalendarioPage = lazy(() =>
   import('@/quadros/CalendarioPage').then((m) => ({ default: m.CalendarioPage })));
+const RevisaoPostsPage = lazy(() =>
+  import('@/quadros/RevisaoPostsPage').then((m) => ({ default: m.RevisaoPostsPage })));
 
 function CarregandoTela() {
   return (
@@ -250,6 +252,15 @@ function AuthedApp() {
           <Route exact path="/config">
             <Protegido modulo="config"><ConfigPage /></Protegido>
           </Route>
+          <Route
+            exact
+            path="/revisao/:token"
+            render={() => (
+              <Protegido modulo="quadros">
+                <RevisaoPostsPage />
+              </Protegido>
+            )}
+          />
           <Route exact path="/login">
             <Redirect to="/dashboard" />
           </Route>

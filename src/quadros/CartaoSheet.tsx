@@ -569,9 +569,40 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                         </>
                                       )}
 
-                                      {/* LAYOUT → atalho de anexo */}
+                                      {/* LAYOUT → conteúdo da Copy (read-only) + atalho de anexo */}
                                       {etapa.texto === 'Layout' && (
                                         <>
+                                          {((c.referencia ?? '').trim() || (c.descricao ?? '').trim() || (c.legenda ?? '').trim() || (c.hashtags ?? '').trim()) && (
+                                            <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-background/40 p-2.5">
+                                              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Conteúdo da Copy (social media)</span>
+                                              {(c.referencia ?? '').trim() && (
+                                                <div className="flex flex-col gap-0.5">
+                                                  <span className="text-[11px] text-muted-foreground">Referência/Modelo</span>
+                                                  {/^https?:\/\//.test(c.referencia!.trim())
+                                                    ? <a href={c.referencia!.trim()} target="_blank" rel="noreferrer" className="break-all text-xs text-primary hover:underline">{c.referencia}</a>
+                                                    : <p className="whitespace-pre-wrap text-sm">{c.referencia}</p>}
+                                                </div>
+                                              )}
+                                              {(c.descricao ?? '').trim() && (
+                                                <div className="flex flex-col gap-0.5">
+                                                  <span className="text-[11px] text-muted-foreground">Orientações para o design</span>
+                                                  <div className="rounded-md bg-background/60 p-2 text-sm"><Markdown>{c.descricao!}</Markdown></div>
+                                                </div>
+                                              )}
+                                              {(c.legenda ?? '').trim() && (
+                                                <div className="flex flex-col gap-0.5">
+                                                  <span className="text-[11px] text-muted-foreground">Legenda</span>
+                                                  <p className="whitespace-pre-wrap text-sm">{c.legenda}</p>
+                                                </div>
+                                              )}
+                                              {(c.hashtags ?? '').trim() && (
+                                                <div className="flex flex-col gap-0.5">
+                                                  <span className="text-[11px] text-muted-foreground">Hashtags</span>
+                                                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">{c.hashtags}</p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
                                           <p className="text-xs text-muted-foreground">Anexe a arte final do layout e confirme.</p>
                                           <button
                                             onClick={() => fileRef.current?.click()}

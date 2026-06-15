@@ -329,7 +329,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const logo = cli?.logo ? logoUrl(cli as never, '100x100') : '';
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div style={fundoBoardStyle(quadro)} className="-mx-4 -my-6 flex min-h-0 flex-1 flex-col gap-3 bg-cover bg-center px-4 py-6 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
       <div className="flex items-center gap-2">
         <Link to="/quadros" className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"><ArrowLeft className="size-5" /></Link>
         {logo && <img src={logo} alt="" className="size-7 rounded-md object-cover" />}
@@ -389,7 +389,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
         )}
       </div>
 
-      <div style={fundoBoardStyle(quadro)} className="flex min-h-0 flex-1 items-stretch gap-3 overflow-x-auto overflow-y-hidden rounded-xl border border-border/60 p-3">
+      <div className="flex min-h-0 flex-1 items-stretch gap-3 overflow-x-auto overflow-y-hidden">
         {listas.map((l) => {
           const cards = (porLista.get(l.id) ?? []).filter(passaFiltro);
           return (

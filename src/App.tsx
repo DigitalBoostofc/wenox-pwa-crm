@@ -252,15 +252,6 @@ function AuthedApp() {
           <Route exact path="/config">
             <Protegido modulo="config"><ConfigPage /></Protegido>
           </Route>
-          <Route
-            exact
-            path="/revisao/:token"
-            render={() => (
-              <Protegido modulo="quadros">
-                <RevisaoPostsPage />
-              </Protegido>
-            )}
-          />
           <Route exact path="/login">
             <Redirect to="/dashboard" />
           </Route>
@@ -316,8 +307,22 @@ function ClienteApp({ clienteId }: { clienteId: string }) {
   );
 }
 
+function PublicRevisaoApp() {
+  return (
+    <BrowserRouter>
+      <Suspense fallback={<CarregandoTela />}>
+        <Switch>
+          <Route path="/revisao/:token" component={RevisaoPostsPage} />
+        </Switch>
+      </Suspense>
+    </BrowserRouter>
+  );
+}
+
 function Root() {
   const { user } = useAuth();
+  // Rota pública: abre sem login, sem AppShell
+  if (window.location.pathname.startsWith('/revisao/')) return <PublicRevisaoApp />;
   if (!user) return <UnauthedApp />;
   // Qualquer conta logada carrega a matriz de permissões do servidor.
   return (

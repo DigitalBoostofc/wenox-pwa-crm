@@ -10,7 +10,6 @@ import {
   listComentariosCartao, addComentarioCartao, removerComentarioCartao,
   confirmarEtapaCard, getOuCriarReviewToken,
 } from './quadrosService';
-import { useHistory } from 'react-router-dom';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Archive } from 'lucide-react';
 import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
@@ -40,7 +39,6 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   cartaoId: string | null; aberto: boolean; labelsDisponiveis?: EtiquetaCartao[]; clienteId?: string; listaNome?: string;
   ehPost?: boolean; onClose: () => void; onMudou?: () => void;
 }) {
-  const history = useHistory();
   const [c, setC] = useState<Cartao | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [equipe, setEquipe] = useState<Usuario[]>([]);
@@ -163,7 +161,8 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     try {
       const token = await getOuCriarReviewToken(c.lista);
       onClose();
-      history.push(`/revisao/${token}`);
+      // navegação COMPLETA: /revisao é app público (decidido no Root pelo pathname)
+      window.location.href = `/revisao/${token}`;
     } catch { /* */ }
   }
 

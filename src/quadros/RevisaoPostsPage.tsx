@@ -3,39 +3,58 @@ import { useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/auth/useAuth';
 import { pb } from '@/lib/pocketbase';
-import type { Lista, Cartao } from './types';
-import { capaCartao, capaEhCor } from './types';
-import { getListaPorToken, listCartoes, decidirRevisaoCard, getQuadro } from './quadrosService';
-import { getCliente, logoUrl } from '@/clientes/clientesService';
-import type { Cliente } from '@/clientes/types';
 
-const IDX_REVISAO_INTERNA = 2;
-const IDX_APROVACAO_CLIENTE = 3;
+const REVIEW_BASE = 'https://media.wenox.com.br/_up/review';
 
-function PostVisual({ card, cliente }: { card: Cartao; cliente: Cliente | null }) {
+interface ApiCliente {
+  handle: string;
+  logo: string;
+}
+
+interface ApiEtapa {
+  texto: string;
+  tipo: string;
+  feito: boolean;
+  veredito?: 'aprovado' | 'reprovado';
+  motivo?: string;
+}
+
+interface ApiPost {
+  id: string;
+  nome: string;
+  formato: string;
+  data_post: string;
+  legenda: string;
+  hashtags: string;
+  artes: string[];
+  etapas_card: ApiEtapa[];
+}
+
+interface ApiReviewData {
+  lista: { nome: string };
+  idxEtapa: number;
+  cliente: ApiCliente | null;
+  posts: ApiPost[];
+}
+
+function PostVisual({ post, cliente }: { post: ApiPost; cliente: ApiCliente | null }) {
   const [slide, setSlide] = useState(0);
 
-  useEffect(() => setSlide(0), [card.id]);
+  useEffect(() => setSlide(0), [post.id]);
 
-  const capaUrl = capaCartao(card);
-  const capaIsImg = capaUrl && !capaEhCor(capaUrl);
-  const anexoImgs = (card.anexos ?? [])
-    .filter((a) => (a.mime ?? '').startsWith('image') && a.url)
-    .map((a) => a.url!);
-  const artes = Array.from(new Set([...(capaIsImg ? [capaUrl] : []), ...anexoImgs]));
+  const artes = post.artes ?? [];
   const arteAtual = artes[slide] ?? null;
 
-  const avatar = cliente ? logoUrl(cliente, '100x100') : '';
-  const handle = cliente ? (cliente.nome_fantasia || cliente.nome || 'perfil') : 'perfil';
+  const handle = cliente?.handle || 'perfil';
   const atHandle = handle.startsWith('@') ? handle : `@${handle}`;
+  const logo = cliente?.logo || '';
 
-  const legenda = card.legenda ?? '';
-  const hashtags = card.hashtags ?? '';
+  const legenda = post.legenda ?? '';
+  const hashtags = post.hashtags ?? '';
   const legendaCompleta = (legenda + (hashtags ? '\n\n' + hashtags : '')).trim();
 
-  const formato = card.formato || 'feed';
+  const formato = post.formato || 'feed';
   const isVertical = formato === 'story' || formato === 'reels';
   const isCarrossel = formato === 'carrossel';
 
@@ -44,16 +63,16 @@ function PostVisual({ card, cliente }: { card: Cartao; cliente: Cliente | null }
       {/* Header IG */}
       <div className="flex items-center gap-2.5 border-b border-border px-3 py-2.5">
         <div className="size-9 overflow-hidden rounded-full border border-border bg-secondary shrink-0">
-          {avatar
-            ? <img src={avatar} alt={handle} className="h-full w-full object-cover" />
+          {logo
+            ? <img src={logo} alt={handle} className="h-full w-full object-cover" />
             : <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500 text-white text-sm font-bold">{handle[0]?.toUpperCase() ?? '?'}</div>
           }
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-tight truncate">{atHandle}</p>
-          {card.data_post && (
+          {post.data_post && (
             <p className="text-[11px] text-muted-foreground">
-              {new Date(card.data_post.replace(' ', 'T')).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+              {new Date(post.data_post.replace(' ', 'T')).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
             </p>
           )}
         </div>
@@ -115,7 +134,7 @@ function PostVisual({ card, cliente }: { card: Cartao; cliente: Cliente | null }
 
       {/* Nome do post */}
       <div className="border-t border-border/50 px-3 pb-3 pt-2">
-        <p className="text-xs font-medium text-muted-foreground">{card.nome}</p>
+        <p className="text-xs font-medium text-muted-foreground">{post.nome}</p>
       </div>
     </div>
   );
@@ -143,13 +162,11 @@ function VerediBadge({ veredito, motivo }: { veredito: 'aprovado' | 'reprovado';
 
 export function RevisaoPostsPage() {
   const { token } = useParams<{ token: string }>();
-  const { user } = useAuth();
-  const uid = (pb.authStore.record as { id?: string } | null)?.id ?? user?.id ?? '';
 
-  const [lista, setLista] = useState<Lista | null>(null);
-  const [cliente, setCliente] = useState<Cliente | null>(null);
-  const [cards, setCards] = useState<Cartao[]>([]);
-  const [idxEtapa, setIdxEtapa] = useState(IDX_REVISAO_INTERNA);
+  const [listaNome, setListaNome] = useState('');
+  const [idxEtapa, setIdxEtapa] = useState(2);
+  const [cliente, setCliente] = useState<ApiCliente | null>(null);
+  const [posts, setPosts] = useState<ApiPost[]>([]);
   const [posicao, setPosicao] = useState(0);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -162,74 +179,86 @@ export function RevisaoPostsPage() {
     setLoading(true);
     setErro(null);
 
-    getListaPorToken(token)
-      .then(async (l) => {
-        setLista(l);
-        const [q, todosCards] = await Promise.all([
-          getQuadro(l.quadro),
-          listCartoes(l.quadro),
-        ]);
-        const cardsDaLista = todosCards.filter(
-          (c) => c.lista === l.id && (c.etapas_card?.length ?? 0) > 0,
-        );
-        setCards(cardsDaLista);
-
-        // determina etapa de revisão: idx2 se algum card ainda não tem idx2 feito, senão idx3
-        const algumIdx2Pendente = cardsDaLista.some((c) => !c.etapas_card?.[IDX_REVISAO_INTERNA]?.feito);
-        const idxRev = algumIdx2Pendente ? IDX_REVISAO_INTERNA : IDX_APROVACAO_CLIENTE;
-        setIdxEtapa(idxRev);
-        // abre no primeiro card ainda não decidido (pendente)
-        const pend = cardsDaLista.findIndex((c) => !c.etapas_card?.[idxRev]?.veredito);
+    fetch(`${REVIEW_BASE}?token=${encodeURIComponent(token)}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error('not_found');
+        return res.json() as Promise<ApiReviewData>;
+      })
+      .then((data) => {
+        setListaNome(data.lista.nome);
+        setIdxEtapa(data.idxEtapa);
+        setCliente(data.cliente);
+        setPosts(data.posts);
+        const idx = data.idxEtapa;
+        const pend = data.posts.findIndex((p) => !p.etapas_card?.[idx]?.veredito);
         setPosicao(pend >= 0 ? pend : 0);
-
-        if (q.expand?.cliente?.id) {
-          getCliente(q.expand.cliente.id).then(setCliente).catch(() => setCliente(null));
-        } else if (q.cliente) {
-          getCliente(q.cliente).then(setCliente).catch(() => setCliente(null));
-        }
       })
       .catch(() => setErro('Link de revisão inválido ou expirado.'))
       .finally(() => setLoading(false));
   }, [token]);
 
-  // recalcula etapa quando cards mudam
-  useEffect(() => {
-    if (!cards.length) return;
-    const algumIdx2Pendente = cards.some((c) => !c.etapas_card?.[IDX_REVISAO_INTERNA]?.feito);
-    setIdxEtapa(algumIdx2Pendente ? IDX_REVISAO_INTERNA : IDX_APROVACAO_CLIENTE);
-  }, [cards]);
-
-  const cardAtual = cards[posicao] ?? null;
-  const etapaCardAtual = cardAtual?.etapas_card?.[idxEtapa];
-  const jaDecidido = !!etapaCardAtual?.veredito;
-  const decididos = cards.filter((c) => !!c.etapas_card?.[idxEtapa]?.veredito).length;
-  const total = cards.length;
+  const postAtual = posts[posicao] ?? null;
+  const etapaAtual = postAtual?.etapas_card?.[idxEtapa];
+  const jaDecidido = !!etapaAtual?.veredito;
+  const decididos = posts.filter((p) => !!p.etapas_card?.[idxEtapa]?.veredito).length;
+  const total = posts.length;
   const todosDecididos = total > 0 && decididos === total;
-  const aprovados = cards.filter((c) => c.etapas_card?.[idxEtapa]?.veredito === 'aprovado').length;
+  const aprovados = posts.filter((p) => p.etapas_card?.[idxEtapa]?.veredito === 'aprovado').length;
   const reprovados = decididos - aprovados;
 
-  const nomeEtapa = idxEtapa === IDX_REVISAO_INTERNA ? 'Revisão interna' : 'Aprovação do cliente';
+  const nomeEtapa = idxEtapa === 2 ? 'Revisão interna' : 'Aprovação do cliente';
+
+  function atualizarPostLocal(postId: string, veredito: 'aprovado' | 'reprovado', motivoTexto?: string) {
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id !== postId
+          ? p
+          : {
+              ...p,
+              etapas_card: p.etapas_card.map((e, i) =>
+                i === idxEtapa
+                  ? { ...e, feito: veredito === 'aprovado', veredito, motivo: motivoTexto }
+                  : e,
+              ),
+            },
+      ),
+    );
+  }
+
+  async function enviarDecisao(
+    post: ApiPost,
+    veredito: 'aprovado' | 'reprovado',
+    motivoTexto?: string,
+  ) {
+    const ator = (pb.authStore.record as { id?: string } | null)?.id ?? 'cliente';
+    const res = await fetch(`${REVIEW_BASE}/decisao`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, cardId: post.id, idx: idxEtapa, veredito, motivo: motivoTexto, ator }),
+    });
+    if (!res.ok) throw new Error('decisao_falhou');
+  }
 
   async function aprovar() {
-    if (!cardAtual || salvando) return;
+    if (!postAtual || salvando) return;
     setSalvando(true);
     try {
-      const updated = await decidirRevisaoCard(cardAtual, idxEtapa, uid, 'aprovado');
-      setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-      if (posicao < cards.length - 1) setPosicao((p) => p + 1);
+      await enviarDecisao(postAtual, 'aprovado');
+      atualizarPostLocal(postAtual.id, 'aprovado');
+      if (posicao < posts.length - 1) setPosicao((p) => p + 1);
     } catch { /* */ }
     setSalvando(false);
   }
 
   async function reprovar() {
-    if (!cardAtual || salvando || !motivo.trim()) return;
+    if (!postAtual || salvando || !motivo.trim()) return;
     setSalvando(true);
     try {
-      const updated = await decidirRevisaoCard(cardAtual, idxEtapa, uid, 'reprovado', motivo.trim());
-      setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      await enviarDecisao(postAtual, 'reprovado', motivo.trim());
+      atualizarPostLocal(postAtual.id, 'reprovado', motivo.trim());
       setReprovando(false);
       setMotivo('');
-      if (posicao < cards.length - 1) setPosicao((p) => p + 1);
+      if (posicao < posts.length - 1) setPosicao((p) => p + 1);
     } catch { /* */ }
     setSalvando(false);
   }
@@ -242,10 +271,19 @@ export function RevisaoPostsPage() {
     );
   }
 
-  if (erro || !lista || !cards.length) {
+  if (erro) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="text-base font-semibold">{erro ?? 'Nenhum post encontrado para revisão.'}</p>
+        <p className="text-base font-semibold">Link inválido</p>
+        <p className="text-sm text-muted-foreground">Verifique o link ou entre em contato com a agência.</p>
+      </div>
+    );
+  }
+
+  if (!posts.length) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center">
+        <p className="text-base font-semibold">Nenhum post encontrado para revisão.</p>
         <p className="text-sm text-muted-foreground">Verifique o link ou entre em contato com a agência.</p>
       </div>
     );
@@ -255,7 +293,7 @@ export function RevisaoPostsPage() {
     <div className="flex min-h-dvh flex-col bg-background">
       {/* Header */}
       <div className="border-b border-border bg-card px-4 py-3 sticky top-0 z-10">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{lista.nome}</p>
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{listaNome}</p>
         <h1 className="text-base font-semibold leading-tight">{nomeEtapa}</h1>
 
         {/* Barra de progresso */}
@@ -293,14 +331,14 @@ export function RevisaoPostsPage() {
             </>
           )}
 
-          {/* Resumo dos cards */}
+          {/* Resumo dos posts */}
           <div className="mt-4 w-full max-w-sm space-y-2">
-            {cards.map((c, i) => {
-              const v = c.etapas_card?.[idxEtapa]?.veredito;
-              const m = c.etapas_card?.[idxEtapa]?.motivo;
+            {posts.map((p, i) => {
+              const v = p.etapas_card?.[idxEtapa]?.veredito;
+              const m = p.etapas_card?.[idxEtapa]?.motivo;
               return (
                 <button
-                  key={c.id}
+                  key={p.id}
                   onClick={() => { setPosicao(i); }}
                   className="flex w-full items-start gap-3 rounded-lg border border-border bg-card px-3 py-2 text-left text-sm hover:bg-secondary/40 transition-colors"
                 >
@@ -311,7 +349,7 @@ export function RevisaoPostsPage() {
                     {v === 'aprovado' ? '✓' : '✗'}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{c.nome}</p>
+                    <p className="truncate font-medium">{p.nome}</p>
                     {v === 'reprovado' && m && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{m}</p>}
                   </div>
                 </button>
@@ -344,15 +382,15 @@ export function RevisaoPostsPage() {
 
           {/* Conteúdo do post */}
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4 max-w-lg mx-auto w-full">
-            {cardAtual && (
+            {postAtual && (
               <>
-                <PostVisual card={cardAtual} cliente={cliente} />
+                <PostVisual post={postAtual} cliente={cliente} />
 
                 {/* Veredito atual (se já decidido) */}
-                {jaDecidido && etapaCardAtual && (
+                {jaDecidido && etapaAtual && (
                   <VerediBadge
-                    veredito={etapaCardAtual.veredito!}
-                    motivo={etapaCardAtual.motivo}
+                    veredito={etapaAtual.veredito!}
+                    motivo={etapaAtual.motivo}
                   />
                 )}
 
@@ -415,20 +453,21 @@ export function RevisaoPostsPage() {
           {/* Miniaturas de navegação rápida */}
           <div className="border-t border-border bg-card px-3 py-2 overflow-x-auto">
             <div className="flex gap-1.5 min-w-max">
-              {cards.map((c, i) => {
-                const v = c.etapas_card?.[idxEtapa]?.veredito;
+              {posts.map((p, i) => {
+                const v = p.etapas_card?.[idxEtapa]?.veredito;
+                const thumb = p.artes?.[0] ?? null;
                 return (
                   <button
-                    key={c.id}
+                    key={p.id}
                     onClick={() => { setPosicao(i); setReprovando(false); setMotivo(''); }}
                     className={cn(
                       'relative size-10 shrink-0 overflow-hidden rounded-lg border-2 transition-all',
                       i === posicao ? 'border-primary scale-110' : 'border-border opacity-60 hover:opacity-100',
                     )}
-                    title={c.nome}
+                    title={p.nome}
                   >
-                    {capaCartao(c) && !capaEhCor(capaCartao(c))
-                      ? <img src={capaCartao(c)!} alt="" className="h-full w-full object-cover" />
+                    {thumb
+                      ? <img src={thumb} alt="" className="h-full w-full object-cover" />
                       : <div className="flex h-full w-full items-center justify-center bg-secondary text-[9px] font-bold text-muted-foreground">{i + 1}</div>
                     }
                     {v && (

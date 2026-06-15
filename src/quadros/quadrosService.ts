@@ -19,6 +19,59 @@ export async function getQuadro(id: string): Promise<Quadro> {
   return (await qcol().getOne(id, { expand: 'cliente' })) as unknown as Quadro;
 }
 
+/** Nome do quadro modelo a ser clonado em todo cliente novo. */
+const TEMPLATE_NOME = '@ TEMPLATE';
+
+/** Cria um quadro novo (opcionalmente com extras como fundo). */
+export async function criarQuadro(cliente: string, nome: string, extras?: Partial<Quadro>): Promise<Quadro> {
+  return (await qcol().create({ cliente, nome, ...(extras ?? {}) })) as unknown as Quadro;
+}
+
+/**
+ * Clona o quadro modelo "@ TEMPLATE" para um novo quadro do cliente — só as listas
+ * ATIVAS (fechada≠true) e seus cards, copiando o CONTEÚDO e resetando o ESTADO.
+ * Best-effort: se o template não existir, retorna null sem lançar.
+ */
+export async function clonarQuadroTemplate(clienteId: string, nomeQuadro: string): Promise<Quadro | null> {
+  let tpl: Quadro;
+  try {
+    tpl = (await qcol().getFirstListItem(`nome="${TEMPLATE_NOME}"`)) as unknown as Quadro;
+  } catch { return null; }
+
+  const novo = await criarQuadro(clienteId, nomeQuadro, { fundo_cor: tpl.fundo_cor, fundo_img: tpl.fundo_img });
+
+  // listas ativas do template → cria no quadro novo, mapeando id antigo → novo
+  const listas = (await lcol().getFullList({
+    filter: `quadro="${tpl.id}" && fechada != true`, sort: 'ordem',
+  })) as unknown as Lista[];
+  const mapaLista = new Map<string, string>();
+  for (const l of listas) {
+    const nl = (await lcol().create({
+      quadro: novo.id, nome: l.nome, ordem: l.ordem ?? 0, fechada: false,
+      ...(l.tipo ? { tipo: l.tipo, mes: l.mes, ano: l.ano } : {}),
+    })) as unknown as Lista;
+    mapaLista.set(l.id, nl.id);
+  }
+  if (mapaLista.size === 0) return novo;
+
+  // cards das listas clonadas (ignora cards de listas arquivadas via mapa)
+  const cards = (await ccol().getFullList({
+    filter: `quadro="${tpl.id}" && arquivado != true`, sort: 'ordem', batch: 1000,
+  })) as unknown as Cartao[];
+  for (const c of cards) {
+    const novaLista = c.lista ? mapaLista.get(c.lista) : undefined;
+    if (!novaLista) continue;
+    await ccol().create({
+      quadro: novo.id, lista: novaLista,
+      nome: c.nome, descricao: c.descricao ?? '', ordem: c.ordem ?? 0,
+      etiquetas: c.etiquetas ?? [], checklists: c.checklists ?? [], anexos: c.anexos ?? [],
+      capa: c.capa ?? '', formato: c.formato ?? '', redes: c.redes ?? [],
+      concluido: false, membros: [], membros_ids: [],
+    });
+  }
+  return novo;
+}
+
 /** Listas (colunas) de um quadro, na ordem do Trello. */
 export async function listListas(quadroId: string): Promise<Lista[]> {
   const res = await lcol().getFullList({

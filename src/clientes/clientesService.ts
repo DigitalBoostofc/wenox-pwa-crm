@@ -1,5 +1,6 @@
 import { pb } from '@/lib/pocketbase';
 import { registrarHistorico, diffCampos } from '@/atividade/atividadeService';
+import { clonarQuadroTemplate } from '@/quadros/quadrosService';
 import type { Cliente, ClienteInput } from './types';
 
 const col = () => pb.collection('clientes');
@@ -74,6 +75,8 @@ export async function createCliente(
     logo ? comArquivo(dados, logo) : semLogo(dados),
   )) as unknown as Cliente;
   await registrarHistorico('cliente', rec.id, 'Cliente cadastrado');
+  // cria automaticamente o quadro do cliente clonando o "@ TEMPLATE" (best-effort)
+  try { await clonarQuadroTemplate(rec.id, rec.nome_fantasia || rec.nome || 'Cliente'); } catch { /* não bloqueia o cadastro */ }
   return rec;
 }
 

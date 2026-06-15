@@ -231,6 +231,9 @@ export function corStatusPost(status?: string): string {
 /** Formatos de post disponíveis. */
 export const FORMATOS_POST = ['feed', 'story', 'reels', 'carrossel'] as const;
 
+/** Template pré-preenchido das Orientações para o design (campo da etapa Copy). */
+export const ORIENTACOES_DESIGN_TEMPLATE = '**HEADLINE=**\n\n**SUB=**\n\n**APOIO=**\n\n**CTA=**';
+
 /** Rótulos legíveis para cada formato de post. */
 export const TIPO_POST_LABEL: Record<string, string> = {
   feed: 'Feed único',

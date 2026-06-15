@@ -13,7 +13,7 @@ import {
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Archive } from 'lucide-react';
 import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
-import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, STATUS_POST, corStatusPost, FORMATOS_POST, REDES_POST, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST } from './types';
+import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, STATUS_POST, corStatusPost, FORMATOS_POST, REDES_POST, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, ORIENTACOES_DESIGN_TEMPLATE } from './types';
 import { BriefingPost } from './BriefingPost';
 import { PreviewPost } from './PreviewPost';
 import { prazoBR, parsePrazo } from '@/tarefas/format';
@@ -104,7 +104,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     if (!cartaoId) { setC(null); setComentarios([]); return; }
     setPainel(null); setEditandoDesc(false); setDescExpandida(false);
     setCarregando(true);
-    getCartao(cartaoId).then((r) => { setC(r); setDescRasc(r.descricao ?? ''); setLegendaLocal(r.legenda ?? ''); setHashtagsLocal(r.hashtags ?? ''); }).catch(() => setC(null)).finally(() => setCarregando(false));
+    getCartao(cartaoId).then((r) => { setC(r); setDescRasc(r.descricao || (ehPost ? ORIENTACOES_DESIGN_TEMPLATE : '')); setLegendaLocal(r.legenda ?? ''); setHashtagsLocal(r.hashtags ?? ''); }).catch(() => setC(null)).finally(() => setCarregando(false));
     listComentariosCartao(cartaoId).then(setComentarios).catch(() => setComentarios([]));
   }, [cartaoId]);
   useEffect(() => { listUsuarios().then((us) => setEquipe(us.filter((u) => u.role !== 'Cliente'))).catch(() => { /* */ }); }, []);
@@ -431,9 +431,20 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                   {/* Ação inline da etapa atual */}
                                   {isAtual && (
                                     <div className="flex flex-col gap-2">
-                                      {/* COPY → Legenda + Hashtags */}
+                                      {/* COPY → Orientações para o design + Legenda + Hashtags */}
                                       {etapa.texto === 'Copy' && (
                                         <>
+                                          <div className="flex flex-col gap-1">
+                                            <span className="text-xs text-muted-foreground">Orientações para o design</span>
+                                            <textarea
+                                              rows={6}
+                                              value={descRasc}
+                                              onChange={(e) => setDescRasc(e.target.value)}
+                                              onBlur={(e) => { const v = e.target.value; if (v !== (c.descricao ?? '')) salvar({ descricao: v }); }}
+                                              className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                              placeholder={ORIENTACOES_DESIGN_TEMPLATE}
+                                            />
+                                          </div>
                                           <div className="flex flex-col gap-1">
                                             <div className="flex items-center justify-between">
                                               <span className="text-xs text-muted-foreground">Legenda</span>
@@ -754,7 +765,8 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                   </div>
                 )}
 
-                {/* Descrição */}
+                {/* Descrição (cards normais; em post as orientações ficam na etapa Copy) */}
+                {!ehPost && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><FileText className="size-3.5" /> Descrição</span>
@@ -800,6 +812,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                     <button onClick={() => { setDescRasc(''); setEditandoDesc(true); }} className="rounded-md border border-border bg-background/40 p-3 text-left text-sm text-muted-foreground hover:border-primary/40">Adicionar uma descrição…</button>
                   )}
                 </div>
+                )}
 
                 {/* Checklists */}
                 {(c.checklists ?? []).length > 0 && (

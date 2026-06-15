@@ -1,6 +1,6 @@
 import { pb } from '@/lib/pocketbase';
 import type { Quadro, Lista, Cartao, ComentarioCartao, AnexoCartao, EtapaCard } from './types';
-import { ESTEIRA_SOCIAL, statusDaEsteira } from './types';
+import { ESTEIRA_SOCIAL, statusDaEsteira, ORIENTACOES_DESIGN_TEMPLATE } from './types';
 import { carregarModeloRemoto } from './modeloPost';
 import { criarTarefa, concluirEtapa, getTarefa } from '@/tarefas/tarefasService';
 import { statusInicial } from '@/tarefas/status';
@@ -426,7 +426,7 @@ export async function gerarPostsMes(
         feito: false,
       })),
       ordem: i + 1,
-      descricao: '',
+      descricao: ORIENTACOES_DESIGN_TEMPLATE,
       concluido: false,
       etiquetas: [],
       checklists: [],

@@ -57,7 +57,6 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const [descTransborda, setDescTransborda] = useState(false);
   const [legendaLocal, setLegendaLocal] = useState('');
   const [hashtagsLocal, setHashtagsLocal] = useState('');
-  const [copiado, setCopiado] = useState(false);
   const [previewAberto, setPreviewAberto] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLDivElement>(null);
@@ -151,6 +150,22 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     el.style.height = `${el.scrollHeight}px`;
   }
 
+  // Prefixo de data no título do post: "02 Qui: <resto>" derivado da data do post
+  const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  function tituloComData(nomeAtual: string, dataStr: string): string {
+    const resto = (nomeAtual ?? '').replace(/^\s*\d{1,2}\s+\p{L}{3}:\s*/u, '');
+    const [y, m, d] = dataStr.split('-').map(Number);
+    if (!y || !m || !d) return resto;
+    const prefixo = `${String(d).padStart(2, '0')} ${DIAS_SEMANA[new Date(y, m - 1, d).getDay()]}:`;
+    return resto ? `${prefixo} ${resto}` : prefixo;
+  }
+  // Salva data do post e sincroniza o prefixo de data no título
+  function salvarDataPost(dataStr: string) {
+    if (!c) return;
+    if (!dataStr) { salvar({ data_post: '' }); return; }
+    salvar({ data_post: `${dataStr} ${dpTimeStr || '00:00'}:00`, nome: tituloComData(c.nome, dataStr) });
+  }
+
   async function abrirRevisao() {
     if (!c?.lista) return;
     try {
@@ -242,7 +257,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
               {/* principal (scroll próprio) */}
               <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-6">
                 <DialogTitle className="pr-8">
-                  <input defaultValue={c.nome} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== c.nome) salvar({ nome: v }); }}
+                  <input key={c.nome} defaultValue={c.nome} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== c.nome) salvar({ nome: v }); }}
                     className="w-full rounded-md bg-transparent text-xl font-semibold leading-snug outline-none focus:bg-secondary/40 focus:px-2 focus:py-1" />
                 </DialogTitle>
 
@@ -282,10 +297,14 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                 <div className="flex flex-wrap gap-2">
                   <AcaoBtn icon={Users} label="Membros" onClick={() => setPainel(painel === 'membros' ? null : 'membros')} />
                   <AcaoBtn icon={Tag} label="Etiquetas" onClick={() => setPainel(painel === 'etiquetas' ? null : 'etiquetas')} />
-                  <AcaoBtn icon={Calendar} label="Datas" onClick={() => setPainel(painel === 'datas' ? null : 'datas')} />
-                  <AcaoBtn icon={CheckSquare} label="Checklist" onClick={() => addChecklist('Checklist')} />
-                  <AcaoBtn icon={Paperclip} label="Anexo" onClick={() => fileRef.current?.click()} />
-                  <AcaoBtn icon={ImageIcon} label="Capa" onClick={() => setPainel(painel === 'capa' ? null : 'capa')} />
+                  {!ehPost && (
+                    <>
+                      <AcaoBtn icon={Calendar} label="Datas" onClick={() => setPainel(painel === 'datas' ? null : 'datas')} />
+                      <AcaoBtn icon={CheckSquare} label="Checklist" onClick={() => addChecklist('Checklist')} />
+                      <AcaoBtn icon={Paperclip} label="Anexo" onClick={() => fileRef.current?.click()} />
+                      <AcaoBtn icon={ImageIcon} label="Capa" onClick={() => setPainel(painel === 'capa' ? null : 'capa')} />
+                    </>
+                  )}
                   <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
                 </div>
 
@@ -389,11 +408,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                           <input
                             type="date"
                             value={dpDateStr}
-                            onChange={(e) => {
-                              const d = e.target.value;
-                              if (!d) { salvar({ data_post: '' }); return; }
-                              salvar({ data_post: `${d} ${dpTimeStr || '00:00'}:00` });
-                            }}
+                            onChange={(e) => salvarDataPost(e.target.value)}
                             className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                           />
                           <input
@@ -474,9 +489,9 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                       {/* COPY → Orientações para o design + Legenda + Hashtags */}
                                       {etapa.texto === 'Copy' && (
                                         <>
-                                          {/* Referência/Modelo (obrigatório, 1º item) */}
+                                          {/* Referência/Modelo (opcional, 1º item) */}
                                           <div className="flex flex-col gap-1">
-                                            <span className="text-xs text-muted-foreground">Referência/Modelo <span className="text-red-400">*</span></span>
+                                            <span className="text-xs text-muted-foreground">Referência/Modelo <span className="text-[10px] text-muted-foreground/60">(opcional)</span></span>
                                             <input
                                               defaultValue={c.referencia ?? ''}
                                               onBlur={(e) => { const v = e.target.value; if (v !== (c.referencia ?? '')) salvar({ referencia: v }); }}
@@ -538,33 +553,18 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                               placeholder="#hashtag1 #hashtag2 …"
                                             />
                                           </div>
-                                          <button
-                                            type="button"
-                                            onClick={async () => {
-                                              const texto = legendaLocal + (hashtagsLocal ? '\n\n' + hashtagsLocal : '');
-                                              try { await navigator.clipboard.writeText(texto); } catch { /* */ }
-                                              setCopiado(true);
-                                              setTimeout(() => setCopiado(false), 2000);
-                                            }}
-                                            className={cn(
-                                              'inline-flex w-fit items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
-                                              copiado
-                                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
-                                                : 'border-border text-muted-foreground hover:bg-secondary',
-                                            )}
-                                          >
-                                            {copiado ? '✓ Copiado!' : 'Copiar legenda + hashtags'}
-                                          </button>
                                           <Button
                                             size="sm"
                                             className="h-7 w-fit text-xs"
-                                            disabled={!(c.referencia ?? '').trim()}
+                                            disabled={!descRasc.trim() || !legendaLocal.trim() || !hashtagsLocal.trim()}
                                             onClick={() => handleConfirmarEtapa(idx)}
                                           >
                                             ✓ Confirmar Copy
                                           </Button>
-                                          {!(c.referencia ?? '').trim() && (
-                                            <span className="text-[10px] text-amber-400">Preencha a referência para confirmar.</span>
+                                          {(!descRasc.trim() || !legendaLocal.trim() || !hashtagsLocal.trim()) && (
+                                            <span className="text-[10px] text-amber-400">
+                                              Preencha {[!descRasc.trim() && 'orientações', !legendaLocal.trim() && 'legenda', !hashtagsLocal.trim() && 'hashtags'].filter(Boolean).join(', ')} para confirmar.
+                                            </span>
                                           )}
                                         </>
                                       )}

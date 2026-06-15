@@ -21,6 +21,13 @@ const atualizarSW = registerSW({
 });
 void atualizarSW;
 
+// Captura o convite de instalação cedo (pode disparar antes do React montar).
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  (window as unknown as { deferredInstallPrompt?: Event }).deferredInstallPrompt = e;
+  window.dispatchEvent(new Event('wenox-installable'));
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>

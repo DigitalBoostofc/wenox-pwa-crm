@@ -5,6 +5,7 @@ import { useAuth } from '@/auth/useAuth';
 import { canGerirUsuarios } from '@/auth/perms';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
 import { AppShell } from '@/components/layout/AppShell';
+import { InstallPrompt } from '@/components/InstallPrompt';
 import { PermissoesProvider, usePermissoes } from '@/config/PermissoesProvider';
 import { NAV_ITEMS } from '@/components/layout/nav';
 import type { Modulo } from '@/config/permissoesConfig';
@@ -340,6 +341,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <Root />
+      <InstallPrompt />
     </ThemeProvider>
   );
 }

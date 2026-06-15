@@ -461,7 +461,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
                 key={l.id}
                 onClick={() => toggleColapsar(l.id)}
                 title="Expandir lista"
-                className="flex h-full w-10 shrink-0 cursor-pointer flex-col items-center gap-2 rounded-xl border border-border bg-background/40 p-2 transition-colors hover:bg-secondary/40"
+                className="flex w-9 shrink-0 cursor-pointer flex-col items-center gap-2 self-start rounded-xl border border-border bg-background/40 p-2 transition-colors hover:bg-secondary/40"
               >
                 <ChevronsLeftRight className="size-4 shrink-0 text-muted-foreground" />
                 <Badge variant="muted" className="text-[10px]">{cards.length}</Badge>

@@ -14,6 +14,7 @@ import { Archive } from 'lucide-react';
 import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
 import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, STATUS_POST, corStatusPost, FORMATOS_POST, REDES_POST, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST } from './types';
 import { BriefingPost } from './BriefingPost';
+import { PreviewPost } from './PreviewPost';
 import { prazoBR, parsePrazo } from '@/tarefas/format';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
@@ -56,6 +57,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const [legendaLocal, setLegendaLocal] = useState('');
   const [hashtagsLocal, setHashtagsLocal] = useState('');
   const [copiado, setCopiado] = useState(false);
+  const [previewAberto, setPreviewAberto] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLDivElement>(null);
   const descTextRef = useRef<HTMLTextAreaElement>(null);
@@ -189,6 +191,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const inputCls = 'w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
   return (
+    <>
     <Dialog open={aberto} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent>
         {carregando || !c ? (
@@ -329,9 +332,18 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                 {/* Seção Post (apenas em cards de lista-mês) */}
                 {ehPost && (
                   <div className="flex flex-col gap-4 rounded-md border border-border bg-background/40 p-3">
-                    <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <CalendarDays className="size-3.5" /> Post
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <CalendarDays className="size-3.5" /> Post
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewAberto(true)}
+                        className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      >
+                        👁 Pré-visualizar
+                      </button>
+                    </div>
 
                     {alertaAgendar(c) && (
                       <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-400">
@@ -687,5 +699,15 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
         )}
       </DialogContent>
     </Dialog>
+
+    {c && previewAberto && (
+      <PreviewPost
+        aberto={previewAberto}
+        onClose={() => setPreviewAberto(false)}
+        cartao={c}
+        clienteId={clienteId}
+      />
+    )}
+    </>
   );
 }

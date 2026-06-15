@@ -487,16 +487,21 @@ export async function confirmarEtapaCard(
   uid: string,
   opts?: { veredito?: 'aprovado' | 'reprovado'; motivo?: string },
 ): Promise<Cartao> {
-  const etapas = (card.etapas_card ?? []).map((e, i) =>
-    i !== idx ? e : {
+  const etapas = (card.etapas_card ?? []).map((e, i) => {
+    if (i < idx) return e;
+    if (i === idx) return {
       ...e,
       feito: true,
       feito_por: uid,
       feito_em: wallclock(),
       ...(opts?.veredito ? { veredito: opts.veredito } : {}),
       ...(opts?.motivo ? { motivo: opts.motivo } : {}),
-    } as EtapaCard,
-  );
+    } as EtapaCard;
+    // etapas POSTERIORES são resetadas: refazer/confirmar uma etapa invalida
+    // decisões seguintes (ex.: refez o Layout → some o veredito da revisão).
+    const { veredito: _v, motivo: _m, feito_por: _p, feito_em: _t, ...resto } = e;
+    return { ...resto, feito: false } as EtapaCard;
+  });
   const status_post = statusDaEsteira(etapas);
   const updated = await atualizarCartao(card.id, { etapas_card: etapas, status_post });
 

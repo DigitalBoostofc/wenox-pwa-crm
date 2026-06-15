@@ -176,7 +176,11 @@ export function RevisaoPostsPage() {
 
         // determina etapa de revisão: idx2 se algum card ainda não tem idx2 feito, senão idx3
         const algumIdx2Pendente = cardsDaLista.some((c) => !c.etapas_card?.[IDX_REVISAO_INTERNA]?.feito);
-        setIdxEtapa(algumIdx2Pendente ? IDX_REVISAO_INTERNA : IDX_APROVACAO_CLIENTE);
+        const idxRev = algumIdx2Pendente ? IDX_REVISAO_INTERNA : IDX_APROVACAO_CLIENTE;
+        setIdxEtapa(idxRev);
+        // abre no primeiro card ainda não decidido (pendente)
+        const pend = cardsDaLista.findIndex((c) => !c.etapas_card?.[idxRev]?.veredito);
+        setPosicao(pend >= 0 ? pend : 0);
 
         if (q.expand?.cliente?.id) {
           getCliente(q.expand.cliente.id).then(setCliente).catch(() => setCliente(null));

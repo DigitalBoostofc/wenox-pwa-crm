@@ -17,7 +17,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
-import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar } from './types';
+import { capaCartao, capaEhCor, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -103,7 +103,12 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
             )}
             {c.formato && (
               <span className="rounded border border-border bg-secondary px-1.5 py-0.5 text-[9px] text-muted-foreground">
-                {c.formato}
+                {TIPO_POST_LABEL[c.formato] ?? c.formato}
+              </span>
+            )}
+            {c.objetivo && (
+              <span className="rounded border border-border bg-secondary px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                {OBJETIVO_POST.find((o) => o.id === c.objetivo)?.label ?? c.objetivo}
               </span>
             )}
             {(c.redes ?? []).slice(0, 4).map((r) => (
@@ -384,7 +389,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
         )}
       </div>
 
-      <div style={fundoBoardStyle(quadro)} className="flex flex-1 items-start gap-3 overflow-x-auto rounded-xl border border-border/60 p-3">
+      <div style={fundoBoardStyle(quadro)} className="flex min-h-0 flex-1 items-stretch gap-3 overflow-x-auto overflow-y-hidden rounded-xl border border-border/60 p-3">
         {listas.map((l) => {
           const cards = (porLista.get(l.id) ?? []).filter(passaFiltro);
           return (
@@ -393,7 +398,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
               onDragOver={(e) => { if (dragCardId || dragListId) { e.preventDefault(); if (recebendo !== l.id) setRecebendo(l.id); } }}
               onDragLeave={() => setRecebendo((r) => (r === l.id ? null : r))}
               onDrop={(e) => { e.preventDefault(); if (dragListId) soltarLista(l.id); else soltarNoFim(l.id); }}
-              className={cn('flex max-h-full w-72 shrink-0 flex-col gap-2 rounded-xl border bg-background/40 p-2', recebendo === l.id ? 'border-primary bg-primary/5' : 'border-border')}
+              className={cn('flex h-full min-h-0 w-72 shrink-0 flex-col gap-2 rounded-xl border bg-background/40 p-2', recebendo === l.id ? 'border-primary bg-primary/5' : 'border-border')}
             >
               <div
                 draggable
@@ -428,7 +433,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 overflow-y-auto pr-0.5">
+              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
                 {cards.map((c) => (
                   <MiniCard key={c.id} c={c} onClick={() => setAbertoId(c.id)} onSoltarAntes={soltarAntes} expandidas={etExpand} onToggleEt={toggleEtExpand} usuariosMap={usuariosMap} ehPost={l.tipo === 'mes'} />
                 ))}

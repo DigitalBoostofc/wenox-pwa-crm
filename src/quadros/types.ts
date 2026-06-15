@@ -61,6 +61,12 @@ export interface Cartao {
   formato?: 'feed' | 'story' | 'reels' | 'carrossel' | '';
   status_post?: 'em_producao' | 'agendar' | 'agendado' | 'postado' | 'em_alteracao' | '';
   agendado_em?: string;
+  objetivo?: string;
+  tema?: string;
+  referencia?: string;
+  legenda?: string;
+  hashtags?: string;
+  briefing?: Record<string, unknown>;
   collectionId?: string;
   collectionName?: string;
   created?: string;
@@ -177,6 +183,24 @@ export function corStatusPost(status?: string): string {
 
 /** Formatos de post disponíveis. */
 export const FORMATOS_POST = ['feed', 'story', 'reels', 'carrossel'] as const;
+
+/** Rótulos legíveis para cada formato de post. */
+export const TIPO_POST_LABEL: Record<string, string> = {
+  feed: 'Feed único',
+  carrossel: 'Carrossel',
+  story: 'Stories',
+  reels: 'Reels',
+};
+
+/** Objetivos de post disponíveis. */
+export const OBJETIVO_POST = [
+  { id: 'reconhecimento',     label: 'Reconhecimento' },
+  { id: 'engajamento',        label: 'Engajamento' },
+  { id: 'educar',             label: 'Educar/Valor' },
+  { id: 'venda',              label: 'Venda' },
+  { id: 'prova_social',       label: 'Prova social' },
+  { id: 'data_comemorativa',  label: 'Data comemorativa' },
+] as const;
 
 /** Redes sociais suportadas. */
 export const REDES_POST = [

@@ -12,7 +12,8 @@ import {
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Archive } from 'lucide-react';
 import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
-import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, STATUS_POST, corStatusPost, FORMATOS_POST, REDES_POST, alertaAgendar } from './types';
+import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, STATUS_POST, corStatusPost, FORMATOS_POST, REDES_POST, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST } from './types';
+import { BriefingPost } from './BriefingPost';
 import { prazoBR, parsePrazo } from '@/tarefas/format';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
@@ -52,6 +53,9 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const [linkTexto, setLinkTexto] = useState('');
   const [descExpandida, setDescExpandida] = useState(false);
   const [descTransborda, setDescTransborda] = useState(false);
+  const [legendaLocal, setLegendaLocal] = useState('');
+  const [hashtagsLocal, setHashtagsLocal] = useState('');
+  const [copiado, setCopiado] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLDivElement>(null);
   const descTextRef = useRef<HTMLTextAreaElement>(null);
@@ -95,7 +99,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     if (!cartaoId) { setC(null); setComentarios([]); return; }
     setPainel(null); setEditandoDesc(false); setDescExpandida(false);
     setCarregando(true);
-    getCartao(cartaoId).then((r) => { setC(r); setDescRasc(r.descricao ?? ''); }).catch(() => setC(null)).finally(() => setCarregando(false));
+    getCartao(cartaoId).then((r) => { setC(r); setDescRasc(r.descricao ?? ''); setLegendaLocal(r.legenda ?? ''); setHashtagsLocal(r.hashtags ?? ''); }).catch(() => setC(null)).finally(() => setCarregando(false));
     listComentariosCartao(cartaoId).then(setComentarios).catch(() => setComentarios([]));
   }, [cartaoId]);
   useEffect(() => { listUsuarios().then((us) => setEquipe(us.filter((u) => u.role !== 'Cliente'))).catch(() => { /* */ }); }, []);
@@ -324,7 +328,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
 
                 {/* Seção Post (apenas em cards de lista-mês) */}
                 {ehPost && (
-                  <div className="flex flex-col gap-3 rounded-md border border-border bg-background/40 p-3">
+                  <div className="flex flex-col gap-4 rounded-md border border-border bg-background/40 p-3">
                     <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       <CalendarDays className="size-3.5" /> Post
                     </span>
@@ -335,7 +339,59 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                       </div>
                     )}
 
-                    {/* Data e hora do post */}
+                    {/* a. Tipo · Objetivo · Tema · Referência */}
+                    <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-muted-foreground">Tipo de post</span>
+                          <select
+                            value={c.formato ?? ''}
+                            onChange={(e) => salvar({ formato: e.target.value as Cartao['formato'] })}
+                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                          >
+                            <option value="">— selecione —</option>
+                            {FORMATOS_POST.map((f) => (
+                              <option key={f} value={f}>{TIPO_POST_LABEL[f] ?? f}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-muted-foreground">Objetivo</span>
+                          <select
+                            value={c.objetivo ?? ''}
+                            onChange={(e) => salvar({ objetivo: e.target.value })}
+                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                          >
+                            <option value="">— selecione —</option>
+                            {OBJETIVO_POST.map((o) => (
+                              <option key={o.id} value={o.id}>{o.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-muted-foreground">Tema</span>
+                          <input
+                            defaultValue={c.tema ?? ''}
+                            onBlur={(e) => { const v = e.target.value; if (v !== (c.tema ?? '')) salvar({ tema: v }); }}
+                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                            placeholder="Ex: Dia das mães"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-muted-foreground">Referência/Modelo</span>
+                          <input
+                            defaultValue={c.referencia ?? ''}
+                            onBlur={(e) => { const v = e.target.value; if (v !== (c.referencia ?? '')) salvar({ referencia: v }); }}
+                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                            placeholder="https://…"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* b. Data e hora do post */}
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-muted-foreground">Data e hora do post</span>
                       <div className="flex flex-wrap items-center gap-2">
@@ -390,21 +446,6 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                       </div>
                     </div>
 
-                    {/* Formato */}
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Formato</span>
-                      <select
-                        value={c.formato ?? ''}
-                        onChange={(e) => salvar({ formato: e.target.value as Cartao['formato'] })}
-                        className="h-8 w-40 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                      >
-                        <option value="">— selecione —</option>
-                        {FORMATOS_POST.map((f) => (
-                          <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
-                        ))}
-                      </select>
-                    </div>
-
                     {/* Status do post */}
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-muted-foreground">Status do post</span>
@@ -425,6 +466,72 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                         ))}
                       </div>
                     </div>
+
+                    {/* c. Orientações para o design */}
+                    <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-background/60 p-2.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Orientações para o design</span>
+                      <BriefingPost
+                        formato={c.formato}
+                        value={(c.briefing ?? {}) as Record<string, unknown>}
+                        onChange={(b) => salvar({ briefing: b })}
+                      />
+                    </div>
+
+                    {/* d. Legenda */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Legenda</span>
+                        <span className={cn(
+                          'text-[10px] tabular-nums',
+                          legendaLocal.length > 2200 ? 'text-red-400' : legendaLocal.length > 1800 ? 'text-amber-400' : 'text-muted-foreground',
+                        )}>
+                          {legendaLocal.length} / 2.200
+                        </span>
+                      </div>
+                      <textarea
+                        rows={5}
+                        value={legendaLocal}
+                        onChange={(e) => setLegendaLocal(e.target.value)}
+                        onBlur={(e) => { const v = e.target.value; if (v !== (c.legenda ?? '')) salvar({ legenda: v }); }}
+                        className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                        placeholder="Escreva a legenda do post…"
+                      />
+                    </div>
+
+                    {/* e. Hashtags */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">
+                        Hashtags{' '}
+                        <span className="text-[10px] text-muted-foreground/60">(entram como último parágrafo da legenda)</span>
+                      </span>
+                      <textarea
+                        rows={3}
+                        value={hashtagsLocal}
+                        onChange={(e) => setHashtagsLocal(e.target.value)}
+                        onBlur={(e) => { const v = e.target.value; if (v !== (c.hashtags ?? '')) salvar({ hashtags: v }); }}
+                        className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                        placeholder="#hashtag1 #hashtag2 …"
+                      />
+                    </div>
+
+                    {/* f. Copiar legenda + hashtags */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const texto = legendaLocal + (hashtagsLocal ? '\n\n' + hashtagsLocal : '');
+                        try { await navigator.clipboard.writeText(texto); } catch { /* */ }
+                        setCopiado(true);
+                        setTimeout(() => setCopiado(false), 2000);
+                      }}
+                      className={cn(
+                        'inline-flex w-fit items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                        copiado
+                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                          : 'border-border text-muted-foreground hover:bg-secondary',
+                      )}
+                    >
+                      {copiado ? '✓ Copiado!' : 'Copiar legenda + hashtags'}
+                    </button>
                   </div>
                 )}
 

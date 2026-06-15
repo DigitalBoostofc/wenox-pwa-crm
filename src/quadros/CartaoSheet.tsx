@@ -13,8 +13,7 @@ import {
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Archive } from 'lucide-react';
 import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
-import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, STATUS_POST, corStatusPost, FORMATOS_POST, REDES_POST, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, ORIENTACOES_DESIGN_TEMPLATE } from './types';
-import { BriefingPost } from './BriefingPost';
+import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, FORMATOS_POST, alertaAgendar, TIPO_POST_LABEL, ORIENTACOES_DESIGN_TEMPLATE } from './types';
 import { PreviewPost } from './PreviewPost';
 import { prazoBR, parsePrazo } from '@/tarefas/format';
 import { listUsuarios } from '@/usuarios/usuariosService';
@@ -60,7 +59,6 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const [hashtagsLocal, setHashtagsLocal] = useState('');
   const [copiado, setCopiado] = useState(false);
   const [previewAberto, setPreviewAberto] = useState(false);
-  const [detalhesAbertos, setDetalhesAbertos] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLDivElement>(null);
   const descTextRef = useRef<HTMLTextAreaElement>(null);
@@ -108,6 +106,8 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     listComentariosCartao(cartaoId).then(setComentarios).catch(() => setComentarios([]));
   }, [cartaoId]);
   useEffect(() => { listUsuarios().then((us) => setEquipe(us.filter((u) => u.role !== 'Cliente'))).catch(() => { /* */ }); }, []);
+  // auto-cresce a caixa de orientações (etapa Copy) conforme o conteúdo carrega/muda
+  useEffect(() => { if (ehPost) autoGrow(descTextRef.current); }, [descRasc, ehPost, c?.id]);
 
   async function salvar(dados: Partial<Cartao>) {
     if (!c) return;
@@ -145,15 +145,10 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     setLinkUrl(''); setLinkTexto(''); setAnexarAberto(false);
   }
 
-  function mudarStatusPost(status: Cartao['status_post']) {
-    if (!c) return;
-    const extras: Partial<Cartao> = { status_post: status };
-    if (status === 'agendado') {
-      const now = new Date();
-      const pad = (n: number) => String(n).padStart(2, '0');
-      extras.agendado_em = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-    }
-    salvar(extras);
+  function autoGrow(el: HTMLTextAreaElement | null) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
   }
 
   async function abrirRevisao() {
@@ -373,6 +368,51 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                       </button>
                     </div>
 
+                    {/* Cabeçalho do post: Tipo + Data e hora */}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-muted-foreground">Tipo de post</span>
+                        <select
+                          value={c.formato ?? ''}
+                          onChange={(e) => salvar({ formato: e.target.value as Cartao['formato'] })}
+                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                        >
+                          <option value="">— selecione —</option>
+                          {FORMATOS_POST.map((f) => (
+                            <option key={f} value={f}>{TIPO_POST_LABEL[f] ?? f}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-muted-foreground">Data e hora do post</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="date"
+                            value={dpDateStr}
+                            onChange={(e) => {
+                              const d = e.target.value;
+                              if (!d) { salvar({ data_post: '' }); return; }
+                              salvar({ data_post: `${d} ${dpTimeStr || '00:00'}:00` });
+                            }}
+                            className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                          />
+                          <input
+                            type="time"
+                            value={dpTimeStr}
+                            disabled={!dpDateStr}
+                            onChange={(e) => {
+                              if (!dpDateStr) return;
+                              salvar({ data_post: `${dpDateStr} ${e.target.value || '00:00'}:00` });
+                            }}
+                            className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
+                          />
+                          {dpDateStr && (
+                            <button onClick={() => salvar({ data_post: '' })} className="text-xs text-destructive hover:underline">Remover</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     {alertaAgendar(c) && (
                       <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-400">
                         ⚠ Falta agendar — publica em breve
@@ -434,14 +474,40 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                       {/* COPY → Orientações para o design + Legenda + Hashtags */}
                                       {etapa.texto === 'Copy' && (
                                         <>
+                                          {/* Referência/Modelo (obrigatório, 1º item) */}
+                                          <div className="flex flex-col gap-1">
+                                            <span className="text-xs text-muted-foreground">Referência/Modelo <span className="text-red-400">*</span></span>
+                                            <input
+                                              defaultValue={c.referencia ?? ''}
+                                              onBlur={(e) => { const v = e.target.value; if (v !== (c.referencia ?? '')) salvar({ referencia: v }); }}
+                                              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                              placeholder="https://… (link ou modelo de referência)"
+                                            />
+                                          </div>
+                                          {/* Descrição / orientações com formatação + auto-crescer */}
                                           <div className="flex flex-col gap-1">
                                             <span className="text-xs text-muted-foreground">Orientações para o design</span>
+                                            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-background/60 p-1">
+                                              <select defaultValue="" onChange={(e) => { if (e.target.value !== '') definirTitulo(Number(e.target.value)); e.target.value = ''; }}
+                                                className="h-7 rounded border border-input bg-background px-1 text-xs" title="Título">
+                                                <option value="" disabled>Aa</option>
+                                                <option value="0">Texto normal</option>
+                                                <option value="1">Título 1</option>
+                                                <option value="2">Título 2</option>
+                                                <option value="3">Título 3</option>
+                                              </select>
+                                              <button type="button" onClick={() => envolverSel('**', '**')} title="Negrito" className="grid size-7 place-items-center rounded hover:bg-secondary"><Bold className="size-3.5" /></button>
+                                              <button type="button" onClick={() => envolverSel('*', '*')} title="Itálico" className="grid size-7 place-items-center rounded hover:bg-secondary"><Italic className="size-3.5" /></button>
+                                              <button type="button" onClick={() => prefixarLinhas('- ')} title="Lista" className="grid size-7 place-items-center rounded hover:bg-secondary"><List className="size-3.5" /></button>
+                                              <button type="button" onClick={inserirLink} title="Link" className="grid size-7 place-items-center rounded hover:bg-secondary"><Link2 className="size-3.5" /></button>
+                                            </div>
                                             <textarea
-                                              rows={6}
+                                              ref={descTextRef}
+                                              rows={4}
                                               value={descRasc}
-                                              onChange={(e) => setDescRasc(e.target.value)}
+                                              onChange={(e) => { setDescRasc(e.target.value); autoGrow(e.target); }}
                                               onBlur={(e) => { const v = e.target.value; if (v !== (c.descricao ?? '')) salvar({ descricao: v }); }}
-                                              className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                              className="w-full resize-none overflow-hidden rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                                               placeholder={ORIENTACOES_DESIGN_TEMPLATE}
                                             />
                                           </div>
@@ -472,13 +538,34 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                               placeholder="#hashtag1 #hashtag2 …"
                                             />
                                           </div>
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              const texto = legendaLocal + (hashtagsLocal ? '\n\n' + hashtagsLocal : '');
+                                              try { await navigator.clipboard.writeText(texto); } catch { /* */ }
+                                              setCopiado(true);
+                                              setTimeout(() => setCopiado(false), 2000);
+                                            }}
+                                            className={cn(
+                                              'inline-flex w-fit items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                                              copiado
+                                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                                                : 'border-border text-muted-foreground hover:bg-secondary',
+                                            )}
+                                          >
+                                            {copiado ? '✓ Copiado!' : 'Copiar legenda + hashtags'}
+                                          </button>
                                           <Button
                                             size="sm"
                                             className="h-7 w-fit text-xs"
+                                            disabled={!(c.referencia ?? '').trim()}
                                             onClick={() => handleConfirmarEtapa(idx)}
                                           >
                                             ✓ Confirmar Copy
                                           </Button>
+                                          {!(c.referencia ?? '').trim() && (
+                                            <span className="text-[10px] text-amber-400">Preencha a referência para confirmar.</span>
+                                          )}
                                         </>
                                       )}
 
@@ -563,205 +650,6 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                         </div>
                       );
                     })()}
-
-                    {/* ── Detalhes do post (colapsável) ── */}
-                    <div className="flex flex-col gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setDetalhesAbertos((v) => !v)}
-                        className="flex w-full items-center justify-between rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:bg-secondary/40"
-                      >
-                        <span>Detalhes do post</span>
-                        <ChevronDown className={cn('size-3.5 transition-transform', detalhesAbertos && 'rotate-180')} />
-                      </button>
-                      {detalhesAbertos && (
-                        <div className="flex flex-col gap-3 rounded-md border border-border/40 bg-background/40 p-3 pt-2">
-                          {/* Tipo · Objetivo · Tema · Referência */}
-                          <div className="flex flex-col gap-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="flex flex-col gap-1">
-                                <span className="text-xs text-muted-foreground">Tipo de post</span>
-                                <select
-                                  value={c.formato ?? ''}
-                                  onChange={(e) => salvar({ formato: e.target.value as Cartao['formato'] })}
-                                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                                >
-                                  <option value="">— selecione —</option>
-                                  {FORMATOS_POST.map((f) => (
-                                    <option key={f} value={f}>{TIPO_POST_LABEL[f] ?? f}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <span className="text-xs text-muted-foreground">Objetivo</span>
-                                <select
-                                  value={c.objetivo ?? ''}
-                                  onChange={(e) => salvar({ objetivo: e.target.value })}
-                                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                                >
-                                  <option value="">— selecione —</option>
-                                  {OBJETIVO_POST.map((o) => (
-                                    <option key={o.id} value={o.id}>{o.label}</option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="flex flex-col gap-1">
-                                <span className="text-xs text-muted-foreground">Tema</span>
-                                <input
-                                  defaultValue={c.tema ?? ''}
-                                  onBlur={(e) => { const v = e.target.value; if (v !== (c.tema ?? '')) salvar({ tema: v }); }}
-                                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                                  placeholder="Ex: Dia das mães"
-                                />
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <span className="text-xs text-muted-foreground">Referência/Modelo</span>
-                                <input
-                                  defaultValue={c.referencia ?? ''}
-                                  onBlur={(e) => { const v = e.target.value; if (v !== (c.referencia ?? '')) salvar({ referencia: v }); }}
-                                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                                  placeholder="https://…"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Data e hora */}
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs text-muted-foreground">Data e hora do post</span>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <input
-                                type="date"
-                                value={dpDateStr}
-                                onChange={(e) => {
-                                  const d = e.target.value;
-                                  if (!d) { salvar({ data_post: '' }); return; }
-                                  salvar({ data_post: `${d} ${dpTimeStr || '00:00'}:00` });
-                                }}
-                                className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                              />
-                              <input
-                                type="time"
-                                value={dpTimeStr}
-                                disabled={!dpDateStr}
-                                onChange={(e) => {
-                                  if (!dpDateStr) return;
-                                  salvar({ data_post: `${dpDateStr} ${e.target.value || '00:00'}:00` });
-                                }}
-                                className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
-                              />
-                              {dpDateStr && (
-                                <button onClick={() => salvar({ data_post: '' })} className="text-xs text-destructive hover:underline">Remover</button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Redes */}
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs text-muted-foreground">Redes</span>
-                            <div className="flex flex-wrap gap-1">
-                              {REDES_POST.map((r) => {
-                                const ativo = (c.redes ?? []).includes(r);
-                                return (
-                                  <button
-                                    key={r}
-                                    onClick={() => {
-                                      const atual = c.redes ?? [];
-                                      salvar({ redes: ativo ? atual.filter((x) => x !== r) : [...atual, r] });
-                                    }}
-                                    className={cn(
-                                      'rounded border px-2 py-0.5 text-[11px] font-medium transition-colors',
-                                      ativo ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:bg-secondary',
-                                    )}
-                                  >
-                                    {r === 'twitter' ? 'Twitter/X' : r === 'tiktok' ? 'TikTok' : r === 'linkedin' ? 'LinkedIn' : r.charAt(0).toUpperCase() + r.slice(1)}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Status manual */}
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs text-muted-foreground">Status (manual)</span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {STATUS_POST.map((s) => (
-                                <button
-                                  key={s.id}
-                                  onClick={() => mudarStatusPost(s.id as Cartao['status_post'])}
-                                  className={cn(
-                                    'rounded border px-2.5 py-1 text-xs font-medium transition-colors',
-                                    c.status_post === s.id
-                                      ? corStatusPost(s.id)
-                                      : 'border-border text-muted-foreground hover:bg-secondary',
-                                  )}
-                                >
-                                  {s.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Orientações para o design */}
-                          <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-background/60 p-2.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Orientações para o design</span>
-                            <BriefingPost
-                              formato={c.formato}
-                              value={(c.briefing ?? {}) as Record<string, unknown>}
-                              onChange={(b) => salvar({ briefing: b })}
-                            />
-                          </div>
-
-                          {/* Legenda + Hashtags (acesso fora da esteira) */}
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground">Legenda</span>
-                              <span className={cn('text-[10px] tabular-nums', legendaLocal.length > 2200 ? 'text-red-400' : legendaLocal.length > 1800 ? 'text-amber-400' : 'text-muted-foreground')}>
-                                {legendaLocal.length} / 2.200
-                              </span>
-                            </div>
-                            <textarea
-                              rows={5}
-                              value={legendaLocal}
-                              onChange={(e) => setLegendaLocal(e.target.value)}
-                              onBlur={(e) => { const v = e.target.value; if (v !== (c.legenda ?? '')) salvar({ legenda: v }); }}
-                              className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                              placeholder="Escreva a legenda do post…"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs text-muted-foreground">Hashtags <span className="text-[10px] text-muted-foreground/60">(último parágrafo)</span></span>
-                            <textarea
-                              rows={3}
-                              value={hashtagsLocal}
-                              onChange={(e) => setHashtagsLocal(e.target.value)}
-                              onBlur={(e) => { const v = e.target.value; if (v !== (c.hashtags ?? '')) salvar({ hashtags: v }); }}
-                              className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                              placeholder="#hashtag1 #hashtag2 …"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const texto = legendaLocal + (hashtagsLocal ? '\n\n' + hashtagsLocal : '');
-                              try { await navigator.clipboard.writeText(texto); } catch { /* */ }
-                              setCopiado(true);
-                              setTimeout(() => setCopiado(false), 2000);
-                            }}
-                            className={cn(
-                              'inline-flex w-fit items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
-                              copiado
-                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
-                                : 'border-border text-muted-foreground hover:bg-secondary',
-                            )}
-                          >
-                            {copiado ? '✓ Copiado!' : 'Copiar legenda + hashtags'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 )}
 

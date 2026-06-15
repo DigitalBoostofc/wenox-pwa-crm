@@ -328,6 +328,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
       const novo = await criarCartao(id, listaId, nome, ordem);
       setCartoes((lst) => [...lst, novo]);
       setAddTexto('');
+      setAddEm(null);
     } catch { setErro('Não foi possível criar o card.'); }
   }
 

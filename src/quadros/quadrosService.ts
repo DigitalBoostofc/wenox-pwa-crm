@@ -223,6 +223,8 @@ export const MESES_PT = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ] as const;
 
+export const DIAS_SEMANA_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] as const;
+
 let _smSeq = 0;
 function smUuid(): string {
   try {
@@ -271,6 +273,74 @@ export async function seedTemplateMes(quadroId: string, listaId: string): Promis
       membros: [],
     });
   }
+}
+
+/**
+ * Clona o card "CALENDÁRIO DE POSTS" do @ TEMPLATE para a lista-mês recém-criada.
+ * Best-effort: se o template ou o card não existirem, retorna null sem lançar.
+ */
+export async function clonarCardCheckup(quadroId: string, listaId: string): Promise<Cartao | null> {
+  try {
+    const tpl = (await qcol().getFirstListItem(`nome="${TEMPLATE_NOME}"`)) as unknown as Quadro;
+    const card = (await ccol().getFirstListItem(`quadro="${tpl.id}" && nome~"CALENDÁRIO DE POSTS"`)) as unknown as Cartao;
+    return (await ccol().create({
+      quadro: quadroId,
+      lista: listaId,
+      nome: card.nome,
+      descricao: card.descricao ?? '',
+      checklists: card.checklists ?? [],
+      etiquetas: card.etiquetas ?? [],
+      capa: card.capa ?? '',
+      anexos: card.anexos ?? [],
+      ordem: 0,
+      concluido: false,
+      membros: [],
+      membros_ids: [],
+    })) as unknown as Cartao;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Gera cards de post para a lista-mês, um por data cujo dia da semana está em diasSemana,
+ * limitando ao total de `quantidade`. Retorna a quantidade efetivamente criada.
+ */
+export async function gerarPostsMes(
+  quadroId: string,
+  listaId: string,
+  mes: number,
+  ano: number,
+  diasSemana: number[],
+  quantidade: number,
+): Promise<number> {
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const datas: Date[] = [];
+  for (let d = 1; d <= ultimoDia; d++) {
+    const dt = new Date(ano, mes - 1, d);
+    if (diasSemana.includes(dt.getDay())) datas.push(dt);
+  }
+  const selecionadas = datas.slice(0, quantidade);
+  for (let i = 0; i < selecionadas.length; i++) {
+    const dt = selecionadas[i];
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    await ccol().create({
+      quadro: quadroId,
+      lista: listaId,
+      nome: `${dd} ${DIAS_SEMANA_CURTO[dt.getDay()]}: `,
+      data_post: `${ano}-${mm}-${dd} 12:00:00`,
+      status_post: 'em_producao',
+      ordem: i + 1,
+      descricao: '',
+      concluido: false,
+      etiquetas: [],
+      checklists: [],
+      anexos: [],
+      membros: [],
+    });
+  }
+  return selecionadas.length;
 }
 
 /** Vincula uma tarefa à lista (campo relation). */

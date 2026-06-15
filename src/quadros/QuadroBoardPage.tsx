@@ -5,8 +5,8 @@ import {
   getQuadro, listListas, listCartoes, moverCartao,
   criarCartao, criarLista, atualizarLista, arquivarLista,
   listCartoesArquivados, arquivarCartao,
-  criarListaMes, seedTemplateMes, vincularTarefaLista, criarTarefaSocialMedia,
-  MESES_PT,
+  criarListaMes, clonarCardCheckup, gerarPostsMes, vincularTarefaLista, criarTarefaSocialMedia,
+  MESES_PT, DIAS_SEMANA_CURTO,
 } from './quadrosService';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
@@ -149,6 +149,9 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const [mesSel, setMesSel] = useState<number>(new Date().getMonth() + 1);
   const [anoSel, setAnoSel] = useState<number>(anoAtual);
   const [criandoMes, setCriandoMes] = useState(false);
+  const [tipoQtd, setTipoQtd] = useState<'padrao8' | 'padrao12' | 'personalizado'>('padrao8');
+  const [qtdCustom, setQtdCustom] = useState(8);
+  const [diasCustom, setDiasCustom] = useState<number[]>([1, 3, 5]);
   useEffect(() => { listUsuarios().then((us) => { const m: Record<string, Usuario> = {}; for (const u of us) m[u.id] = u; setUsuariosMap(m); }).catch(() => { /* */ }); }, []);
 
   async function abrirArquivados() {
@@ -291,11 +294,18 @@ export function QuadroBoardPage({ id }: { id: string }) {
     setErro('');
     try {
       const ordem = (listas.length ? Math.max(...listas.map((l) => l.ordem ?? 0)) : 0) + 1;
-      const novaLista = await criarListaMes(id, mesSel, anoSel, ordem);
-      await seedTemplateMes(id, novaLista.id);
+      const listaCriada = await criarListaMes(id, mesSel, anoSel, ordem);
+
+      // seedTemplateMes removido — posts agora vêm de gerarPostsMes
+      const diasSemana = tipoQtd === 'padrao8' ? [2, 4] : tipoQtd === 'padrao12' ? [1, 3, 5] : diasCustom;
+      const quantidade = tipoQtd === 'padrao8' ? 8 : tipoQtd === 'padrao12' ? 12 : qtdCustom;
+
+      await clonarCardCheckup(id, listaCriada.id);
+      await gerarPostsMes(id, listaCriada.id, mesSel, anoSel, diasSemana, quantidade);
+
       if (quadro?.cliente) {
         const tarefa = await criarTarefaSocialMedia(quadro.cliente, mesSel, anoSel);
-        await vincularTarefaLista(novaLista.id, tarefa.id);
+        await vincularTarefaLista(listaCriada.id, tarefa.id);
       }
       setAddMesOpen(false);
       await recarregar();
@@ -483,6 +493,8 @@ export function QuadroBoardPage({ id }: { id: string }) {
               <DialogTitle className="flex items-center gap-2">
                 <CalendarDays className="size-4 text-primary" /> Adicionar mês ao quadro
               </DialogTitle>
+
+              {/* Mês / Ano */}
               <div className="flex items-center gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs text-muted-foreground">Mês</label>
@@ -508,11 +520,73 @@ export function QuadroBoardPage({ id }: { id: string }) {
                   </select>
                 </div>
               </div>
+
+              {/* Quantidade de posts */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-muted-foreground">Posts do mês</label>
+                {([
+                  { id: 'padrao8', label: '8 posts', desc: 'Terça e Quinta' },
+                  { id: 'padrao12', label: '12 posts', desc: 'Seg, Qua e Sex' },
+                  { id: 'personalizado', label: 'Personalizado', desc: 'Escolha os dias' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setTipoQtd(opt.id)}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                      tipoQtd === opt.id ? 'border-primary bg-primary/5 text-foreground' : 'border-border hover:bg-secondary',
+                    )}
+                  >
+                    <span className={cn('size-3.5 shrink-0 rounded-full border-2 transition-colors', tipoQtd === opt.id ? 'border-primary bg-primary' : 'border-muted-foreground')} />
+                    <span className="font-medium">{opt.label}</span>
+                    <span className="text-xs text-muted-foreground">{opt.desc}</span>
+                  </button>
+                ))}
+
+                {/* Painel personalizado */}
+                {tipoQtd === 'personalizado' && (
+                  <div className="mt-1 flex flex-col gap-3 rounded-md border border-border bg-secondary/30 p-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-muted-foreground">Quantidade</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={qtdCustom}
+                        onChange={(e) => setQtdCustom(Math.max(1, Number(e.target.value)))}
+                        className="h-8 w-24 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs text-muted-foreground">Dias da semana</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {DIAS_SEMANA_CURTO.map((dia, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setDiasCustom((prev) =>
+                              prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort((a, b) => a - b),
+                            )}
+                            className={cn(
+                              'rounded border px-2.5 py-1 text-xs font-medium transition-colors',
+                              diasCustom.includes(idx) ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-secondary',
+                            )}
+                          >
+                            {dia}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-2 border-t border-border pt-3">
                 <Button variant="outline" size="sm" onClick={() => setAddMesOpen(false)} disabled={criandoMes}>
                   Cancelar
                 </Button>
-                <Button size="sm" onClick={adicionarMes} disabled={criandoMes}>
+                <Button size="sm" onClick={adicionarMes} disabled={criandoMes || (tipoQtd === 'personalizado' && diasCustom.length === 0)}>
                   {criandoMes ? 'Criando…' : 'Confirmar'}
                 </Button>
               </div>

@@ -27,9 +27,19 @@ void atualizarSW;
 // após um deploy → o import falha (404) e a tela quebra/fica lenta. Aqui
 // detectamos essa falha específica, limpamos SW + caches do APP (não toca em
 // imagens/CDN) e recarregamos UMA vez. O guard em sessionStorage evita loop.
+// Cooldown anti-loop (ms). Um reload que conserta o cache velho não volta a
+// quebrar; mas um 404 genuíno por OUTRO deploy na mesma aba acontece bem depois
+// e PRECISA poder recuperar. Por isso o guard é um timestamp com janela curta —
+// segura só o loop imediato (chunk que falha de novo logo após o reload), sem
+// marcar "já tentei pra sempre nesta aba".
+const RECUPERACAO_COOLDOWN_MS = 30_000;
+
 async function recuperarDeCacheVelho() {
-  if (sessionStorage.getItem('wenox-sw-recuperado')) return; // já tentou nesta sessão
-  sessionStorage.setItem('wenox-sw-recuperado', '1');
+  const ultima = Number(sessionStorage.getItem('wenox-sw-recuperado') ?? 0);
+  // Só bail se a última tentativa foi há pouco (anti-loop). Fora da janela,
+  // uma recuperação genuína posterior continua permitida.
+  if (ultima && Date.now() - ultima < RECUPERACAO_COOLDOWN_MS) return;
+  sessionStorage.setItem('wenox-sw-recuperado', String(Date.now()));
   try {
     const regs = await navigator.serviceWorker?.getRegistrations?.();
     if (regs) for (const r of regs) await r.unregister();

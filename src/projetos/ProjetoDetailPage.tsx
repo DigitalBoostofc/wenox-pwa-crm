@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 import {
   ArrowLeft, Pencil, FolderKanban, Plus, Trash2, CalendarDays, ListChecks,
@@ -198,17 +198,46 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
   const souCliente = ehCliente(user?.role);
   const [p, setP] = useState<Projeto | null>(null);
   const [etapas, setEtapas] = useState<EtapaProjeto[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
 
-  useEffect(() => {
-    if (id) getProjeto(id).then(setP);
+  const carregar = useCallback(async () => {
+    if (!id) { setCarregando(false); return; }
+    setCarregando(true);
+    setErro('');
+    try {
+      setP(await getProjeto(id));
+    } catch {
+      setErro('Não foi possível carregar o projeto. Tente novamente.');
+    } finally {
+      setCarregando(false);
+    }
   }, [id]);
+
+  useEffect(() => { carregar(); }, [carregar]);
   useEffect(() => {
     if (p?.tipo && p.tipo !== TIPO_SOCIAL_MEDIA) listEtapas(p.tipo).then(setEtapas);
   }, [p?.tipo]);
 
-  if (!p) {
+  if (carregando) {
     return (
       <p className="py-16 text-center text-sm text-muted-foreground">Carregando…</p>
+    );
+  }
+
+  if (erro || !p) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Button variant="ghost" size="sm" onClick={() => history.push('/projetos')}>
+          <ArrowLeft /> Projetos
+        </Button>
+        <Card className="px-5 py-8 text-center">
+          <p className="text-sm text-destructive">{erro || 'Projeto não encontrado.'}</p>
+          <Button variant="ghost" size="sm" className="mt-3" onClick={carregar}>
+            Tentar novamente
+          </Button>
+        </Card>
+      </div>
     );
   }
 

@@ -59,7 +59,7 @@ export function PrivacidadePage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => history.goBack()}>
+        <Button variant="ghost" size="icon" onClick={() => history.push('/config')} aria-label="Voltar">
           <ArrowLeft className="size-4" />
         </Button>
         <h2 className="text-base font-semibold">Privacidade &amp; Acessos</h2>

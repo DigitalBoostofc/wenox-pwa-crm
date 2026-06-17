@@ -199,6 +199,7 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const [trocandoFoto, setTrocandoFoto] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
+  const [erroFoto, setErroFoto] = useState('');
 
   const carregar = useCallback(async () => {
     if (!id) { setCarregando(false); return; }
@@ -225,9 +226,12 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   async function trocarFoto(file: File | null) {
     if (!file || !c) return;
     setTrocandoFoto(true);
+    setErroFoto('');
     try {
       await updateCliente(c.id, {}, file);
       setC(await getCliente(c.id));
+    } catch {
+      setErroFoto('Não foi possível atualizar a foto. Tente novamente.');
     } finally {
       setTrocandoFoto(false);
     }
@@ -363,6 +367,10 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
           </Button>
         )}
       </div>
+
+      {erroFoto && (
+        <p className="text-sm text-destructive">{erroFoto}</p>
+      )}
 
       {/* Guias */}
       <div className="flex flex-wrap gap-1 border-b border-border">

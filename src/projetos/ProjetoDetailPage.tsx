@@ -251,7 +251,7 @@ export function ProjetoDetailPage({ id: idProp }: { id?: string } = {}) {
             )}
           </div>
         </div>
-        {cli && (
+        {!souCliente && cli && (
           <Button variant="outline" size="sm" onClick={() => history.push(`/clientes/${cli.id}`)}>
             Abrir cliente
           </Button>

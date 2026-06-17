@@ -9,7 +9,8 @@ import { SeletorMeses } from './SeletorMeses';
 import { VisaoGeralDesempenho, RankingMembros } from './blocosDesempenho';
 import { mesesRecentes } from './relatoriosService';
 import type { MesRef } from './relatoriosService';
-import { tarefaConcluida, prazoVencido } from '@/tarefas/format';
+import { tarefaConcluida } from '@/tarefas/format';
+import { prazoVencidoEfetivo } from '@/tarefas/etapas';
 import { useAuth } from '@/auth/useAuth';
 import { canGerirEquipe } from '@/auth/perms';
 import { Button } from '@/components/ui/button';
@@ -70,7 +71,7 @@ function CockpitNegocio() {
   const [meses, setMeses] = useState<MesRef[]>(() => mesesRecentes(1));
 
   const abertas = tarefas.filter((t) => !tarefaConcluida(t.status));
-  const vencidas = tarefas.filter((t) => prazoVencido(t.prazo, t.status));
+  const vencidas = tarefas.filter((t) => prazoVencidoEfetivo(t));
   const projetosAndamento = projetos.filter((p) => p.status && p.status !== 'Inativo');
 
   return (

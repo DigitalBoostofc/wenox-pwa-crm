@@ -6,7 +6,7 @@ import { pb } from '@/lib/pocketbase';
 import { concluirTarefa, reabrirTarefa } from '@/tarefas/tarefasService';
 import type { Usuario } from '@/usuarios/types';
 import { tarefaConcluida, prazoVencido, prazoBR } from '@/tarefas/format';
-import { temEtapas, aguardandoAprovacaoCliente, ehVezDoUsuario, vezLabel } from '@/tarefas/etapas';
+import { temEtapas, aguardandoAprovacaoCliente, ehVezDoUsuario, vezLabel, prazoEfetivo, prazoVencidoEfetivo } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
 import { statusConcluido, statusInicial } from '@/tarefas/status';
 import { MinhaSemanaList } from '@/tarefas/MinhaSemanaList';
@@ -131,12 +131,12 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
                       <span className="shrink-0 text-[11px] text-muted-foreground">
                         {vezLabel(t, nomeDe)}
                       </span>
-                      {t.prazo && (
+                      {prazoEfetivo(t) && (
                         <span className={cn(
                           'shrink-0 text-[11px]',
-                          prazoVencido(t.prazo, t.status) ? 'font-medium text-destructive' : 'text-muted-foreground',
+                          prazoVencidoEfetivo(t) ? 'font-medium text-destructive' : 'text-muted-foreground',
                         )}>
-                          {prazoBR(t.prazo)}
+                          {prazoBR(prazoEfetivo(t))}
                         </span>
                       )}
                     </button>

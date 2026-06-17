@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ListChecks, Repeat, UserRound } from 'lucide-react';
 import type { Tarefa } from './types';
-import { statusTarefaClass, tarefaConcluida, prazoVencido, prazoBR } from './format';
-import { temEtapas, progressoEtapas, etapaAtual } from './etapas';
+import { statusTarefaClass, tarefaConcluida, prazoBR } from './format';
+import { temEtapas, progressoEtapas, etapaAtual, prazoEfetivo, prazoVencidoEfetivo } from './etapas';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -64,8 +64,8 @@ function ordenarSecao(tarefas: Tarefa[]): Tarefa[] {
   return [...tarefas].sort((a, b) => {
     const dp = pesoPrioridade(a.prioridade) - pesoPrioridade(b.prioridade);
     if (dp !== 0) return dp;
-    const pa = parsePrazo(a.prazo)?.getTime() ?? Infinity;
-    const pb = parsePrazo(b.prazo)?.getTime() ?? Infinity;
+    const pa = parsePrazo(prazoEfetivo(a))?.getTime() ?? Infinity;
+    const pb = parsePrazo(prazoEfetivo(b))?.getTime() ?? Infinity;
     return pa - pb;
   });
 }
@@ -105,7 +105,7 @@ const SECOES_PRAZO: { id: SecaoPrazo; titulo: string; destructive?: boolean; rec
 
 function secaoPrazo(t: Tarefa): SecaoPrazo {
   if (tarefaConcluida(t.status)) return 'concluidas';
-  const prazo = parsePrazo(t.prazo);
+  const prazo = parsePrazo(prazoEfetivo(t));
   if (!prazo) return 'semprazo';
   const hoje = dataHoje();
   const domingo = domingoSemana();
@@ -131,7 +131,7 @@ function construirGruposPrazo(tarefas: Tarefa[]): { cfg: ConfigSecaoGen; lista: 
 // ---- helpers compartilhados para modos não-prazo ----
 
 function contarAtrasadas(tarefas: Tarefa[]): number {
-  return tarefas.filter((t) => prazoVencido(t.prazo, t.status)).length;
+  return tarefas.filter((t) => prazoVencidoEfetivo(t)).length;
 }
 
 // ---- responsavel ----
@@ -361,7 +361,8 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
 }) {
   const [otimista, setOtimista] = useState(false);
   const concluida = tarefaConcluida(t.status);
-  const vencida = prazoVencido(t.prazo, t.status);
+  const vencida = prazoVencidoEfetivo(t);
+  const prazoExibido = prazoEfetivo(t);
   const resps = responsaveis(t);
 
   const contexto = t.expand?.projeto?.nome
@@ -416,9 +417,9 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
             </span>
           );
         })()}
-        {t.prazo && (
+        {prazoExibido && (
           <span className={cn('text-[11px]', vencida ? 'font-medium text-destructive' : 'text-muted-foreground')}>
-            {prazoBR(t.prazo)}
+            {prazoBR(prazoExibido)}
           </span>
         )}
         {t.recorrencia && (

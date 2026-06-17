@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Plus, Search, FolderKanban, LayoutGrid, List, Columns3, MoreHorizontal,
-  SlidersHorizontal, GripVertical, Repeat2, Check, ChevronDown,
+  SlidersHorizontal, GripVertical, Repeat2, Check, ChevronDown, X,
 } from 'lucide-react';
 import { listProjetos, atualizarProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
@@ -491,6 +491,8 @@ export function ProjetosListPage() {
   const filtros = useMemo(() => tipos.map((t) => t.valor), [tipos]);
   const trocarView = (v: ViewMode) => { setView(v); salvarView(v); };
   const recarregar = () => setRecarregaTrigger((n) => n + 1);
+  /** Limpa o filtro de área (barra de ícones) → mostra projetos de todas as áreas. */
+  const verTodasAreas = () => setTipoFiltro('Todos');
   const abrirProjeto = (id: string) => history.push(`/projetos/${id}`);
 
   /** Move um projeto para outra etapa com update otimista (recarrega no fim). */
@@ -646,6 +648,23 @@ export function ProjetosListPage() {
         )}
       </div>
 
+      {/* Indicador do filtro de ÁREA ativo (a barra de ícones é só ícone, sem
+          rótulo) — torna visível o filtro e dá um caminho pra limpá-lo. */}
+      {tipoFiltro !== 'Todos' && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Área:</span>
+          <button
+            type="button"
+            onClick={verTodasAreas}
+            title="Ver todas as áreas"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/50 bg-primary/15 px-3 py-1 text-sm text-primary transition-colors hover:bg-primary/25"
+          >
+            {tipoFiltro}
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
+
       {erro && (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
           {erro}
@@ -676,6 +695,8 @@ export function ProjetosListPage() {
           onCampoChange={souCliente ? undefined : atualizarCampo}
           membros={membros}
           totalBruto={projetos.length}
+          areaAtiva={tipoFiltro !== 'Todos' ? tipoFiltro : undefined}
+          onVerTodasAreas={verTodasAreas}
           colDefs={colDefsProj}
           ordem={ordemProj}
           larguras={largurasProj}
@@ -691,11 +712,22 @@ export function ProjetosListPage() {
         <Card>
           <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
             <FolderKanban className="size-10 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              {projetos.length === 0
-                ? <>Nenhum projeto ainda. Clica em <strong>Novo projeto</strong> pra cadastrar.</>
-                : 'Nenhum projeto neste filtro.'}
-            </p>
+            {projetos.length === 0 && tipoFiltro !== 'Todos' ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Nenhum projeto na área <strong>{tipoFiltro}</strong>.
+                </p>
+                <Button variant="outline" size="sm" onClick={verTodasAreas}>
+                  Ver todas as áreas
+                </Button>
+              </>
+            ) : projetos.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum projeto ainda. Clica em <strong>Novo projeto</strong> pra cadastrar.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum projeto neste filtro.</p>
+            )}
           </div>
         </Card>
       ) : viewEfetiva === 'cards' ? (
@@ -1178,7 +1210,7 @@ function CelulaResponsaveis({
 function ListaProjetos({
   projetos, etapasPorTipo, onAbrir, mostrarColTipo = true,
   mostrarColEtapa = true, onStatusChange, onEtapaChange, onCampoChange,
-  membros = [], totalBruto, colDefs, ordem, larguras, onResize,
+  membros = [], totalBruto, areaAtiva, onVerTodasAreas, colDefs, ordem, larguras, onResize,
 }: {
   projetos: Projeto[];
   etapasPorTipo: Record<string, EtapaProjeto[]>;
@@ -1190,6 +1222,9 @@ function ListaProjetos({
   onCampoChange?: (id: string, patch: Partial<Projeto>) => void;
   membros?: Usuario[];
   totalBruto?: number;
+  /** Nome da área (tipo) ativa na barra, ou undefined se "todas". */
+  areaAtiva?: string;
+  onVerTodasAreas?: () => void;
   colDefs: ColProjDef[];
   ordem: OrdemProj;
   larguras: LargurasProj;
@@ -1412,7 +1447,14 @@ function ListaProjetos({
             <tr>
               <td colSpan={colsVisiveis.length || 1}
                 className="px-5 py-12 text-center text-sm text-muted-foreground">
-                {totalBruto === 0
+                {totalBruto === 0 && areaAtiva ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <span>Nenhum projeto na área <strong>{areaAtiva}</strong>.</span>
+                    <Button variant="outline" size="sm" onClick={onVerTodasAreas}>
+                      Ver todas as áreas
+                    </Button>
+                  </div>
+                ) : totalBruto === 0
                   ? 'Nenhum projeto ainda. Use o botão "Novo projeto" pra cadastrar.'
                   : 'Nenhum projeto neste filtro.'}
               </td>

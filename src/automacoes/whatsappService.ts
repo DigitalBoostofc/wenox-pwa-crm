@@ -23,27 +23,25 @@ const VAZIO: WaConfig = {
 };
 
 export async function getWaConfig(): Promise<WaConfig> {
-  try {
-    // sort determinístico: com duplicidade de wa_config, carrega sempre a mais
-    // recente (não um registro indeterminado que faria a config "oscilar").
-    const r = await pb.collection('wa_config').getList(1, 1, { sort: '-created' });
-    const rec = r.items[0] as unknown as WaConfig | undefined;
-    if (!rec) return { ...VAZIO };
-    return {
-      id: (rec as { id: string }).id,
-      subdomain: rec.subdomain ?? '',
-      token: rec.token ?? '',
-      instance_name: rec.instance_name ?? 'wenox',
-      numero: rec.numero ?? '',
-      status: rec.status ?? 'desconectado',
-      janela_inicio: rec.janela_inicio || '08:00',
-      janela_fim: rec.janela_fim || '19:00',
-      dias_uteis: Array.isArray(rec.dias_uteis) ? rec.dias_uteis : [1, 2, 3, 4, 5],
-      ativo: !!rec.ativo,
-    };
-  } catch {
-    return { ...VAZIO };
-  }
+  // sort determinístico: com duplicidade de wa_config, carrega sempre a mais
+  // recente (não um registro indeterminado que faria a config "oscilar").
+  // Erros de rede/permissão propagam — coleção vazia (instalação nova) não é erro:
+  // getList tem êxito com items:[] e rec fica undefined → retorna VAZIO normalmente.
+  const r = await pb.collection('wa_config').getList(1, 1, { sort: '-created' });
+  const rec = r.items[0] as unknown as WaConfig | undefined;
+  if (!rec) return { ...VAZIO };
+  return {
+    id: (rec as { id: string }).id,
+    subdomain: rec.subdomain ?? '',
+    token: rec.token ?? '',
+    instance_name: rec.instance_name ?? 'wenox',
+    numero: rec.numero ?? '',
+    status: rec.status ?? 'desconectado',
+    janela_inicio: rec.janela_inicio || '08:00',
+    janela_fim: rec.janela_fim || '19:00',
+    dias_uteis: Array.isArray(rec.dias_uteis) ? rec.dias_uteis : [1, 2, 3, 4, 5],
+    ativo: !!rec.ativo,
+  };
 }
 
 export async function salvarWaConfig(c: WaConfig): Promise<void> {

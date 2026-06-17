@@ -41,8 +41,25 @@ function ConexaoCard() {
   const [cfg, setCfg] = useState<WaConfig | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState('');
+  const [erro, setErro] = useState(false);
 
-  useEffect(() => { getWaConfig().then(setCfg); }, []);
+  const carregar = useCallback(() => {
+    setErro(false);
+    getWaConfig().then(setCfg).catch(() => setErro(true));
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  if (erro) {
+    return (
+      <Card className="px-5 py-8 text-center">
+        <p className="text-sm text-destructive">Não foi possível carregar a conexão.</p>
+        <Button variant="ghost" size="sm" className="mt-3" onClick={carregar}>
+          Tentar novamente
+        </Button>
+      </Card>
+    );
+  }
 
   if (!cfg) return <Skeleton className="h-64 w-full rounded-xl" />;
 

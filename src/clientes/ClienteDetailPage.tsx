@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 import {
   ArrowLeft, MessageCircle, Phone, Pencil, Activity,
@@ -197,10 +197,24 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const [c, setC] = useState<Cliente | null>(null);
   const [aba, setAba] = useState<Aba>('visao');
   const [trocandoFoto, setTrocandoFoto] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+  const [erroFoto, setErroFoto] = useState('');
 
-  useEffect(() => {
-    if (id) getCliente(id).then(setC);
+  const carregar = useCallback(async () => {
+    if (!id) { setCarregando(false); return; }
+    setCarregando(true);
+    setErro('');
+    try {
+      setC(await getCliente(id));
+    } catch {
+      setErro('Não foi possível carregar o cliente. Tente novamente.');
+    } finally {
+      setCarregando(false);
+    }
   }, [id]);
+
+  useEffect(() => { carregar(); }, [carregar]);
 
   async function apagar() {
     if (!c) return;
@@ -212,19 +226,40 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   async function trocarFoto(file: File | null) {
     if (!file || !c) return;
     setTrocandoFoto(true);
+    setErroFoto('');
     try {
       await updateCliente(c.id, {}, file);
       setC(await getCliente(c.id));
+    } catch {
+      setErroFoto('Não foi possível atualizar a foto. Tente novamente.');
     } finally {
       setTrocandoFoto(false);
     }
   }
 
-  if (!c) {
+  if (carregando) {
     return (
       <p className="py-16 text-center text-sm text-muted-foreground">
         Carregando…
       </p>
+    );
+  }
+
+  if (erro || !c) {
+    return (
+      <div className="flex flex-col gap-4">
+        {!souCliente && (
+          <Button variant="ghost" size="sm" onClick={() => history.push('/clientes')}>
+            <ArrowLeft /> Clientes
+          </Button>
+        )}
+        <Card className="px-5 py-8 text-center">
+          <p className="text-sm text-destructive">{erro || 'Cliente não encontrado.'}</p>
+          <Button variant="ghost" size="sm" className="mt-3" onClick={carregar}>
+            Tentar novamente
+          </Button>
+        </Card>
+      </div>
     );
   }
 
@@ -332,6 +367,10 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
           </Button>
         )}
       </div>
+
+      {erroFoto && (
+        <p className="text-sm text-destructive">{erroFoto}</p>
+      )}
 
       {/* Guias */}
       <div className="flex flex-wrap gap-1 border-b border-border">

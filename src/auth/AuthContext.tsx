@@ -19,6 +19,8 @@ export interface AuthUser {
 
 export interface AuthContextValue {
   user: AuthUser | null;
+  /** true enquanto a sessão local ainda não foi validada no servidor (authRefresh). */
+  initializing: boolean;
   login: (identity: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -33,6 +35,11 @@ function currentUser(): AuthUser | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(currentUser());
+  // Há token local? Então estamos "inicializando" até o servidor validá-lo —
+  // o Root segura a renderização da área protegida nesse meio-tempo (evita
+  // flash da UI logada + fetches com token que o servidor pode rejeitar).
+  // Sem token, não há o que validar: já entra direto no fluxo de login.
+  const [initializing, setInitializing] = useState<boolean>(() => pb.authStore.isValid);
 
   useEffect(() => {
     const unsub = pb.authStore.onChange(() => setUser(currentUser()));
@@ -42,17 +49,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Valida o token no servidor na montagem — detecta tokens invalidados por
   // troca de senha (authStore.isValid só verifica expiração local).
   useEffect(() => {
-    if (!pb.authStore.isValid) return;
-    pb.collection('usuarios').authRefresh().catch((err: unknown) => {
-      if ((err as { status?: number }).status === 401) {
-        pb.authStore.clear();
-      }
-    });
+    if (!pb.authStore.isValid) return; // initializing já é false
+    let vivo = true;
+    pb.collection('usuarios').authRefresh()
+      .catch((err: unknown) => {
+        if ((err as { status?: number }).status === 401) {
+          pb.authStore.clear();
+        }
+        // Outros erros (rede/offline): mantém a sessão local e segue para o app
+        // — não trava o boot num gate eterno por uma falha transitória.
+      })
+      .finally(() => { if (vivo) setInitializing(false); });
+    return () => { vivo = false; };
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
+      initializing,
       login: async (identity, password) => {
         const res = await pb
           .collection('usuarios')
@@ -69,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
       },
     }),
-    [user]
+    [user, initializing]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

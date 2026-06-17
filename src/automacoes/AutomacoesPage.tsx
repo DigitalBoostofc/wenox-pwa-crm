@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, Save, ChevronDown, Info } from 'lucide-react';
 import {
@@ -211,15 +211,31 @@ function AutomacaoItem({ a, onChange }: { a: Automacao; onChange: (patch: Partia
 
 function AutomacoesLista() {
   const [itens, setItens] = useState<Automacao[] | null>(null);
+  const [erro, setErro] = useState(false);
 
-  useEffect(() => { listAutomacoes().then(setItens); }, []);
+  const carregar = useCallback(() => {
+    setErro(false);
+    listAutomacoes().then(setItens).catch(() => setErro(true));
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
 
   async function mudar(id: string, patch: Partial<Automacao>) {
     setItens((arr) => arr?.map((a) => a.id === id ? { ...a, ...patch } : a) ?? arr);
     try { await atualizarAutomacao(id, patch); }
-    catch { listAutomacoes().then(setItens); }
+    catch { carregar(); }
   }
 
+  if (erro) {
+    return (
+      <Card className="px-5 py-8 text-center">
+        <p className="text-sm text-destructive">Não foi possível carregar as automações.</p>
+        <Button variant="ghost" size="sm" className="mt-3" onClick={carregar}>
+          Tentar novamente
+        </Button>
+      </Card>
+    );
+  }
   if (!itens) return <Skeleton className="h-64 w-full rounded-xl" />;
 
   const categorias: CategoriaAutomacao[] = ['interno', 'cliente', 'digest'];

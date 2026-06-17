@@ -24,7 +24,9 @@ const VAZIO: WaConfig = {
 
 export async function getWaConfig(): Promise<WaConfig> {
   try {
-    const r = await pb.collection('wa_config').getList(1, 1);
+    // sort determinístico: com duplicidade de wa_config, carrega sempre a mais
+    // recente (não um registro indeterminado que faria a config "oscilar").
+    const r = await pb.collection('wa_config').getList(1, 1, { sort: '-created' });
     const rec = r.items[0] as unknown as WaConfig | undefined;
     if (!rec) return { ...VAZIO };
     return {

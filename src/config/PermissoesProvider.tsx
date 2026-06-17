@@ -1,5 +1,5 @@
 import {
-  createContext, useCallback, useContext, useEffect, useState,
+  createContext, useCallback, useContext, useEffect, useRef, useState,
 } from 'react';
 import type { ReactNode } from 'react';
 import {
@@ -31,18 +31,27 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
   const [matriz, setMatriz] = useState<MatrizPermissoes>(() => carregarPermissoes());
   const [carregando, setCarregando] = useState(true);
 
+  // Mesma guarda "vivo" do efeito de carga inicial, agora também no recarregar()
+  // exposto: evita setState após unmount (logout/navegação durante o await).
+  const vivo = useRef(true);
+  useEffect(() => {
+    vivo.current = true;
+    return () => { vivo.current = false; };
+  }, []);
+
   const recarregar = useCallback(async () => {
     setCarregando(true);
     const m = await carregarPermissoesRemoto();
+    if (!vivo.current) return;
     setMatriz(m);
     setCarregando(false);
   }, []);
 
   // Carga inicial: setState só após o await (fora do corpo síncrono do efeito).
   useEffect(() => {
-    let vivo = true;
+    let vivoInicial = true;
     carregarPermissoesRemoto().then((m) => {
-      if (!vivo) return;
+      if (!vivoInicial) return;
       setMatriz(m);
       setCarregando(false);
     });
@@ -50,7 +59,7 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
     import('@/tarefas/status').then((m) => m.carregarStatusRemoto()).catch(() => { /* */ });
     // Modelos de etapas por tipo de tarefa.
     import('@/tarefas/etapasPreset').then((m) => m.carregarPresetsRemoto()).catch(() => { /* */ });
-    return () => { vivo = false; };
+    return () => { vivoInicial = false; };
   }, []);
 
   const salvar = useCallback(async (m: MatrizPermissoes) => {

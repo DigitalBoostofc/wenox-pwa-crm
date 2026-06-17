@@ -27,9 +27,19 @@ void atualizarSW;
 // após um deploy → o import falha (404) e a tela quebra/fica lenta. Aqui
 // detectamos essa falha específica, limpamos SW + caches do APP (não toca em
 // imagens/CDN) e recarregamos UMA vez. O guard em sessionStorage evita loop.
+// Cooldown anti-loop (ms). Um reload que conserta o cache velho não volta a
+// quebrar; mas um 404 genuíno por OUTRO deploy na mesma aba acontece bem depois
+// e PRECISA poder recuperar. Por isso o guard é um timestamp com janela curta —
+// segura só o loop imediato (chunk que falha de novo logo após o reload), sem
+// marcar "já tentei pra sempre nesta aba".
+const RECUPERACAO_COOLDOWN_MS = 30_000;
+
 async function recuperarDeCacheVelho() {
-  if (sessionStorage.getItem('wenox-sw-recuperado')) return; // já tentou nesta sessão
-  sessionStorage.setItem('wenox-sw-recuperado', '1');
+  const ultima = Number(sessionStorage.getItem('wenox-sw-recuperado') ?? 0);
+  // Só bail se a última tentativa foi há pouco (anti-loop). Fora da janela,
+  // uma recuperação genuína posterior continua permitida.
+  if (ultima && Date.now() - ultima < RECUPERACAO_COOLDOWN_MS) return;
+  sessionStorage.setItem('wenox-sw-recuperado', String(Date.now()));
   try {
     const regs = await navigator.serviceWorker?.getRegistrations?.();
     if (regs) for (const r of regs) await r.unregister();
@@ -43,12 +53,44 @@ function ehFalhaDeChunk(msg: string): boolean {
   return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|ChunkLoadError|'text\/html'.*not a valid JavaScript MIME/i.test(msg);
 }
 
+// Prova FORTE de cache velho pós-deploy: o servidor devolveu HTML (fallback do
+// SPA) no lugar do .js, ou o module script falhou ao ser interpretado. Isso só
+// acontece quando o chunk pedido não existe mais no servidor — nunca por um
+// simples blip de rede (que dá "Failed to fetch", sem mismatch de MIME).
+function ehMismatchDeCacheVelho(msg: string): boolean {
+  return /Importing a module script failed|'text\/html'.*not a valid JavaScript MIME/i.test(msg);
+}
+
+// Decide se uma falha de import dinâmico é mesmo cache velho recuperável.
+// Estreitado para NÃO disparar o wipe em falso-positivo (blip de rede/offline),
+// preservando a recuperação genuína de chunk 404 pós-deploy.
+async function deveRecuperar(msg: string): Promise<boolean> {
+  if (!ehFalhaDeChunk(msg)) return false;
+  // Offline: NUNCA limpe SW/caches. O wipe destrói a capacidade offline do PWA
+  // e o location.reload() cai em tela branca (sem SW e sem rede). Um blip
+  // transitório se resolve sozinho num retry — não é cache velho.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  // Mismatch de MIME = chunk inexistente no servidor → recupera direto.
+  if (ehMismatchDeCacheVelho(msg)) return true;
+  // Falha genérica de fetch pode ser só instabilidade de rede. Só tratamos como
+  // cache velho se há de fato um SW novo instalado/aguardando (deploy ocorreu).
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration?.();
+    return !!(reg && (reg.waiting || reg.installing));
+  } catch {
+    return false;
+  }
+}
+
+async function recuperarSeNecessario(msg: string) {
+  if (await deveRecuperar(msg)) await recuperarDeCacheVelho();
+}
+
 window.addEventListener('error', (e) => {
-  if (ehFalhaDeChunk(e.message ?? '')) void recuperarDeCacheVelho();
+  void recuperarSeNecessario(e.message ?? '');
 });
 window.addEventListener('unhandledrejection', (e) => {
-  const msg = (e.reason?.message ?? String(e.reason ?? ''));
-  if (ehFalhaDeChunk(msg)) void recuperarDeCacheVelho();
+  void recuperarSeNecessario(e.reason?.message ?? String(e.reason ?? ''));
 });
 
 // Captura o convite de instalação cedo (pode disparar antes do React montar).

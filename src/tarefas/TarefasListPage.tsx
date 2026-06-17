@@ -116,7 +116,10 @@ export function TarefasListPage() {
       const todos = ts.map((t) => t.valor);
       const visiveis = gerencia ? todos : todos.filter((t) => t === user?.area);
       setTipos(visiveis);
-      setTipoAtivo((cur) => (cur && visiveis.includes(cur) ? cur : (visiveis[0] ?? '')));
+      // Default = "todas as áreas" (vazio): pré-filtrar por área escondia tarefas
+      // do próprio usuário (ex.: "Minhas" mostrava 2 de 8). Mantém a escolha salva
+      // se ainda for válida; senão não pré-filtra.
+      setTipoAtivo((cur) => (cur && visiveis.includes(cur) ? cur : ''));
     });
   }, [isCliente, gerencia, user?.area]);
 
@@ -285,6 +288,20 @@ export function TarefasListPage() {
           </button>
         )}
 
+        {/* Filtro de ÁREA ativo: a barra de ícones é só ícone, sem rótulo —
+            torna visível qual área filtra e permite voltar a "todas". */}
+        {tipoAtivo && (
+          <button
+            type="button"
+            onClick={() => trocarTipo('')}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/50 bg-primary/15 px-3 py-1 text-sm text-primary transition-colors hover:bg-primary/25"
+            title="Ver tarefas de todas as áreas"
+          >
+            Área: {tipoAtivo}
+            <X className="size-3.5" />
+          </button>
+        )}
+
       </div>
 
       {erro && (
@@ -308,7 +325,18 @@ export function TarefasListPage() {
           <Card>
             <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
               <ListChecks className="size-10 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Nenhuma tarefa neste filtro.</p>
+              {tipoAtivo && tarefas.length > 0 ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma tarefa na área <strong>{tipoAtivo}</strong>.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => trocarTipo('')}>
+                    Ver todas as áreas
+                  </Button>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhuma tarefa neste filtro.</p>
+              )}
             </div>
           </Card>
         ) : (

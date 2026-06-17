@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Tarefa } from '@/tarefas/types';
 import type { Projeto } from '@/projetos/types';
@@ -35,9 +35,21 @@ export function DadosAgenciaProvider(props: {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
 
+  // Guarda de "vivo" + token da última chamada: descarta respostas obsoletas
+  // (componente desmontado) e resolve a race de refresh() concorrente fazendo
+  // vencer o ÚLTIMO refresh solicitado (last-called), não o último a resolver.
+  const vivo = useRef(true);
+  const execAtual = useRef(0);
+  useEffect(() => {
+    vivo.current = true;
+    return () => { vivo.current = false; };
+  }, []);
+
   const carregar = useCallback(() => {
     setCarregando(true);
     setErro('');
+
+    const idExec = ++execAtual.current;
 
     const promises: [
       Promise<Tarefa[]>,
@@ -53,15 +65,18 @@ export function DadosAgenciaProvider(props: {
 
     Promise.all(promises)
       .then(([t, p, c, u]) => {
+        if (!vivo.current || idExec !== execAtual.current) return;
         setTarefas(t);
         setProjetos(p);
         setClientes(c);
         setUsuarios(u);
       })
       .catch(() => {
+        if (!vivo.current || idExec !== execAtual.current) return;
         setErro('Não foi possível carregar os dados.');
       })
       .finally(() => {
+        if (!vivo.current || idExec !== execAtual.current) return;
         setCarregando(false);
       });
   }, [comClientes, comUsuarios]);

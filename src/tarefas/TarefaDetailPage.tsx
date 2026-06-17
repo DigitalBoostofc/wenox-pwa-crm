@@ -62,7 +62,7 @@ export function TarefaDetailPage({ id: idProp }: { id?: string } = {}) {
   return (
     <div className="flex max-w-4xl flex-col gap-5">
       <div className="flex flex-wrap items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => history.goBack()} aria-label="Voltar">
+        <Button variant="ghost" size="icon" onClick={() => history.push('/tarefas')} aria-label="Voltar">
           <ArrowLeft />
         </Button>
         <div className="grid size-12 place-items-center rounded-2xl bg-primary/15 text-primary">

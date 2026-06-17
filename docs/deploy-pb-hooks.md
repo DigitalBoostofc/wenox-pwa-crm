@@ -18,8 +18,8 @@ Defina 2 **repo variables** no GitHub (Settings → Secrets and variables → Ac
 
 | Variable | Descrição | Exemplo |
 |---|---|---|
-| `PB_CONTAINER` | Nome do container do PocketBase no VPS (descubra com `sudo docker ps` no VPS) | `easypanel-pocketbase-1` |
-| `PB_HOOKS_PATH` | Caminho do `pb_hooks/` dentro do container | `/pb/pb_hooks` (padrão; pode omitir) |
+| `PB_CONTAINER` | Nome do container/serviço do PocketBase (descubra com `sudo docker ps` no VPS). Pode ser o nome do **serviço Swarm** — o CI resolve o container real por prefixo, então não precisa do sufixo `.1.<task>`. | `wenox_pocketbase` |
+| `PB_HOOKS_PATH` | Caminho do `pb_hooks/` dentro do container (`--hooksDir` do PocketBase) | `/pb_hooks` (padrão; pode omitir) |
 
 ### Comportamento enquanto não configurado
 

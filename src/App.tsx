@@ -71,6 +71,20 @@ function CarregandoTela() {
   );
 }
 
+/** Splash de boot enquanto a sessão é validada no servidor (gate de auth). */
+function BootSplash() {
+  return (
+    <div className="grid min-h-svh place-items-center bg-background p-6">
+      <div className="flex flex-col items-center gap-4">
+        <div className="grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-[0_12px_32px_-8px_rgba(139,92,246,0.7)]">
+          <span className="text-2xl font-black">W</span>
+        </div>
+        <p className="text-sm text-muted-foreground">Validando sessão…</p>
+      </div>
+    </div>
+  );
+}
+
 function SemAcesso() {
   return (
     <div className="flex flex-col items-center gap-2 py-20 text-center">
@@ -323,7 +337,10 @@ function RevisaoAutenticadaApp() {
 }
 
 function Root() {
-  const { user } = useAuth();
+  const { user, initializing } = useAuth();
+  // Segura o primeiro render até o authRefresh resolver: sem flash da área
+  // protegida nem fetches com token que o servidor pode já ter revogado.
+  if (initializing) return <BootSplash />;
   if (!user) return <UnauthedApp />;
   // Revisão: tela cheia sem AppShell, acessível a todos os perfis logados
   if (window.location.pathname.startsWith('/revisao/')) return <RevisaoAutenticadaApp />;

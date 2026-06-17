@@ -8,7 +8,32 @@ Enquanto o hook `pb_hooks/tarefas_cascade.pb.js` não estiver ativo no servidor,
 
 ---
 
-## Passo a passo: deploy manual do hook
+## Deploy automatizado (CI)
+
+A partir de agora o `deploy.yml` copia automaticamente o diretório `pb_hooks/` para o container do PocketBase e o reinicia, em todo push na branch `main` — **após** o deploy do frontend.
+
+### Pré-requisito (configuração única)
+
+Defina 2 **repo variables** no GitHub (Settings → Secrets and variables → Actions → aba **Variables**):
+
+| Variable | Descrição | Exemplo |
+|---|---|---|
+| `PB_CONTAINER` | Nome do container do PocketBase no VPS (descubra com `sudo docker ps` no VPS) | `easypanel-pocketbase-1` |
+| `PB_HOOKS_PATH` | Caminho do `pb_hooks/` dentro do container | `/pb/pb_hooks` (padrão; pode omitir) |
+
+### Comportamento enquanto não configurado
+
+Enquanto `PB_CONTAINER` não estiver definida, o step emite um `::warning::` visível no log da Action e encerra normalmente — **não quebra o deploy do frontend** (`continue-on-error: true`).
+
+### ⚠️ Caveat: recriação de container pelo EasyPanel
+
+Se o EasyPanel **recriar** o container (atualização de versão, restart de stack), os hooks copiados via `docker cp` se perdem até o próximo push na `main`. Para persistência total, monte `pb_hooks/` como **volume** no EasyPanel apontando para o caminho configurado em `PB_HOOKS_PATH`.
+
+---
+
+## Passo a passo: deploy manual do hook (FALLBACK)
+
+> Use esta seção apenas se o deploy automatizado via CI não estiver configurado (ver seção acima).
 
 1. **Acesse o VPS / painel EasyPanel** onde o PocketBase está rodando.
 

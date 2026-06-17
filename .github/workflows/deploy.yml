@@ -30,3 +30,21 @@ jobs:
           IMG="wenox_pwa:${GITHUB_SHA::7}"
           sudo docker build -t "$IMG" -t wenox_pwa . -q
           sudo docker service update --force --image "$IMG" wenox_pwa
+
+      - name: Deploy dos hooks do PocketBase
+        # Não pode quebrar o deploy do frontend: roda por último e tolera falha.
+        continue-on-error: true
+        env:
+          PB_CONTAINER: ${{ vars.PB_CONTAINER }}
+          PB_HOOKS_PATH: ${{ vars.PB_HOOKS_PATH }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PB_CONTAINER:-}" ]; then
+            echo "::warning::vars.PB_CONTAINER não definida — hooks do PocketBase NÃO deployados. Defina as repo variables PB_CONTAINER e PB_HOOKS_PATH (ver docs/deploy-pb-hooks.md)."
+            exit 0
+          fi
+          HOOKS_PATH="${PB_HOOKS_PATH:-/pb/pb_hooks}"
+          echo "Copiando pb_hooks/ -> ${PB_CONTAINER}:${HOOKS_PATH}"
+          sudo docker cp pb_hooks/. "${PB_CONTAINER}:${HOOKS_PATH}/"
+          sudo docker restart "${PB_CONTAINER}"
+          echo "Hooks deployados e PocketBase reiniciado."

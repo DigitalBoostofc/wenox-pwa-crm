@@ -11,11 +11,13 @@ import {
 import { titleForPath } from './nav';
 import { SidebarBrand, SidebarNav, SidebarBottom } from './Sidebar';
 import { HeaderSlotTarget } from './HeaderSlot';
+import { useAuth } from '@/auth/useAuth';
 
 export function Header() {
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const title = titleForPath(pathname);
+  const { user } = useAuth();
+  const title = titleForPath(pathname, user?.role === 'Cliente');
 
   return (
     <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-background/80 px-4 py-2 backdrop-blur-md lg:px-6">

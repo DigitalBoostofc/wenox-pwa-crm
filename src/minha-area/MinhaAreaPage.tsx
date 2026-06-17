@@ -5,8 +5,7 @@ import type { Role } from '@/auth/perms';
 import { DadosAgenciaProvider } from '@/dashboard/useDadosAgencia';
 import { HeaderSlot } from '@/components/layout/HeaderSlot';
 import { cn } from '@/lib/utils';
-import { MinhaProdutividadeBloco } from './blocos';
-import { MinhasTarefasBloco } from './blocosTarefas';
+import { MinhaProdutividadeBloco, MeuDiaBloco } from './blocos';
 import { MinhasTarefasLista } from './MinhasTarefasLista';
 
 const ROLES_COMPLETOS = new Set(['Owner', 'Admin', 'Gestor', 'Membro']);
@@ -66,7 +65,7 @@ export function MinhaAreaPage() {
       <div className="flex min-w-0 flex-1 flex-col gap-6">
         {visao === 'card' ? (
           <>
-            <MinhasTarefasBloco somenteLeitura={somenteLeitura} />
+            <MeuDiaBloco somenteLeitura={somenteLeitura} />
             {completo && <MinhaProdutividadeBloco />}
           </>
         ) : (

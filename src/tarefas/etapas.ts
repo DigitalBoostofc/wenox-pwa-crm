@@ -1,5 +1,6 @@
 import type { EtapaTarefa, Tarefa } from './types';
 import { statusInicial, statusConcluido, statusDoPapel } from './status';
+import { prazoVencido, tarefaConcluida } from './format';
 
 /* -------------------------------------------------------------------------- */
 /*  Motor de etapas (funções puras) — fluxo sequencial com handoff            */
@@ -76,6 +77,17 @@ export function vezLabel(t: Pick<Tarefa, 'etapas'>, nomeDe: (id: string) => stri
   if (!e) return '';
   if (e.tipo === 'aprovacao_cliente') return 'Aguardando aprovação do cliente';
   return e.responsavel ? `Vez de ${nomeDe(e.responsavel)}` : 'Etapa sem responsável';
+}
+
+/** Prazo que realmente importa: etapa atual quando há etapas, senão o da tarefa. */
+export function prazoEfetivo(t: Pick<Tarefa, 'etapas' | 'prazo'>): string | undefined {
+  return temEtapas(t) ? (etapaAtual(t.etapas)?.prazo ?? undefined) : t.prazo;
+}
+
+/** Atraso pelo prazo efetivo, respeitando status concluído. */
+export function prazoVencidoEfetivo(t: Pick<Tarefa, 'etapas' | 'prazo' | 'status'>): boolean {
+  if (tarefaConcluida(t.status)) return false;
+  return prazoVencido(prazoEfetivo(t));
 }
 
 /** Gera um id curto e estável para uma nova etapa. */

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useDadosAgencia } from './useDadosAgencia';
 import { tarefaConcluida, prazoVencido, prazoLimite } from '@/tarefas/format';
-import { temEtapas, aguardandoAprovacaoCliente, etapaAtual } from '@/tarefas/etapas';
+import { temEtapas, aguardandoAprovacaoCliente, etapaAtual, prazoVencidoEfetivo } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
 import { dataBR, inicial, corAvatar } from '@/clientes/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -175,7 +175,11 @@ export function PulsoEquipeBloco() {
       const abertas = tarefas.filter(
         (t) => !tarefaConcluida(t.status) && (t.responsaveis ?? []).includes(u.id),
       );
-      const atrasadas = abertas.filter((t) => prazoVencido(t.prazo, t.status)).length;
+      const atrasadas = abertas.filter((t) => {
+        if (!prazoVencidoEfetivo(t)) return false;
+        if (temEtapas(t)) return etapaAtual(t.etapas)?.responsavel === u.id;
+        return true;
+      }).length;
       return {
         id: u.id,
         nome: u.nome ?? u.email ?? u.id,

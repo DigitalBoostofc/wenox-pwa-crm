@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { FolderKanban, Pencil, CheckCheck } from 'lucide-react';
+import { FolderKanban, Pencil, CheckCheck, ChevronDown, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/auth/useAuth';
 import { pb } from '@/lib/pocketbase';
 import { concluirTarefa, reabrirTarefa } from '@/tarefas/tarefasService';
@@ -36,6 +36,7 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
   const [viewId, setViewId] = useState<string | null>(null);
   /** Quick-add → painel de edição da tarefa recém-criada (preencher detalhes). */
   const [editId, setEditId] = useState<string | null>(null);
+  const [aguardandoAberta, setAguardandoAberta] = useState(true);
 
   const uid = user?.id ?? '';
   const minhasTarefas = todasTarefas.filter(
@@ -104,11 +105,17 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
           />
 
           {aguardando.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                aria-expanded={aguardandoAberta}
+                onClick={() => setAguardandoAberta((v) => !v)}
+                className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {aguardandoAberta ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
                 Aguardando ({aguardando.length})
-              </h3>
-              <Card className="divide-y divide-border/40">
+              </button>
+              {aguardandoAberta && <Card className="divide-y divide-border/40">
                 {aguardando.map((t) => {
                   const contexto = t.expand?.projeto?.nome
                     ?? t.expand?.cliente?.nome_fantasia
@@ -142,7 +149,7 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
                     </button>
                   );
                 })}
-              </Card>
+              </Card>}
             </div>
           )}
         </>

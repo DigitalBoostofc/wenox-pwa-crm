@@ -10,7 +10,9 @@ Enquanto o hook `pb_hooks/tarefas_cascade.pb.js` não estiver ativo no servidor,
 
 ## Deploy automatizado (CI)
 
-A partir de agora o `deploy.yml` copia automaticamente o diretório `pb_hooks/` para o container do PocketBase e o reinicia, em todo push na branch `main` — **após** o deploy do frontend.
+O `deploy.yml` copia automaticamente o diretório `pb_hooks/` para o volume persistente do PocketBase em todo push na branch `main` — **após** o deploy do frontend.
+
+**Modelo atual:** `/pb_hooks` é um **volume persistente** gerido pelo EasyPanel (mount `pb-hooks → /pb_hooks`). O CI usa `docker cp` para atualizar o arquivo no volume; o PocketBase detecta a mudança e faz **hot-reload automático** (log: `"File /pb_hooks/... changed, restarting"`). **Não há mais `docker restart`** — ele dessincronizava o Swarm e deixava o serviço em estado amarelo no EasyPanel. Os hooks sobrevivem a restarts e reschedules do container porque vivem no volume, não na camada de escrita do container.
 
 ### Pré-requisito (configuração única)
 
@@ -25,9 +27,9 @@ Defina 2 **repo variables** no GitHub (Settings → Secrets and variables → Ac
 
 Enquanto `PB_CONTAINER` não estiver definida, o step emite um `::warning::` visível no log da Action e encerra normalmente — **não quebra o deploy do frontend** (`continue-on-error: true`).
 
-### ⚠️ Caveat: recriação de container pelo EasyPanel
+### Volume persistente
 
-Se o EasyPanel **recriar** o container (atualização de versão, restart de stack), os hooks copiados via `docker cp` se perdem até o próximo push na `main`. Para persistência total, monte `pb_hooks/` como **volume** no EasyPanel apontando para o caminho configurado em `PB_HOOKS_PATH`.
+O EasyPanel monta `pb-hooks → /pb_hooks` como volume nomeado. Isso significa que os hooks **sobrevivem** a qualquer recriação ou reschedule do container — não é mais necessário re-push para restaurar os hooks após um restart.
 
 ---
 

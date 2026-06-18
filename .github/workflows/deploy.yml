@@ -47,7 +47,7 @@ jobs:
           # PB_CONTAINER pode ser o nome de um serviço Swarm (ex.: wenox_pocketbase),
           # cujo container real tem sufixo de task dinâmico (.1.<id>) que muda a cada
           # redeploy. Resolvemos o ID atual por prefixo de nome em vez de usar o nome fixo.
-          CID="$(sudo docker ps -q -f name="^${PB_CONTAINER}" | head -n1)"
+          CID="$(sudo docker ps -q -f name="^${PB_CONTAINER}" | head -n1 || true)"
           if [ -z "$CID" ]; then
             echo "::warning::Nenhum container casando com '${PB_CONTAINER}' — hooks NÃO deployados."
             exit 0
@@ -55,5 +55,4 @@ jobs:
           echo "Copiando pb_hooks/ -> ${PB_CONTAINER} (${CID}):${HOOKS_PATH}"
           sudo docker exec "$CID" mkdir -p "${HOOKS_PATH}"
           sudo docker cp pb_hooks/. "${CID}:${HOOKS_PATH}/"
-          sudo docker restart "$CID"
-          echo "Hooks deployados e PocketBase reiniciado."
+          echo "Hooks atualizados no volume — PocketBase recarrega automaticamente."

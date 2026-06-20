@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
-  Users, ListChecks, FolderKanban,
+  Users, ListChecks, FolderKanban, ArrowRight,
 } from 'lucide-react';
 import { useDadosAgencia } from './useDadosAgencia';
-import { tarefaConcluida, prazoVencido, prazoLimite } from '@/tarefas/format';
-import { temEtapas, aguardandoAprovacaoCliente, etapaAtual, prazoVencidoEfetivo } from '@/tarefas/etapas';
+import { tarefaConcluida, prazoVencido, prazoLimite, statusTarefaClass, prazoBR } from '@/tarefas/format';
+import { temEtapas, aguardandoAprovacaoCliente, etapaAtual, prazoVencidoEfetivo, prazoEfetivo } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
 import { dataBR, inicial, corAvatar } from '@/clientes/format';
 import { logoUrl } from '@/clientes/clientesService';
 import { AvatarMembro } from './AvatarMembro';
+import { EtapasStepper } from '@/tarefas/EtapasStepper';
 import { TarefaSheet } from '@/tarefas/TarefaSheet';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -416,6 +417,163 @@ export function ValidacaoPendenteBloco() {
         </Card>
       )}
       <TarefaSheet tarefaId={sheetId} aberto={sheetId !== null} onClose={() => setSheetId(null)} onMudou={() => refresh()} />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Estágio de todas as tarefas (painel gestor — R3.b)                        */
+/* -------------------------------------------------------------------------- */
+
+export function EstagioTarefasBloco() {
+  const history = useHistory();
+  const { tarefas, carregando, refresh } = useDadosAgencia();
+  const [sheetId, setSheetId] = useState<string | null>(null);
+
+  if (carregando) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Estágio das Tarefas</h2>
+        </div>
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-md" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const abertas = tarefas.filter((t) => !tarefaConcluida(t.status));
+
+  // Urgência: vencidas primeiro, depois por prazoEfetivo mais próximo
+  const linhas = [...abertas].sort((a, b) => {
+    const av = prazoVencidoEfetivo(a);
+    const bv = prazoVencidoEfetivo(b);
+    if (av !== bv) return av ? -1 : 1;
+    const pa = prazoEfetivo(a);
+    const pb = prazoEfetivo(b);
+    if (!pa && !pb) return 0;
+    if (!pa) return 1;
+    if (!pb) return -1;
+    return pa.localeCompare(pb);
+  });
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Estágio das Tarefas</h2>
+        <button
+          type="button"
+          onClick={() => history.push('/tarefas')}
+          className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="Ver todas as tarefas"
+        >
+          Ver todas <ArrowRight className="size-3.5" />
+        </button>
+      </div>
+
+      {linhas.length === 0 ? (
+        <Card>
+          <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
+            <ListChecks className="size-9 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Nenhuma tarefa aberta.</p>
+          </div>
+        </Card>
+      ) : (
+        <Card className="divide-y divide-border/40">
+          {linhas.map((t) => {
+            const vencida = prazoVencidoEfetivo(t);
+            const prazoEf = prazoEfetivo(t);
+            const hasSteps = temEtapas(t);
+            const etapaAtu = etapaAtual(t.etapas);
+            const isAprovacao = etapaAtu?.tipo === 'aprovacao_cliente';
+            const respAtual = (() => {
+              if (!hasSteps) return t.expand?.responsaveis?.[0] ?? null;
+              if (etapaAtu?.tipo === 'interna') {
+                return (t.expand?.responsaveis ?? []).find(
+                  (r) => r.id === etapaAtu.responsavel,
+                ) ?? null;
+              }
+              return null;
+            })();
+            const contexto =
+              t.expand?.projeto?.nome
+              ?? t.expand?.cliente?.nome_fantasia
+              ?? t.expand?.cliente?.nome;
+
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSheetId(t.id)}
+                aria-label={`Abrir tarefa: ${t.nome}`}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
+              >
+                {/* Avatar do responsável da etapa atual */}
+                {respAtual ? (
+                  <AvatarMembro
+                    membro={respAtual}
+                    className="size-8 shrink-0 text-[10px]"
+                  />
+                ) : isAprovacao ? (
+                  <div
+                    aria-label="Aguardando aprovação do cliente"
+                    className="grid size-8 shrink-0 place-items-center rounded-full border border-amber-500/40 bg-amber-500/10 text-xs font-bold text-amber-500"
+                  >
+                    C
+                  </div>
+                ) : (
+                  <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border bg-secondary text-xs text-muted-foreground">
+                    ?
+                  </div>
+                )}
+
+                {/* Conteúdo principal */}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{t.nome}</p>
+                  {contexto && (
+                    <p className="truncate text-xs text-muted-foreground">{contexto}</p>
+                  )}
+                  <div className="mt-1">
+                    <EtapasStepper
+                      etapas={t.etapas}
+                      responsaveis={t.expand?.responsaveis ?? []}
+                      variant="compact"
+                      prazo={t.prazo}
+                      status={t.status}
+                    />
+                  </div>
+                </div>
+
+                {/* Direita: status + prazo/atraso */}
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  {t.status && (
+                    <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>
+                      {t.status}
+                    </Badge>
+                  )}
+                  {vencida ? (
+                    <Badge className="border border-destructive/50 bg-destructive/15 text-[10px] text-destructive">
+                      Atrasada
+                    </Badge>
+                  ) : prazoEf ? (
+                    <span className="text-[10px] text-muted-foreground">{prazoBR(prazoEf)}</span>
+                  ) : null}
+                </div>
+              </button>
+            );
+          })}
+        </Card>
+      )}
+
+      <TarefaSheet
+        tarefaId={sheetId}
+        aberto={sheetId !== null}
+        onClose={() => setSheetId(null)}
+        onMudou={() => refresh()}
+      />
     </div>
   );
 }

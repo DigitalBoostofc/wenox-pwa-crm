@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 import {
   ArrowLeft, MessageCircle, Phone, Pencil, Activity,
   Users, KeyRound, FileText, LayoutDashboard, FolderKanban,
-  CheckSquare, Wallet, Trash2,
+  CheckSquare, Wallet, Trash2, Loader2,
 } from 'lucide-react';
 import { getCliente, updateCliente, deleteCliente, logoUrl } from '@/clientes/clientesService';
+import { getQuadroDoCliente, clonarQuadroTemplate } from '@/quadros/quadrosService';
+import type { Quadro } from '@/quadros/types';
 import type { Cliente } from '@/clientes/types';
 import { nomeExibicao, telefonePrincipal } from '@/clientes/types';
 import { ContatosTab } from '@/contatos/ContatosTab';
@@ -27,6 +29,7 @@ import { statusVariant, haDias, dataBR, corAvatar, inicial } from '@/clientes/fo
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 function Linha({
   rotulo, valor, children,
@@ -188,6 +191,26 @@ function ResumoAtividades({
   );
 }
 
+function mensagemErroCriarQuadro(err: unknown): string {
+  const e = err as { response?: { data?: Record<string, { code?: string; message?: string }> }; message?: string };
+  const campos = e?.response?.data;
+  if (campos && typeof campos === 'object') {
+    if (campos.trello_id?.code === 'validation_not_unique') {
+      return 'Não foi possível criar o quadro: já existe um quadro com esse identificador (trello_id duplicado).';
+    }
+    if (Object.keys(campos).length) {
+      const msgs = Object.values(campos).map((v) => v?.message).filter(Boolean).join(' · ');
+      if (msgs) return `Não foi possível criar o quadro: ${msgs}`;
+    }
+  }
+  if (e?.message?.includes('@ TEMPLATE')) {
+    return 'Não foi possível criar o quadro: o modelo padrão não foi encontrado. Contate o administrador.';
+  }
+  return e?.message
+    ? `Não foi possível criar o quadro: ${e.message}`
+    : 'Não foi possível criar o quadro. Verifique sua conexão e tente novamente.';
+}
+
 export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const params = useParams<{ id?: string }>();
   const id = idProp ?? params.id ?? '';
@@ -200,13 +223,29 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [erroFoto, setErroFoto] = useState('');
+  const [dialogAberto, setDialogAberto] = useState(false);
+  const [projetosBuscando, setProjetosBuscando] = useState(false);
+  const [projetosDialog, setProjetosDialog] = useState<Projeto[]>([]);
+  const [erroBusca, setErroBusca] = useState('');
+  const [apagando, setApagando] = useState(false);
+  const [erroApagar, setErroApagar] = useState('');
+  const [quadroDoCliente, setQuadroDoCliente] = useState<Quadro | null>(null);
+  const [criandoQuadro, setCriandoQuadro] = useState(false);
+  const [erroCriarQuadro, setErroCriarQuadro] = useState('');
+  const [quadroCriado, setQuadroCriado] = useState(false);
+  const buscaViva = useRef(false);
+  const abrirQuadroRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => () => { buscaViva.current = false; }, []);
+  useEffect(() => { if (quadroCriado) abrirQuadroRef.current?.focus(); }, [quadroCriado]);
 
   const carregar = useCallback(async () => {
     if (!id) { setCarregando(false); return; }
     setCarregando(true);
     setErro('');
     try {
-      setC(await getCliente(id));
+      const cliente = await getCliente(id);
+      setC(cliente);
+      setQuadroDoCliente(await getQuadroDoCliente(cliente.id));
     } catch {
       setErro('Não foi possível carregar o cliente. Tente novamente.');
     } finally {
@@ -218,9 +257,35 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
 
   async function apagar() {
     if (!c) return;
-    if (!confirm(`Apagar o cliente "${nomeExibicao(c)}" definitivamente? Esta ação não pode ser desfeita.`)) return;
-    await deleteCliente(c.id);
-    history.push('/clientes');
+    buscaViva.current = true;
+    setDialogAberto(true);
+    setProjetosBuscando(true);
+    setProjetosDialog([]);
+    setErroBusca('');
+    setErroApagar('');
+    try {
+      const ps = await listProjetos({ clienteId: c.id });
+      if (buscaViva.current) setProjetosDialog(ps);
+    } catch {
+      if (buscaViva.current) setErroBusca('Não foi possível verificar os projetos. Tente novamente.');
+    } finally {
+      if (buscaViva.current) setProjetosBuscando(false);
+    }
+  }
+
+  async function confirmarApagar() {
+    if (!c) return;
+    setApagando(true);
+    setErroApagar('');
+    try {
+      await deleteCliente(c.id);
+      history.push('/clientes');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      setErroApagar(`Não foi possível apagar: ${msg}`);
+    } finally {
+      setApagando(false);
+    }
   }
 
   async function trocarFoto(file: File | null) {
@@ -234,6 +299,22 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
       setErroFoto('Não foi possível atualizar a foto. Tente novamente.');
     } finally {
       setTrocandoFoto(false);
+    }
+  }
+
+  async function criarQuadro() {
+    if (!c) return;
+    setCriandoQuadro(true);
+    setErroCriarQuadro('');
+    setQuadroCriado(false);
+    try {
+      const q = await clonarQuadroTemplate(c.id, c.nome_fantasia || c.nome || 'Cliente');
+      setQuadroDoCliente(q);
+      setQuadroCriado(true);
+    } catch (err) {
+      setErroCriarQuadro(mensagemErroCriarQuadro(err));
+    } finally {
+      setCriandoQuadro(false);
     }
   }
 
@@ -264,6 +345,8 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   }
 
   const nome = nomeExibicao(c);
+  const projetosAtivos = projetosDialog.filter((p) => p.status !== 'Inativo');
+  const nInativos = projetosDialog.length - projetosAtivos.length;
   const telPrincipal = telefonePrincipal(c);
   const wpp = `https://wa.me/${telPrincipal.replace(/\D/g, '')}`;
   const clienteDesde = dataBR(c.data_inicio) || dataBR(c.created);
@@ -349,6 +432,33 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
           />
         )}
         {!souCliente && (
+          quadroDoCliente ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => history.push(`/quadros/${quadroDoCliente.id}`)}
+              aria-label={`Abrir quadro de ${nome}`}
+            >
+              <FolderKanban /> Quadro
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={criarQuadro}
+              disabled={criandoQuadro}
+              aria-busy={criandoQuadro}
+              aria-label={`Criar quadro para ${nome}`}
+            >
+              {criandoQuadro ? (
+                <><Loader2 className="animate-spin" /> Criando…</>
+              ) : (
+                <><FolderKanban /> Criar quadro</>
+              )}
+            </Button>
+          )
+        )}
+        {!souCliente && (
           <Button
             size="sm"
             variant="ghost"
@@ -371,6 +481,29 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
       {erroFoto && (
         <p className="text-sm text-destructive">{erroFoto}</p>
       )}
+
+      <div aria-live="assertive" aria-atomic="true">
+        {erroCriarQuadro && (
+          <p className="text-sm text-destructive">
+            {erroCriarQuadro}
+          </p>
+        )}
+      </div>
+      <div aria-live="polite" aria-atomic="true">
+        {quadroCriado && quadroDoCliente && !erroCriarQuadro && (
+          <p className="text-sm font-medium text-emerald-500">
+            Quadro criado com sucesso!{' '}
+            <button
+              ref={abrirQuadroRef}
+              type="button"
+              className="underline hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              onClick={() => history.push(`/quadros/${quadroDoCliente.id}`)}
+            >
+              Abrir quadro
+            </button>
+          </p>
+        )}
+      </div>
 
       {/* Guias */}
       <div className="flex flex-wrap gap-1 border-b border-border">
@@ -542,6 +675,114 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
       {aba === 'projetos' && <ProjetosTabCliente clienteId={c.id} />}
       {aba === 'tarefas' && <TarefasTabCliente clienteId={c.id} />}
       {aba === 'financeiro' && <EmBreveAba aba={aba} />}
+
+      <Dialog
+        open={dialogAberto}
+        onOpenChange={(open) => { if (!apagando) setDialogAberto(open); }}
+      >
+        <DialogContent className="max-w-md" aria-describedby="dialog-desc">
+          {projetosBuscando ? (
+            <>
+              <DialogTitle className="sr-only">Verificando projetos</DialogTitle>
+              <p id="dialog-desc" className="py-6 text-center text-sm text-muted-foreground">
+                Verificando projetos…
+              </p>
+            </>
+          ) : erroBusca ? (
+            <>
+              <DialogTitle>Erro ao verificar projetos</DialogTitle>
+              <div className="flex flex-col gap-4">
+                <p id="dialog-desc" className="text-sm text-destructive">{erroBusca}</p>
+                <div className="flex justify-end">
+                  <Button variant="ghost" onClick={() => setDialogAberto(false)}>Fechar</Button>
+                </div>
+              </div>
+            </>
+          ) : projetosAtivos.length > 0 ? (
+            <>
+              <DialogTitle>Atenção: projetos ativos serão apagados</DialogTitle>
+              <div className="flex flex-col gap-3">
+                <p id="dialog-desc" className="text-sm">
+                  Apagar o cliente <strong>"{nome}"</strong> irá deletar permanentemente os seguintes projetos:
+                </p>
+                <ul
+                  className="flex flex-col gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 p-3"
+                  role="list"
+                  aria-label="Projetos que serão apagados"
+                >
+                  {projetosAtivos.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="min-w-0 flex-1 truncate font-medium">{p.nome}</span>
+                      {p.status && (
+                        <Badge variant={statusVariant(p.status)} className="shrink-0 text-[10px]">
+                          {p.status}
+                        </Badge>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {nInativos > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Além desses, {nInativos} projeto{nInativos === 1 ? '' : 's'} inativo{nInativos === 1 ? '' : 's'} também {nInativos === 1 ? 'será removido' : 'serão removidos'}.
+                  </p>
+                )}
+                <p className="text-sm font-medium text-destructive">
+                  Todos esses projetos serão deletados definitivamente. Esta ação não pode ser desfeita.
+                </p>
+                {erroApagar && (
+                  <p className="text-sm text-destructive" role="alert">{erroApagar}</p>
+                )}
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setDialogAberto(false)}
+                    disabled={apagando}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={confirmarApagar}
+                    disabled={apagando}
+                  >
+                    {apagando ? 'Apagando…' : 'Apagar definitivamente'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogTitle>{`Apagar "${nome}"`}</DialogTitle>
+              <div className="flex flex-col gap-3">
+                <p id="dialog-desc" className="text-sm">
+                  Apagar o cliente <strong>"{nome}"</strong> definitivamente?
+                  {projetosDialog.length > 0 && ' Seus projetos inativos também serão removidos.'}
+                  {' '}Esta ação não pode ser desfeita.
+                </p>
+                {erroApagar && (
+                  <p className="text-sm text-destructive" role="alert">{erroApagar}</p>
+                )}
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setDialogAberto(false)}
+                    disabled={apagando}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={confirmarApagar}
+                    disabled={apagando}
+                  >
+                    {apagando ? 'Apagando…' : 'Apagar definitivamente'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

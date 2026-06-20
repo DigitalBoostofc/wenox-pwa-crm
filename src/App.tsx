@@ -60,6 +60,8 @@ const QuadroBoardPage = lazy(() =>
   import('@/quadros/QuadroBoardPage').then((m) => ({ default: m.QuadroBoardPage })));
 const ModeloPostConfigPage = lazy(() =>
   import('@/quadros/ModeloPostConfigPage').then((m) => ({ default: m.ModeloPostConfigPage })));
+const VinculosQuadrosPage = lazy(() =>
+  import('@/quadros/VinculosQuadrosPage').then((m) => ({ default: m.VinculosQuadrosPage })));
 const CalendarioPage = lazy(() =>
   import('@/quadros/CalendarioPage').then((m) => ({ default: m.CalendarioPage })));
 const RevisaoPostsPage = lazy(() =>
@@ -265,6 +267,9 @@ function AuthedApp() {
           </Route>
           <Route exact path="/config/modelo-post">
             <SomenteAdmin><ModeloPostConfigPage /></SomenteAdmin>
+          </Route>
+          <Route exact path="/config/vinculos-quadros">
+            <SomenteAdmin><VinculosQuadrosPage /></SomenteAdmin>
           </Route>
           <Route exact path="/config">
             <Protegido modulo="config"><ConfigPage /></Protegido>

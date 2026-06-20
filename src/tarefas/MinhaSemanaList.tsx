@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ListChecks, Repeat, UserRound } from 'lucide-react';
 import type { Tarefa } from './types';
 import { statusTarefaClass, tarefaConcluida, prazoBR } from './format';
-import { temEtapas, progressoEtapas, etapaAtual, prazoEfetivo, prazoVencidoEfetivo } from './etapas';
+import { temEtapas, prazoEfetivo, prazoVencidoEfetivo } from './etapas';
+import { EtapasStepper } from '@/tarefas/EtapasStepper';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -380,7 +381,7 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
       role="button"
       tabIndex={0}
       onClick={() => onAbrir(t.id)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onAbrir(t.id); }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(t.id); } }}
       className={cn(
         'flex cursor-pointer flex-wrap items-start gap-2 rounded-md px-2 py-2.5 text-sm',
         'transition-colors hover:bg-secondary/60',
@@ -405,18 +406,13 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
             {t.status}
           </Badge>
         )}
-        {temEtapas(t) && (() => {
-          const { feitas, total } = progressoEtapas(t.etapas);
-          const atual = etapaAtual(t.etapas);
-          return (
-            <span className="text-[11px] text-muted-foreground" title={atual?.texto}>
-              Etapa {feitas}/{total}
-              {atual?.tipo === 'interna' && atual.responsavel && t.expand?.responsaveis
-                ? ` · ${t.expand.responsaveis.find((r) => r.id === atual.responsavel)?.nome ?? ''}`
-                : ''}
-            </span>
-          );
-        })()}
+        {temEtapas(t) && (
+          <EtapasStepper
+            etapas={t.etapas}
+            responsaveis={responsaveis(t)}
+            variant="compact"
+          />
+        )}
         {prazoExibido && (
           <span className={cn('text-[11px]', vencida ? 'font-medium text-destructive' : 'text-muted-foreground')}>
             {prazoBR(prazoExibido)}

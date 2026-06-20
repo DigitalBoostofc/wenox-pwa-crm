@@ -6,6 +6,8 @@ import { atualizarTarefa } from './tarefasService';
 import { addComentario } from '@/atividade/atividadeService';
 import { useStatuses } from './status';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
+import { EtapasStepper } from './EtapasStepper';
+import { etapaAtual, temEtapas } from './etapas';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial } from '@/clientes/format';
 import {
@@ -23,7 +25,7 @@ const filtroCls =
 
 export type ColKey =
   | 'cliente' | 'projeto' | 'tarefa' | 'status' | 'prazo' | 'prioridade' | 'responsaveis'
-  | 'descricao' | 'comentario';
+  | 'descricao' | 'comentario' | 'etapa_atual' | 'resp_etapa';
 interface ColDef { key: ColKey; label: string; visivel: boolean }
 
 /** Colunas que se editam clicando na própria célula da linha. */
@@ -39,6 +41,8 @@ const COLS_PADRAO: ColDef[] = [
   { key: 'responsaveis', label: 'Responsáveis', visivel: true },
   { key: 'descricao', label: 'Descrição', visivel: false },
   { key: 'comentario', label: 'Comentário', visivel: false },
+  { key: 'etapa_atual', label: 'Etapa atual', visivel: false },
+  { key: 'resp_etapa', label: 'Resp. da etapa', visivel: false },
 ];
 
 function carregarColunas(prefix: string): ColDef[] {
@@ -344,6 +348,41 @@ export function TarefasTabela({
         <div className="flex -space-x-2">
           {rs.slice(0, 3).map((r) => <AvatarMembro key={r.id} membro={r} className="size-7 border-2 border-card text-[10px]" />)}
           {rs.length > 3 && <div className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-[10px] font-bold text-muted-foreground">+{rs.length - 3}</div>}
+        </div>
+      );
+    }
+    if (key === 'etapa_atual') {
+      return (
+        <EtapasStepper
+          etapas={t.etapas}
+          responsaveis={t.expand?.responsaveis ?? []}
+          variant="compact"
+          prazo={t.prazo}
+          status={t.status}
+        />
+      );
+    }
+    if (key === 'resp_etapa') {
+      const hasSteps = temEtapas(t);
+      if (!hasSteps) {
+        const rs = t.expand?.responsaveis ?? [];
+        if (rs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+        return (
+          <div className="flex items-center gap-1.5">
+            <AvatarMembro membro={rs[0]} className="size-7 text-[10px]" />
+            <span className="truncate text-xs text-muted-foreground">{rs[0]?.nome?.split(' ')[0] ?? ''}</span>
+          </div>
+        );
+      }
+      const atual = etapaAtual(t.etapas);
+      if (!atual) return <span className="text-xs text-emerald-500">Concluído</span>;
+      if (atual.tipo === 'aprovacao_cliente') return <span className="text-xs text-amber-500/90">Aprovação do cliente</span>;
+      const resp = (t.expand?.responsaveis ?? []).find((r) => r.id === atual.responsavel);
+      if (!resp) return <span className="text-xs text-muted-foreground">—</span>;
+      return (
+        <div className="flex items-center gap-1.5">
+          <AvatarMembro membro={resp} className="size-7 text-[10px]" />
+          <span className="truncate text-xs text-muted-foreground">{resp.nome?.split(' ')[0] ?? ''}</span>
         </div>
       );
     }

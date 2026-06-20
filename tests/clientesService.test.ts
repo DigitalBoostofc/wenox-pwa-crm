@@ -23,6 +23,9 @@ vi.mock('@/atividade/atividadeService', () => ({
   registrarHistorico: vi.fn(),
   diffCampos: () => [],
 }));
+vi.mock('@/quadros/quadrosService', () => ({
+  clonarQuadroTemplate: vi.fn().mockResolvedValue({}),
+}));
 
 import {
   listClientes, getCliente, createCliente, updateCliente, deleteCliente,

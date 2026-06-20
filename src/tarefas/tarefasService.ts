@@ -133,6 +133,9 @@ export async function getTarefa(id: string): Promise<Tarefa> {
 }
 
 export async function criarTarefa(input: TarefaInput): Promise<Tarefa> {
+  if ((input.etapas?.length ?? 0) === 0 && (input.responsaveis?.length ?? 0) > 1) {
+    throw new Error('Tarefa sem etapas pode ter apenas 1 responsável');
+  }
   const uid = pb.authStore?.record?.id;
   // Se já nasce com etapas, o status é derivado do fluxo.
   const statusDerivadoInput = (input.etapas?.length ?? 0) > 0
@@ -159,6 +162,22 @@ export async function atualizarTarefa(
     antes = (await col().getOne(id)) as unknown as Record<string, unknown>;
   } catch {
     /* */
+  }
+  // Guard R3.c — validação direta no input (cobre bypass quando `antes` não pôde ser carregado).
+  if (input.etapas?.length === 0 && (input.responsaveis?.length ?? 0) > 1) {
+    throw new Error('Tarefa sem etapas pode ter apenas 1 responsável');
+  }
+  // Guard R3.c — validação no estado mergeado para updates parciais (um campo de cada vez).
+  if (antes !== undefined && (input.etapas !== undefined || input.responsaveis !== undefined)) {
+    const resultEtapas = (input.etapas !== undefined
+      ? input.etapas
+      : (antes.etapas as unknown[] | undefined) ?? []) as unknown[];
+    const resultResp = (input.responsaveis !== undefined
+      ? input.responsaveis
+      : (antes.responsaveis as string[] | undefined) ?? []) as string[];
+    if (resultEtapas.length === 0 && resultResp.length > 1) {
+      throw new Error('Tarefa sem etapas pode ter apenas 1 responsável');
+    }
   }
   const dados: Record<string, unknown> = { ...input, ...(uid ? { updated_by: uid } : {}) };
   if (input.status !== undefined) {

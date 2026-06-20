@@ -1,5 +1,6 @@
 import { pb } from '@/lib/pocketbase';
 import type { Quadro, Lista, Cartao, ComentarioCartao, AnexoCartao, EtapaCard } from './types';
+import type { Cliente } from '@/clientes/types';
 import { ESTEIRA_SOCIAL, statusDaEsteira, ORIENTACOES_DESIGN_TEMPLATE } from './types';
 import { carregarModeloRemoto } from './modeloPost';
 import { criarTarefa, concluirEtapa, getTarefa } from '@/tarefas/tarefasService';
@@ -31,46 +32,65 @@ export async function criarQuadro(cliente: string, nome: string, extras?: Partia
 /**
  * Clona o quadro modelo "@ TEMPLATE" para um novo quadro do cliente — só as listas
  * ATIVAS (fechada≠true) e seus cards, copiando o CONTEÚDO e resetando o ESTADO.
- * Best-effort: se o template não existir, retorna null sem lançar.
+ * Lança Error se o template não existir. Auto-limpante: se um create de lista/cartão
+ * falhar no meio, deleta o quadro recém-criado e todos os itens já criados antes de relançar.
  */
-export async function clonarQuadroTemplate(clienteId: string, nomeQuadro: string): Promise<Quadro | null> {
+export async function clonarQuadroTemplate(clienteId: string, nomeQuadro: string): Promise<Quadro> {
   let tpl: Quadro;
   try {
     tpl = (await qcol().getFirstListItem(`nome="${TEMPLATE_NOME}"`)) as unknown as Quadro;
-  } catch { return null; }
+  } catch {
+    throw new Error(`quadro modelo '${TEMPLATE_NOME}' não encontrado`);
+  }
 
   const novo = await criarQuadro(clienteId, nomeQuadro, { fundo_cor: tpl.fundo_cor, fundo_img: tpl.fundo_img });
 
-  // listas ativas do template → cria no quadro novo, mapeando id antigo → novo
-  const listas = (await lcol().getFullList({
-    filter: `quadro="${tpl.id}" && fechada != true`, sort: 'ordem',
-  })) as unknown as Lista[];
-  const mapaLista = new Map<string, string>();
-  for (const l of listas) {
-    const nl = (await lcol().create({
-      quadro: novo.id, nome: l.nome, ordem: l.ordem ?? 0, fechada: false,
-      ...(l.tipo ? { tipo: l.tipo, mes: l.mes, ano: l.ano } : {}),
-    })) as unknown as Lista;
-    mapaLista.set(l.id, nl.id);
-  }
-  if (mapaLista.size === 0) return novo;
+  const listasIds: string[] = [];
+  const cartoesIds: string[] = [];
 
-  // cards das listas clonadas (ignora cards de listas arquivadas via mapa)
-  const cards = (await ccol().getFullList({
-    filter: `quadro="${tpl.id}" && arquivado != true`, sort: 'ordem', batch: 1000,
-  })) as unknown as Cartao[];
-  for (const c of cards) {
-    const novaLista = c.lista ? mapaLista.get(c.lista) : undefined;
-    if (!novaLista) continue;
-    await ccol().create({
-      quadro: novo.id, lista: novaLista,
-      nome: c.nome, descricao: c.descricao ?? '', ordem: c.ordem ?? 0,
-      etiquetas: c.etiquetas ?? [], checklists: c.checklists ?? [], anexos: c.anexos ?? [],
-      capa: c.capa ?? '', formato: c.formato ?? '', redes: c.redes ?? [],
-      concluido: false, membros: [], membros_ids: [],
-    });
+  async function limpar(): Promise<void> {
+    for (const id of cartoesIds) { try { await ccol().delete(id); } catch { /* */ } }
+    for (const id of listasIds) { try { await lcol().delete(id); } catch { /* */ } }
+    try { await qcol().delete(novo.id); } catch { /* */ }
   }
-  return novo;
+
+  try {
+    // listas ativas do template → cria no quadro novo, mapeando id antigo → novo
+    const listas = (await lcol().getFullList({
+      filter: `quadro="${tpl.id}" && fechada != true`, sort: 'ordem', batch: 1000,
+    })) as unknown as Lista[];
+    const mapaLista = new Map<string, string>();
+    for (const l of listas) {
+      const nl = (await lcol().create({
+        quadro: novo.id, nome: l.nome, ordem: l.ordem ?? 0, fechada: false,
+        ...(l.tipo ? { tipo: l.tipo, mes: l.mes, ano: l.ano } : {}),
+      })) as unknown as Lista;
+      listasIds.push(nl.id);
+      mapaLista.set(l.id, nl.id);
+    }
+    if (mapaLista.size === 0) return novo;
+
+    // cards das listas clonadas (ignora cards de listas arquivadas via mapa)
+    const cards = (await ccol().getFullList({
+      filter: `quadro="${tpl.id}" && arquivado != true`, sort: 'ordem', batch: 1000,
+    })) as unknown as Cartao[];
+    for (const c of cards) {
+      const novaLista = c.lista ? mapaLista.get(c.lista) : undefined;
+      if (!novaLista) continue;
+      const nc = (await ccol().create({
+        quadro: novo.id, lista: novaLista,
+        nome: c.nome, descricao: c.descricao ?? '', ordem: c.ordem ?? 0,
+        etiquetas: c.etiquetas ?? [], checklists: c.checklists ?? [], anexos: c.anexos ?? [],
+        capa: c.capa ?? '', formato: c.formato ?? '', redes: c.redes ?? [],
+        concluido: false, membros: [], membros_ids: [],
+      })) as unknown as Cartao;
+      cartoesIds.push(nc.id);
+    }
+    return novo;
+  } catch (err) {
+    await limpar();
+    throw err;
+  }
 }
 
 /** Listas (colunas) de um quadro, na ordem do Trello. */
@@ -489,6 +509,92 @@ export async function criarTarefaSocialMedia(
     aprovacao: '',
   });
 }
+
+/* ------------------- Saúde dos vínculos (R1.B) -------------------- */
+
+/** Quadros sem cliente vinculado, excluindo o template. */
+export async function listQuadrosSemCliente(): Promise<Quadro[]> {
+  const res = await qcol().getFullList({
+    filter: `cliente = "" && nome != "${TEMPLATE_NOME}"`,
+    sort: 'nome',
+  });
+  return res as unknown as Quadro[];
+}
+
+/** Retorna o primeiro quadro vinculado ao cliente, ou null se não houver (404). */
+export async function getQuadroDoCliente(clienteId: string): Promise<Quadro | null> {
+  try {
+    return (await qcol().getFirstListItem(
+      pb.filter('cliente = {:cid} && nome != {:tpl}', { cid: clienteId, tpl: TEMPLATE_NOME }),
+    )) as unknown as Quadro;
+  } catch (err) {
+    if ((err as { status?: number })?.status === 404) return null;
+    console.error('[getQuadroDoCliente] erro inesperado:', err);
+    throw err;
+  }
+}
+
+/** Clientes sem nenhum quadro vinculado. */
+export async function listClientesSemQuadro(): Promise<Cliente[]> {
+  const [todos, quadros] = await Promise.all([
+    pb.collection('clientes').getFullList({ sort: 'nome_fantasia,nome', fields: 'id,nome,nome_fantasia' }),
+    qcol().getFullList({ filter: `nome != "${TEMPLATE_NOME}"`, fields: 'id,cliente' }),
+  ]);
+  const comQuadro = new Set<string>(
+    (quadros as unknown as Array<{ cliente?: string }>).map((q) => q.cliente ?? '').filter(Boolean),
+  );
+  return (todos as unknown as Cliente[]).filter((c) => !comQuadro.has(c.id));
+}
+
+function _normalizarNome(s: string): string {
+  return s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036F]/g, '');
+}
+
+export interface SugestaoVinculo { quadro: Quadro; cliente: Cliente }
+export interface AmbiguidadeVinculo { quadro: Quadro; candidatos: Cliente[] }
+export interface ResultadoSugestoes {
+  sugestoes: SugestaoVinculo[];
+  ambiguidades: AmbiguidadeVinculo[];
+  quadrosSemCliente: Quadro[];
+  clientesSemQuadro: Cliente[];
+  todosClientes: Cliente[];
+}
+
+/**
+ * Casa quadros sem cliente com clientes sem quadro por nome normalizado
+ * (trim + lowercase + sem acento). Retorna matches únicos + ambiguidades.
+ */
+export async function sugerirVinculos(): Promise<ResultadoSugestoes> {
+  const [quadrosSemCliente, todosC, todosQ] = await Promise.all([
+    listQuadrosSemCliente(),
+    pb.collection('clientes').getFullList({ sort: 'nome_fantasia,nome', fields: 'id,nome,nome_fantasia' }),
+    qcol().getFullList({ filter: `nome != "${TEMPLATE_NOME}"`, fields: 'id,cliente' }),
+  ]);
+  const comQuadro = new Set<string>(
+    (todosQ as unknown as Array<{ cliente?: string }>).map((q) => q.cliente ?? '').filter(Boolean),
+  );
+  const todosClientes = todosC as unknown as Cliente[];
+  const clientesSemQuadro = todosClientes.filter((c) => !comQuadro.has(c.id));
+
+  const sugestoes: SugestaoVinculo[] = [];
+  const ambiguidades: AmbiguidadeVinculo[] = [];
+  for (const q of quadrosSemCliente) {
+    const nomeQ = _normalizarNome(q.nome);
+    const matches = clientesSemQuadro.filter(
+      (c) => _normalizarNome(c.nome_fantasia || c.nome || '') === nomeQ,
+    );
+    if (matches.length === 1) sugestoes.push({ quadro: q, cliente: matches[0] });
+    else if (matches.length > 1) ambiguidades.push({ quadro: q, candidatos: matches });
+  }
+  return { sugestoes, ambiguidades, quadrosSemCliente, clientesSemQuadro, todosClientes };
+}
+
+/** Vincula um quadro a um cliente. */
+export async function vincularQuadro(quadroId: string, clienteId: string): Promise<Quadro> {
+  return (await qcol().update(quadroId, { cliente: clienteId })) as unknown as Quadro;
+}
+
+/* ------------------------------------------------------------------- */
 
 function wallclock(): string {
   const d = new Date();

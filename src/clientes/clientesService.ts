@@ -74,9 +74,24 @@ export async function createCliente(
   const rec = (await col().create(
     logo ? comArquivo(dados, logo) : semLogo(dados),
   )) as unknown as Cliente;
-  await registrarHistorico('cliente', rec.id, 'Cliente cadastrado');
-  // cria automaticamente o quadro do cliente clonando o "@ TEMPLATE" (best-effort)
-  try { await clonarQuadroTemplate(rec.id, rec.nome_fantasia || rec.nome || 'Cliente'); } catch { /* não bloqueia o cadastro */ }
+  try {
+    await clonarQuadroTemplate(rec.id, rec.nome_fantasia || rec.nome || 'Cliente');
+  } catch (errQuadro) {
+    try {
+      await col().delete(rec.id);
+    } catch (errRollback) {
+      throw new Error(
+        `Cliente não salvo: o quadro não pôde ser criado — ${(errQuadro as Error).message}. ` +
+        `Atenção: o cliente pode ter ficado parcialmente criado (falha no rollback: ${(errRollback as Error).message}).`,
+      );
+    }
+    throw new Error(`Cliente não salvo: o quadro não pôde ser criado — ${(errQuadro as Error).message}`);
+  }
+  try {
+    await registrarHistorico('cliente', rec.id, 'Cliente cadastrado');
+  } catch (errHistorico) {
+    console.error('registrarHistorico falhou (best-effort):', errHistorico);
+  }
   return rec;
 }
 

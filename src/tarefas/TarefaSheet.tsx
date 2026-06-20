@@ -8,6 +8,7 @@ import {
 import type { Tarefa, TarefaInput, EtapaTarefa, TipoEtapa } from './types';
 import { RECORRENCIA_LABEL } from './types';
 import { etapaAtualIndex, progressoEtapas, novaEtapaId } from './etapas';
+import { EtapasStepper } from './EtapasStepper';
 import { usePresetsEtapa, presetsDoTipo, type PresetEtapa } from './etapasPreset';
 import { statusTarefaClass, temHoraPrazo } from './format';
 import { useStatuses, statusInicial } from './status';
@@ -90,13 +91,15 @@ function EtapasFluxoEditor({
   const idxAtual = etapaAtualIndex(etapas);
 
   async function persistirEtapas(novas: EtapaTarefa[]) {
+    // R3.c: ao remover a última etapa com >1 responsável, truncar para 1.
+    const trimResp = novas.length === 0 && (t.responsaveis?.length ?? 0) > 1;
     if (modoRascunho) {
-      setT({ ...t, etapas: novas });
+      setT({ ...t, etapas: novas, ...(trimResp ? { responsaveis: [t.responsaveis![0]] } : {}) });
       return;
     }
     setErro('');
     try {
-      const atualizada = await salvarEtapas(t, novas);
+      const atualizada = await salvarEtapas(t, novas, trimResp ? { responsaveis: [t.responsaveis![0]] } : {});
       setT(atualizada);
       onMudou();
     } catch (e) {
@@ -670,9 +673,11 @@ export function TarefaSheet({
     const atuais = t?.responsaveis ?? [];
     // Membro não pode se remover: tem que ser responsável da própria tarefa.
     if (ehMembro && uid === user?.id && atuais.includes(uid)) return;
+    // R3.c: sem etapas → modo single (substitui em vez de acumular).
+    const semEtapas = (t?.etapas?.length ?? 0) === 0;
     const proximos = atuais.includes(uid)
       ? atuais.filter((x) => x !== uid)
-      : [...atuais, uid];
+      : semEtapas ? [uid] : [...atuais, uid];
     salvarCampo({ responsaveis: proximos });
   }
 
@@ -1038,11 +1043,14 @@ export function TarefaSheet({
               {/* 5. Responsáveis — lado wenox (ou sem cliente) */}
               {(!temCliente() || lado() === 'wenox') && (
                 <div>
-                  <RotuloCampo>Responsáveis</RotuloCampo>
+                  <RotuloCampo>
+                    {(t.etapas?.length ?? 0) === 0 ? 'Responsável' : 'Responsáveis'}
+                  </RotuloCampo>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
+                        aria-label={(t.etapas?.length ?? 0) === 0 ? 'Selecionar responsável' : 'Selecionar responsáveis'}
                         className={cn(
                           selectCls,
                           'flex items-center justify-between text-left',
@@ -1051,7 +1059,9 @@ export function TarefaSheet({
                       >
                         {(t.responsaveis?.length ?? 0) > 0
                           ? `${t.responsaveis!.length} selecionado(s)`
-                          : 'Selecionar responsáveis'}
+                          : (t.etapas?.length ?? 0) === 0
+                            ? 'Selecionar responsável'
+                            : 'Selecionar responsáveis'}
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="max-h-64 w-64 overflow-y-auto">
@@ -1069,6 +1079,11 @@ export function TarefaSheet({
                       })}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  {(t.etapas?.length ?? 0) === 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Sem etapas: apenas 1 responsável. Adicione etapas para atribuir múltiplos.
+                    </p>
+                  )}
                   {(t.responsaveis?.length ?? 0) > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {(t.responsaveis ?? []).map((id) => (
@@ -1094,7 +1109,35 @@ export function TarefaSheet({
                 </div>
               )}
 
-              {/* 5b. Etapas do fluxo */}
+              {/* 5b. Progresso visual das etapas (R3.b) */}
+              {!modoRascunho && (t.etapas?.length ?? 0) > 0 && (
+                <div>
+                  <RotuloCampo>Progresso das etapas</RotuloCampo>
+                  <EtapasStepper
+                    etapas={t.etapas}
+                    responsaveis={
+                      (t.responsaveis ?? [])
+                        .map((id) => {
+                          const u = usuarios.find((u2) => u2.id === id);
+                          if (!u) return null;
+                          return {
+                            id: u.id,
+                            nome: u.nome ?? u.email ?? '',
+                            foto: u.foto,
+                            collectionId: u.collectionId,
+                            collectionName: u.collectionName,
+                          };
+                        })
+                        .filter((r): r is NonNullable<typeof r> => r !== null)
+                    }
+                    variant="full"
+                    prazo={t.prazo}
+                    status={t.status}
+                  />
+                </div>
+              )}
+
+              {/* 5b. Editor de etapas do fluxo */}
               <EtapasFluxoEditor
                 tarefa={t}
                 setTarefa={setT}

@@ -23,6 +23,7 @@ ios/
 *.pem
 *.key
 secrets/
+qa-frames/
 
 # Logs
 *.log

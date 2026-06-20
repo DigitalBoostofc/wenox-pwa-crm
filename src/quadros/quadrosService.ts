@@ -521,6 +521,19 @@ export async function listQuadrosSemCliente(): Promise<Quadro[]> {
   return res as unknown as Quadro[];
 }
 
+/** Retorna o primeiro quadro vinculado ao cliente, ou null se não houver (404). */
+export async function getQuadroDoCliente(clienteId: string): Promise<Quadro | null> {
+  try {
+    return (await qcol().getFirstListItem(
+      pb.filter('cliente = {:cid} && nome != {:tpl}', { cid: clienteId, tpl: TEMPLATE_NOME }),
+    )) as unknown as Quadro;
+  } catch (err) {
+    if ((err as { status?: number })?.status === 404) return null;
+    console.error('[getQuadroDoCliente] erro inesperado:', err);
+    throw err;
+  }
+}
+
 /** Clientes sem nenhum quadro vinculado. */
 export async function listClientesSemQuadro(): Promise<Cliente[]> {
   const [todos, quadros] = await Promise.all([

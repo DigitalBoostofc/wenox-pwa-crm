@@ -3,9 +3,11 @@ import { useParams, useHistory } from 'react-router-dom';
 import {
   ArrowLeft, MessageCircle, Phone, Pencil, Activity,
   Users, KeyRound, FileText, LayoutDashboard, FolderKanban,
-  CheckSquare, Wallet, Trash2,
+  CheckSquare, Wallet, Trash2, Loader2,
 } from 'lucide-react';
 import { getCliente, updateCliente, deleteCliente, logoUrl } from '@/clientes/clientesService';
+import { getQuadroDoCliente, clonarQuadroTemplate } from '@/quadros/quadrosService';
+import type { Quadro } from '@/quadros/types';
 import type { Cliente } from '@/clientes/types';
 import { nomeExibicao, telefonePrincipal } from '@/clientes/types';
 import { ContatosTab } from '@/contatos/ContatosTab';
@@ -189,6 +191,26 @@ function ResumoAtividades({
   );
 }
 
+function mensagemErroCriarQuadro(err: unknown): string {
+  const e = err as { response?: { data?: Record<string, { code?: string; message?: string }> }; message?: string };
+  const campos = e?.response?.data;
+  if (campos && typeof campos === 'object') {
+    if (campos.trello_id?.code === 'validation_not_unique') {
+      return 'Não foi possível criar o quadro: já existe um quadro com esse identificador (trello_id duplicado).';
+    }
+    if (Object.keys(campos).length) {
+      const msgs = Object.values(campos).map((v) => v?.message).filter(Boolean).join(' · ');
+      if (msgs) return `Não foi possível criar o quadro: ${msgs}`;
+    }
+  }
+  if (e?.message?.includes('@ TEMPLATE')) {
+    return 'Não foi possível criar o quadro: o modelo padrão não foi encontrado. Contate o administrador.';
+  }
+  return e?.message
+    ? `Não foi possível criar o quadro: ${e.message}`
+    : 'Não foi possível criar o quadro. Verifique sua conexão e tente novamente.';
+}
+
 export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const params = useParams<{ id?: string }>();
   const id = idProp ?? params.id ?? '';
@@ -207,15 +229,23 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
   const [erroBusca, setErroBusca] = useState('');
   const [apagando, setApagando] = useState(false);
   const [erroApagar, setErroApagar] = useState('');
+  const [quadroDoCliente, setQuadroDoCliente] = useState<Quadro | null>(null);
+  const [criandoQuadro, setCriandoQuadro] = useState(false);
+  const [erroCriarQuadro, setErroCriarQuadro] = useState('');
+  const [quadroCriado, setQuadroCriado] = useState(false);
   const buscaViva = useRef(false);
+  const abrirQuadroRef = useRef<HTMLButtonElement>(null);
   useEffect(() => () => { buscaViva.current = false; }, []);
+  useEffect(() => { if (quadroCriado) abrirQuadroRef.current?.focus(); }, [quadroCriado]);
 
   const carregar = useCallback(async () => {
     if (!id) { setCarregando(false); return; }
     setCarregando(true);
     setErro('');
     try {
-      setC(await getCliente(id));
+      const cliente = await getCliente(id);
+      setC(cliente);
+      setQuadroDoCliente(await getQuadroDoCliente(cliente.id));
     } catch {
       setErro('Não foi possível carregar o cliente. Tente novamente.');
     } finally {
@@ -269,6 +299,22 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
       setErroFoto('Não foi possível atualizar a foto. Tente novamente.');
     } finally {
       setTrocandoFoto(false);
+    }
+  }
+
+  async function criarQuadro() {
+    if (!c) return;
+    setCriandoQuadro(true);
+    setErroCriarQuadro('');
+    setQuadroCriado(false);
+    try {
+      const q = await clonarQuadroTemplate(c.id, c.nome_fantasia || c.nome || 'Cliente');
+      setQuadroDoCliente(q);
+      setQuadroCriado(true);
+    } catch (err) {
+      setErroCriarQuadro(mensagemErroCriarQuadro(err));
+    } finally {
+      setCriandoQuadro(false);
     }
   }
 
@@ -386,6 +432,33 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
           />
         )}
         {!souCliente && (
+          quadroDoCliente ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => history.push(`/quadros/${quadroDoCliente.id}`)}
+              aria-label={`Abrir quadro de ${nome}`}
+            >
+              <FolderKanban /> Quadro
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={criarQuadro}
+              disabled={criandoQuadro}
+              aria-busy={criandoQuadro}
+              aria-label={`Criar quadro para ${nome}`}
+            >
+              {criandoQuadro ? (
+                <><Loader2 className="animate-spin" /> Criando…</>
+              ) : (
+                <><FolderKanban /> Criar quadro</>
+              )}
+            </Button>
+          )
+        )}
+        {!souCliente && (
           <Button
             size="sm"
             variant="ghost"
@@ -408,6 +481,29 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
       {erroFoto && (
         <p className="text-sm text-destructive">{erroFoto}</p>
       )}
+
+      <div aria-live="assertive" aria-atomic="true">
+        {erroCriarQuadro && (
+          <p className="text-sm text-destructive">
+            {erroCriarQuadro}
+          </p>
+        )}
+      </div>
+      <div aria-live="polite" aria-atomic="true">
+        {quadroCriado && quadroDoCliente && !erroCriarQuadro && (
+          <p className="text-sm font-medium text-emerald-500">
+            Quadro criado com sucesso!{' '}
+            <button
+              ref={abrirQuadroRef}
+              type="button"
+              className="underline hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              onClick={() => history.push(`/quadros/${quadroDoCliente.id}`)}
+            >
+              Abrir quadro
+            </button>
+          </p>
+        )}
+      </div>
 
       {/* Guias */}
       <div className="flex flex-wrap gap-1 border-b border-border">

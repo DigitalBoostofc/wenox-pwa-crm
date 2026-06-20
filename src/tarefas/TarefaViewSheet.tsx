@@ -6,6 +6,7 @@ import {
 import type { Tarefa, EtapaTarefa } from './types';
 import { statusTarefaClass, prazoVencido, prazoBR } from './format';
 import { temEtapas, etapaAtualIndex, progressoEtapas } from './etapas';
+import { EtapasStepper } from './EtapasStepper';
 import { useStatuses } from './status';
 import { addComentario } from '@/atividade/atividadeService';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
@@ -209,7 +210,16 @@ export function TarefaViewSheet({
                     Etapas do fluxo
                     <span className="ml-1.5 font-normal text-muted-foreground/70">{prog.feitas}/{prog.total}</span>
                   </RotuloCampo>
-                  <ul className="flex flex-col gap-1.5">
+                  <div aria-hidden="true">
+                    <EtapasStepper
+                      etapas={etapas}
+                      responsaveis={t.expand?.responsaveis ?? []}
+                      variant="full"
+                      prazo={t.prazo}
+                      status={t.status}
+                    />
+                  </div>
+                  <ul className="mt-4 flex flex-col gap-1.5" aria-label="Ações das etapas">
                     {etapas.map((e: EtapaTarefa, idx: number) => {
                       const ehAtual = idx === idxAtual;
                       const ehFutura = idxAtual >= 0 && idx > idxAtual;

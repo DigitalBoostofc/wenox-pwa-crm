@@ -195,55 +195,9 @@ export async function atualizarTarefa(
 }
 
 export async function removerTarefa(id: string): Promise<void> {
-  // Ação primária: pode lançar (a UI trata o erro).
+  // Limpeza em cascata dos órfãos (comentarios/historico/notificacoes + desvínculo de listas)
+  // é feita pelo hook server-side pb_hooks/tarefas_cascade.pb.js.
   await col().delete(id);
-
-  // TODO(cascade): remover este bloco client-side após confirmar o hook pb_hooks/tarefas_cascade.pb.js ativo em produção (ver docs/deploy-pb-hooks.md). Mantido como safety net enquanto o hook não está deployed; observe que falha silenciosamente p/ usuários sem permissão de delete nessas coleções.
-
-  // Limpeza best-effort dos órfãos — blocos independentes para que falha de
-  // permissão numa coleção não cancele as demais operações de limpeza.
-
-  try {
-    const cmts = await pb.collection('comentarios').getFullList({
-      filter: pb.filter('entidade = "tarefa" && ref_id = {:id}', { id }),
-      fields: 'id',
-    });
-    const resCmts = await Promise.allSettled(cmts.map((c) => pb.collection('comentarios').delete(c.id)));
-    const falhasCmts = resCmts.filter((r) => r.status === 'rejected');
-    if (falhasCmts.length) console.warn('[removerTarefa] comentarios: ' + falhasCmts.length + ' falha(s) parcial(is)', falhasCmts);
-  } catch (err) { console.warn('[removerTarefa] cascade comentarios falhou', err); }
-
-  try {
-    const hist = await pb.collection('historico').getFullList({
-      filter: pb.filter('entidade = "tarefa" && ref_id = {:id}', { id }),
-      fields: 'id',
-    });
-    const resHist = await Promise.allSettled(hist.map((h) => pb.collection('historico').delete(h.id)));
-    const falhasHist = resHist.filter((r) => r.status === 'rejected');
-    if (falhasHist.length) console.warn('[removerTarefa] historico: ' + falhasHist.length + ' falha(s) parcial(is)', falhasHist);
-  } catch (err) { console.warn('[removerTarefa] cascade historico falhou', err); }
-
-  // Desvincular listas do módulo quadros (não deletar — a lista tem os posts).
-  try {
-    const listas = await pb.collection('listas').getFullList({
-      filter: pb.filter('tarefa = {:id}', { id }),
-      fields: 'id',
-    });
-    const resListas = await Promise.allSettled(listas.map((l) => pb.collection('listas').update(l.id, { tarefa: '' })));
-    const falhasListas = resListas.filter((r) => r.status === 'rejected');
-    if (falhasListas.length) console.warn('[removerTarefa] listas: ' + falhasListas.length + ' falha(s) parcial(is)', falhasListas);
-  } catch (err) { console.warn('[removerTarefa] cascade listas falhou', err); }
-
-  try {
-    // Filtro exato: link = /tarefas/{id} — convenção criada em atividadeService (campo notificacoes.link).
-    const notifs = await pb.collection('notificacoes').getFullList({
-      filter: pb.filter('link = {:link}', { link: `/tarefas/${id}` }),
-      fields: 'id',
-    });
-    const resNotifs = await Promise.allSettled(notifs.map((n) => pb.collection('notificacoes').delete(n.id)));
-    const falhasNotifs = resNotifs.filter((r) => r.status === 'rejected');
-    if (falhasNotifs.length) console.warn('[removerTarefa] notificacoes: ' + falhasNotifs.length + ' falha(s) parcial(is)', falhasNotifs);
-  } catch (err) { console.warn('[removerTarefa] cascade notificacoes falhou', err); }
 }
 
 /** Move uma tarefa para outro status (Kanban) e registra histórico. */

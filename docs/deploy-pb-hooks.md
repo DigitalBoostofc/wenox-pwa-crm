@@ -4,7 +4,7 @@
 
 O pipeline de CI/CD desta aplicação builda apenas o frontend (Vite → nginx). O PocketBase corre separado — em um VPS ou EasyPanel — e **não é reconstruído pelo pipeline**. Portanto, qualquer arquivo em `pb_hooks/` só chega ao servidor via deploy manual.
 
-Enquanto o hook `pb_hooks/tarefas_cascade.pb.js` não estiver ativo no servidor, o único cleanup ativo é o bloco client-side em `src/tarefas/tarefasService.ts::removerTarefa` — e ele opera **silenciosamente** para usuários sem permissão de delete nas coleções auxiliares.
+O hook `pb_hooks/tarefas_cascade.pb.js` é o **único mecanismo de limpeza** de órfãos ao remover uma tarefa. O cleanup client-side que existia em `src/tarefas/tarefasService.ts::removerTarefa` foi removido após confirmação (smoke test 16/16 PASS) de que o hook está ativo e persistente em produção.
 
 ---
 
@@ -47,14 +47,18 @@ O EasyPanel monta `pb-hooks → /pb_hooks` como volume nomeado. Isso significa q
 
    Substitua `/path/to/pocketbase/` pelo caminho real da instalação PocketBase no servidor.
 
-3. **Reinicie o serviço PocketBase** para que o hook seja carregado:
+3. **Não reinicie o container.** Se o `pb_hooks/` for um volume montado (caso do EasyPanel, mount `pb-hooks → /pb_hooks`), o PocketBase faz **hot-reload automático** ao detectar a mudança do arquivo — basta copiá-lo.
+
+   > ⚠️ **Não use `docker restart` em ambiente Swarm/EasyPanel.** O restart out-of-band dessincroniza o serviço Swarm (0/1 réplicas com o container ainda vivo) e deixa o PocketBase em **estado amarelo** no EasyPanel. Foi exatamente esse o incidente que motivou remover o restart do CI.
 
    ```bash
-   # Exemplo com systemd
-   sudo systemctl restart pocketbase
+   # Copie direto para o container (resolve o nome do serviço Swarm por prefixo):
+   CID="$(sudo docker ps -q -f name='^wenox_pocketbase' | head -n1)"
+   sudo docker cp pb_hooks/. "${CID}:/pb_hooks/"
+   # O PocketBase recarrega sozinho (log: "File /pb_hooks/... changed, restarting").
 
-   # Exemplo com Docker / EasyPanel
-   docker restart <nome-do-container-pocketbase>
+   # Apenas em instalação bare-metal com systemd (NÃO Swarm/Docker):
+   # sudo systemctl restart pocketbase
    ```
 
 4. **Verifique nos logs do PocketBase** que o hook carregou sem erros:
@@ -79,10 +83,10 @@ Copie e cole no corpo do PR ao fazer o deploy:
 - [ ] Serviço PocketBase reiniciado
 - [ ] Logs do PocketBase inspecionados — hook carregou sem erros de sintaxe JSVM
 - [ ] Teste manual: deletar uma tarefa e confirmar limpeza dos órfãos
-- [ ] Bloco client-side em `removerTarefa` marcado para remoção (`TODO(cascade)`) — pode ser removido em PR subsequente após confirmar o hook estável em produção
+- [x] Bloco client-side em `removerTarefa` removido (PR `refactor/removertarefa-server-only`) — hook confirmado estável em produção (smoke test 16/16 PASS)
 
 ---
 
 ## Aviso importante
 
-Até o hook estar ativo no servidor, **somente o cleanup client-side atua** — e apenas para usuários com permissão de delete nas coleções `comentarios`, `historico`, `listas` e `notificacoes`. Usuários sem essa permissão terão órfãos não limpos. O hook server-side resolve isso porque roda com privilégios de admin do PocketBase.
+**O hook server-side é o único mecanismo de limpeza de órfãos.** Não há mais cleanup client-side em `removerTarefa`. O hook roda com privilégios de admin do PocketBase, garantindo a limpeza de `comentarios`, `historico`, `notificacoes` e o desvínculo de `listas` independentemente das permissões do usuário. Se o hook não estiver ativo no servidor, os órfãos **não serão limpos** — certifique-se de que o CI copiou `pb_hooks/tarefas_cascade.pb.js` para o volume persistente antes de qualquer deploy.

@@ -1,6 +1,7 @@
 import { pb } from '@/lib/pocketbase';
 import type { Quadro, Lista, Cartao, ComentarioCartao, AnexoCartao, EtapaCard } from './types';
 import type { Cliente } from '@/clientes/types';
+import { logoUrl } from '@/clientes/clientesService';
 import { ESTEIRA_SOCIAL, statusDaEsteira, ORIENTACOES_DESIGN_TEMPLATE } from './types';
 import { carregarModeloRemoto } from './modeloPost';
 import { criarTarefa, concluirEtapa, getTarefa } from '@/tarefas/tarefasService';
@@ -43,7 +44,21 @@ export async function clonarQuadroTemplate(clienteId: string, nomeQuadro: string
     throw new Error(`quadro modelo '${TEMPLATE_NOME}' não encontrado`);
   }
 
-  const novo = await criarQuadro(clienteId, nomeQuadro, { fundo_cor: tpl.fundo_cor, fundo_img: tpl.fundo_img });
+  // Herda o logo do cliente como imagem de fundo (fundo_img) do quadro novo.
+  // Quadros antigos (Trello) já têm fundo_img preenchido; novos ficavam sem.
+  let fundoImg = tpl.fundo_img;
+  try {
+    const cli = await pb.collection('clientes').getOne(clienteId, {
+      fields: 'id,collectionId,collectionName,logo',
+    });
+    const logo = cli.logo;
+    if (typeof logo === 'string' && logo !== '') {
+      const url = logoUrl(cli as unknown as Pick<Cliente, 'id' | 'logo'>);
+      if (url) fundoImg = url;
+    }
+  } catch { /* sem logo ou cliente não encontrado — usa fundo do template */ }
+
+  const novo = await criarQuadro(clienteId, nomeQuadro, { fundo_cor: tpl.fundo_cor, fundo_img: fundoImg });
 
   const listasIds: string[] = [];
   const cartoesIds: string[] = [];

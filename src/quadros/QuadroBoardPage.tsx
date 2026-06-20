@@ -5,7 +5,7 @@ import {
   getQuadro, listListas, listCartoes, moverCartao,
   criarCartao, criarLista, atualizarLista, arquivarLista,
   listCartoesArquivados, arquivarCartao,
-  criarListaMes, clonarCardCheckup, gerarPostsMes, vincularTarefaLista, criarTarefaSocialMedia,
+  criarListaMes, getCardsTemplateMes, clonarCardTemplate, gerarPostsMes, vincularTarefaLista, criarTarefaSocialMedia,
   MESES_PT, DIAS_SEMANA_CURTO,
 } from './quadrosService';
 import { listUsuarios } from '@/usuarios/usuariosService';
@@ -366,12 +366,37 @@ export function QuadroBoardPage({ id }: { id: string }) {
       const ordem = (listas.length ? Math.max(...listas.map((l) => l.ordem ?? 0)) : 0) + 1;
       const listaCriada = await criarListaMes(id, mesSel, anoSel, ordem);
 
-      // seedTemplateMes removido — posts agora vêm de gerarPostsMes
       const diasSemana = tipoQtd === 'padrao8' ? [2, 4] : tipoQtd === 'padrao12' ? [1, 3, 5] : diasCustom;
       const quantidade = tipoQtd === 'padrao8' ? 8 : tipoQtd === 'padrao12' ? 12 : qtdCustom;
 
-      await clonarCardCheckup(id, listaCriada.id);
-      await gerarPostsMes(id, listaCriada.id, mesSel, anoSel, diasSemana, quantidade);
+      // Busca todos os cards da lista [TEMPLATES] do @ TEMPLATE, ordenados
+      const templateCards = await getCardsTemplateMes();
+      const calendIdx = templateCards.findIndex((c) =>
+        c.nome.toUpperCase().includes('CALEND'),
+      );
+
+      // Cards até (e incluindo) o CALENDÁRIO DE POSTS; os restantes vêm após os posts
+      const cardsAntes = calendIdx >= 0 ? templateCards.slice(0, calendIdx + 1) : [];
+      const cardsDepois = calendIdx >= 0 ? templateCards.slice(calendIdx + 1) : templateCards;
+
+      // 1. Clonar cards até CALENDÁRIO DE POSTS (best-effort, não aborta o mês)
+      let ordemAtual = 0;
+      for (const card of cardsAntes) {
+        const cloned = await clonarCardTemplate(id, listaCriada.id, card, ordemAtual);
+        if (cloned !== null) ordemAtual++;
+        else console.warn('[adicionarMes] falha ao clonar card template:', card.nome);
+      }
+
+      // 2. Gerar posts na sequência, capturando a quantidade real criada
+      const qtdPosts = await gerarPostsMes(id, listaCriada.id, mesSel, anoSel, diasSemana, quantidade, ordemAtual);
+      ordemAtual += qtdPosts;
+
+      // 3. Clonar cards restantes (OUTRAS ATIVIDADES, CRIATIVOS, RELATÓRIOS, …)
+      for (const card of cardsDepois) {
+        const cloned = await clonarCardTemplate(id, listaCriada.id, card, ordemAtual);
+        if (cloned !== null) ordemAtual++;
+        else console.warn('[adicionarMes] falha ao clonar card template:', card.nome);
+      }
 
       if (quadro?.cliente) {
         const tarefa = await criarTarefaSocialMedia(quadro.cliente, mesSel, anoSel);

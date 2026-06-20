@@ -25,6 +25,9 @@ export async function getQuadro(id: string): Promise<Quadro> {
 /** Nome do quadro modelo a ser clonado em todo cliente novo. */
 const TEMPLATE_NOME = '@ TEMPLATE';
 
+/** Nome da lista de templates dentro do quadro @ TEMPLATE usada para popular meses novos. */
+const LISTA_TEMPLATES_NOME = '[TEMPLATES]';
+
 /** Cria um quadro novo (opcionalmente com extras como fundo). */
 export async function criarQuadro(cliente: string, nome: string, extras?: Partial<Quadro>): Promise<Quadro> {
   return (await qcol().create({ cliente, nome, ...(extras ?? {}) })) as unknown as Quadro;
@@ -419,28 +422,55 @@ export async function seedTemplateMes(quadroId: string, listaId: string): Promis
 }
 
 /**
- * Clona o card "CALENDÁRIO DE POSTS" do @ TEMPLATE para a lista-mês recém-criada.
- * Best-effort: se o template ou o card não existirem, retorna null sem lançar.
+ * Retorna todos os cards da lista [TEMPLATES] do quadro @ TEMPLATE, ordenados por ordem.
+ * Best-effort: retorna [] se o quadro ou a lista não existirem.
  */
-export async function clonarCardCheckup(quadroId: string, listaId: string): Promise<Cartao | null> {
+export async function getCardsTemplateMes(): Promise<Cartao[]> {
   try {
     const tpl = (await qcol().getFirstListItem(`nome="${TEMPLATE_NOME}"`)) as unknown as Quadro;
-    const card = (await ccol().getFirstListItem(`quadro="${tpl.id}" && nome~"CALENDÁRIO DE POSTS"`)) as unknown as Cartao;
+    const lista = (await lcol().getFirstListItem(
+      `quadro="${tpl.id}" && nome="${LISTA_TEMPLATES_NOME}"`,
+    )) as unknown as Lista;
+    return (await ccol().getFullList({
+      filter: `lista="${lista.id}" && arquivado != true`,
+      sort: 'ordem',
+      batch: 1000,
+    })) as unknown as Cartao[];
+  } catch (err) {
+    console.warn('[getCardsTemplateMes] template ou lista não encontrado:', err);
+    return [];
+  }
+}
+
+/**
+ * Clona um único card de template para (quadroId, listaId) com a ordem dada.
+ * Copia conteúdo (nome, descricao, checklists, etiquetas, capa, anexos), reseta estado.
+ * Não inclui etapas_card — apenas posts têm esteira.
+ * Best-effort: retorna null em erro sem lançar.
+ */
+export async function clonarCardTemplate(
+  quadroId: string,
+  listaId: string,
+  template: Cartao,
+  ordem: number,
+): Promise<Cartao | null> {
+  try {
     return (await ccol().create({
       quadro: quadroId,
       lista: listaId,
-      nome: card.nome,
-      descricao: card.descricao ?? '',
-      checklists: card.checklists ?? [],
-      etiquetas: card.etiquetas ?? [],
-      capa: card.capa ?? '',
-      anexos: card.anexos ?? [],
-      ordem: 0,
+      nome: template.nome,
+      descricao: template.descricao ?? '',
+      checklists: template.checklists ?? [],
+      etiquetas: template.etiquetas ?? [],
+      capa: template.capa ?? '',
+      anexos: template.anexos ?? [],
+      ordem,
       concluido: false,
       membros: [],
       membros_ids: [],
     })) as unknown as Cartao;
-  } catch {
+  } catch (err) {
+    console.error('[clonarCardTemplate] falha ao clonar card:', template.nome, err);
     return null;
   }
 }
@@ -456,6 +486,7 @@ export async function gerarPostsMes(
   ano: number,
   diasSemana: number[],
   quantidade: number,
+  ordemInicial = 1,
 ): Promise<number> {
   const ultimoDia = new Date(ano, mes, 0).getDate();
   const datas: Date[] = [];
@@ -480,7 +511,7 @@ export async function gerarPostsMes(
         tipo: e.tipo,
         feito: false,
       })),
-      ordem: i + 1,
+      ordem: ordemInicial + i,
       descricao: ORIENTACOES_DESIGN_TEMPLATE,
       concluido: false,
       etiquetas: [],

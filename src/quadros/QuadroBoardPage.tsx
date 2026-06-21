@@ -6,6 +6,7 @@ import {
   criarCartao, criarLista, atualizarLista, arquivarLista,
   listCartoesArquivados, arquivarCartao,
   listListasArquivadas, restaurarLista,
+  removerCartao, deletarListaComCards,
   criarListaMes, getCardsTemplateMes, clonarCardTemplate, gerarPostsMes, vincularTarefaLista, criarTarefaSocialMedia,
   MESES_PT, DIAS_SEMANA_CURTO,
 } from './quadrosService';
@@ -239,6 +240,14 @@ export function QuadroBoardPage({ id }: { id: string }) {
   }
   async function restaurarListaArq(lid: string) {
     try { await restaurarLista(lid); setListasArquivadas((l) => l.filter((x) => x.id !== lid)); await recarregar(); } catch { /* */ }
+  }
+  async function deletarCardArq(cid: string, nome: string) {
+    if (!confirm(`Deletar o cartão «${nome}» permanentemente? Esta ação não pode ser desfeita.`)) return;
+    try { await removerCartao(cid); setArquivados((l) => l.filter((x) => x.id !== cid)); } catch { setErro('Não foi possível deletar o cartão.'); }
+  }
+  async function deletarListaArq(lid: string, nome: string) {
+    if (!confirm(`Deletar a lista «${nome}» permanentemente? Esta ação não pode ser desfeita. Todos os cartões da lista também serão apagados.`)) return;
+    try { await deletarListaComCards(lid); setListasArquivadas((l) => l.filter((x) => x.id !== lid)); } catch { setErro('Não foi possível deletar a lista.'); }
   }
 
   async function recarregar() {
@@ -742,6 +751,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
                       <div key={l.id} className="flex items-center gap-2 rounded-md border border-border p-2">
                         <span className="min-w-0 flex-1 truncate text-sm">{l.nome}</span>
                         <button onClick={() => restaurarListaArq(l.id)} className="shrink-0 rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">Restaurar</button>
+                        <button onClick={() => deletarListaArq(l.id, l.nome)} className="shrink-0 rounded border border-destructive/50 px-2 py-1 text-xs text-destructive hover:bg-destructive/10">Deletar</button>
                       </div>
                     ))}
                   </div>
@@ -753,6 +763,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
                       <div key={a.id} className="flex items-center gap-2 rounded-md border border-border p-2">
                         <span className="min-w-0 flex-1 truncate text-sm">{a.nome}</span>
                         <button onClick={() => restaurarCard(a.id)} className="shrink-0 rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">Restaurar</button>
+                        <button onClick={() => deletarCardArq(a.id, a.nome)} className="shrink-0 rounded border border-destructive/50 px-2 py-1 text-xs text-destructive hover:bg-destructive/10">Deletar</button>
                       </div>
                     ))}
                   </div>

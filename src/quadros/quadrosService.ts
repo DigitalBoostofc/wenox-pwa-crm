@@ -199,6 +199,17 @@ export async function removerLista(id: string): Promise<void> {
   await lcol().delete(id);
 }
 
+/** Deleta permanentemente uma lista e todos os cartões contidos nela (evita órfãos). */
+export async function deletarListaComCards(id: string): Promise<void> {
+  const cards = await ccol().getFullList({ filter: pb.filter('lista = {:lid}', { lid: id }), batch: 1000 });
+  let falhas = 0;
+  for (const c of cards) {
+    try { await ccol().delete(c.id); } catch { falhas++; }
+  }
+  if (falhas > 0) throw new Error(`Não foi possível deletar ${falhas} cartão(ões) da lista; lista preservada.`);
+  await lcol().delete(id);
+}
+
 /* ----------------------------- Anexos / capa ----------------------------- */
 
 /** URL pública de um arquivo enviado (campo file `uploads`). */

@@ -5,6 +5,7 @@ import {
   getQuadro, listListas, listCartoes, moverCartao,
   criarCartao, criarLista, atualizarLista, arquivarLista,
   listCartoesArquivados, arquivarCartao,
+  listListasArquivadas, restaurarLista,
   criarListaMes, getCardsTemplateMes, clonarCardTemplate, gerarPostsMes, vincularTarefaLista, criarTarefaSocialMedia,
   MESES_PT, DIAS_SEMANA_CURTO,
 } from './quadrosService';
@@ -213,6 +214,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const [usuariosMap, setUsuariosMap] = useState<Record<string, Usuario>>({});
   const [verArq, setVerArq] = useState(false);
   const [arquivados, setArquivados] = useState<Cartao[]>([]);
+  const [listasArquivadas, setListasArquivadas] = useState<Lista[]>([]);
   const anoAtual = new Date().getFullYear();
   const [addMesOpen, setAddMesOpen] = useState(false);
   const [mesSel, setMesSel] = useState<number>(new Date().getMonth() + 1);
@@ -225,10 +227,18 @@ export function QuadroBoardPage({ id }: { id: string }) {
 
   async function abrirArquivados() {
     setVerArq(true);
-    try { setArquivados(await listCartoesArquivados(id)); } catch { /* */ }
+    const [cardsRes, listasRes] = await Promise.allSettled([
+      listCartoesArquivados(id),
+      listListasArquivadas(id),
+    ]);
+    if (cardsRes.status === 'fulfilled') setArquivados(cardsRes.value);
+    if (listasRes.status === 'fulfilled') setListasArquivadas(listasRes.value);
   }
   async function restaurarCard(cid: string) {
     try { await arquivarCartao(cid, false); setArquivados((l) => l.filter((x) => x.id !== cid)); await recarregar(); } catch { /* */ }
+  }
+  async function restaurarListaArq(lid: string) {
+    try { await restaurarLista(lid); setListasArquivadas((l) => l.filter((x) => x.id !== lid)); await recarregar(); } catch { /* */ }
   }
 
   async function recarregar() {
@@ -720,15 +730,35 @@ export function QuadroBoardPage({ id }: { id: string }) {
       <Dialog open={verArq} onOpenChange={setVerArq}>
         <DialogContent className="max-w-md">
           <div className="flex max-h-[80vh] flex-col gap-3 overflow-y-auto p-5">
-            <DialogTitle className="flex items-center gap-2"><Archive className="size-4" /> Cartões arquivados</DialogTitle>
-            {arquivados.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Nenhum cartão arquivado.</p>
-            ) : arquivados.map((a) => (
-              <div key={a.id} className="flex items-center gap-2 rounded-md border border-border p-2">
-                <span className="min-w-0 flex-1 truncate text-sm">{a.nome}</span>
-                <button onClick={() => restaurarCard(a.id)} className="shrink-0 rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">Restaurar</button>
-              </div>
-            ))}
+            <DialogTitle className="flex items-center gap-2"><Archive className="size-4" /> Arquivados</DialogTitle>
+            {listasArquivadas.length === 0 && arquivados.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Nada arquivado.</p>
+            ) : (
+              <>
+                {listasArquivadas.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-semibold text-muted-foreground">Listas</p>
+                    {listasArquivadas.map((l) => (
+                      <div key={l.id} className="flex items-center gap-2 rounded-md border border-border p-2">
+                        <span className="min-w-0 flex-1 truncate text-sm">{l.nome}</span>
+                        <button onClick={() => restaurarListaArq(l.id)} className="shrink-0 rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">Restaurar</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {arquivados.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-semibold text-muted-foreground">Cartões</p>
+                    {arquivados.map((a) => (
+                      <div key={a.id} className="flex items-center gap-2 rounded-md border border-border p-2">
+                        <span className="min-w-0 flex-1 truncate text-sm">{a.nome}</span>
+                        <button onClick={() => restaurarCard(a.id)} className="shrink-0 rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">Restaurar</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

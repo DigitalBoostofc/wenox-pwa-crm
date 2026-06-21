@@ -52,4 +52,5 @@ skills-lock.json
 pb_data/
 pocketbase
 .backups/
+backups/
 .claude/

@@ -181,6 +181,20 @@ export async function arquivarLista(id: string): Promise<Lista> {
   return (await lcol().update(id, { fechada: true })) as unknown as Lista;
 }
 
+/** Listas arquivadas de um quadro. */
+export async function listListasArquivadas(quadroId: string): Promise<Lista[]> {
+  const res = await lcol().getFullList({
+    filter: pb.filter('quadro = {:qid} && fechada = true', { qid: quadroId }),
+    sort: 'ordem',
+  });
+  return res as unknown as Lista[];
+}
+
+/** Restaura uma lista arquivada (torna visível no quadro novamente). */
+export async function restaurarLista(id: string): Promise<Lista> {
+  return (await lcol().update(id, { fechada: false })) as unknown as Lista;
+}
+
 export async function removerLista(id: string): Promise<void> {
   await lcol().delete(id);
 }

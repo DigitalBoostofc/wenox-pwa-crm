@@ -369,8 +369,8 @@ export function QuadroBoardPage({ id }: { id: string }) {
       const diasSemana = tipoQtd === 'padrao8' ? [2, 4] : tipoQtd === 'padrao12' ? [1, 3, 5] : diasCustom;
       const quantidade = tipoQtd === 'padrao8' ? 8 : tipoQtd === 'padrao12' ? 12 : qtdCustom;
 
-      // Busca todos os cards da lista [TEMPLATES] do @ TEMPLATE, ordenados
-      const templateCards = await getCardsTemplateMes();
+      // Busca todos os cards da lista [TEMPLATES] do quadro atual (com fallback pro global @ TEMPLATE)
+      const templateCards = await getCardsTemplateMes(id);
       const calendIdx = templateCards.findIndex((c) =>
         c.nome.toUpperCase().includes('CALEND'),
       );

@@ -422,23 +422,71 @@ export async function seedTemplateMes(quadroId: string, listaId: string): Promis
 }
 
 /**
- * Retorna todos os cards da lista [TEMPLATES] do quadro @ TEMPLATE, ordenados por ordem.
- * Best-effort: retorna [] se o quadro ou a lista não existirem.
+ * Retorna os cards da lista [TEMPLATES] mais completa e válida do quadro.
+ * Válida = contém um card cujo nome inclui 'CALEND'. Entre as válidas, escolhe a com mais cards.
+ * Fallback: se o quadro não tiver nenhuma [TEMPLATES] válida, usa a do quadro global @ TEMPLATE.
+ * Best-effort: retorna [] em erro sem lançar.
  */
-export async function getCardsTemplateMes(): Promise<Cartao[]> {
-  try {
-    const tpl = (await qcol().getFirstListItem(`nome="${TEMPLATE_NOME}"`)) as unknown as Quadro;
-    const lista = (await lcol().getFirstListItem(
-      `quadro="${tpl.id}" && nome="${LISTA_TEMPLATES_NOME}"`,
+export async function getCardsTemplateMes(quadroId: string): Promise<Cartao[]> {
+  async function globalFallback(): Promise<Cartao[]> {
+    const tpl = (await qcol().getFirstListItem(
+      pb.filter('nome = {:tpl}', { tpl: TEMPLATE_NOME }),
+    )) as unknown as Quadro;
+    const listaGlobal = (await lcol().getFirstListItem(
+      pb.filter('quadro = {:qid} && nome = {:lst} && fechada != true', { qid: tpl.id, lst: LISTA_TEMPLATES_NOME }),
     )) as unknown as Lista;
     return (await ccol().getFullList({
-      filter: `lista="${lista.id}" && arquivado != true`,
+      filter: pb.filter('lista = {:lid} && arquivado != true', { lid: listaGlobal.id }),
       sort: 'ordem',
       batch: 1000,
     })) as unknown as Cartao[];
+  }
+
+  try {
+    // 1. Busca TODAS as listas [TEMPLATES] do quadro (pode ser 0, 1 ou várias)
+    const listas = (await lcol().getFullList({
+      filter: pb.filter('quadro = {:qid} && nome = {:tpl} && fechada != true', { qid: quadroId, tpl: LISTA_TEMPLATES_NOME }),
+    })) as unknown as Lista[];
+
+    // 2. Para cada lista, busca seus cards não-arquivados ordenados por ordem
+    const candidatas: { cards: Cartao[] }[] = [];
+    for (const lista of listas) {
+      try {
+        const cards = (await ccol().getFullList({
+          filter: pb.filter('lista = {:lid} && arquivado != true', { lid: lista.id }),
+          sort: 'ordem',
+          batch: 1000,
+        })) as unknown as Cartao[];
+        candidatas.push({ cards });
+      } catch (err) {
+        console.warn('[getCardsTemplateMes] erro ao buscar cards da lista:', lista.id, err);
+      }
+    }
+
+    // 3. Filtra listas válidas (têm CALENDÁRIO), escolhe a mais completa
+    const validas = candidatas.filter(({ cards }) =>
+      cards.some((c) => c.nome.toUpperCase().includes('CALEND')),
+    );
+    if (validas.length > 0) {
+      validas.sort((a, b) => b.cards.length - a.cards.length);
+      return validas[0].cards;
+    }
+
+    // 4. Nenhuma válida no quadro → fallback global
+    console.warn('[getCardsTemplateMes] nenhuma [TEMPLATES] válida no quadro, usando global');
+    try {
+      return await globalFallback();
+    } catch (err) {
+      console.warn('[getCardsTemplateMes] fallback global falhou:', err);
+      return [];
+    }
   } catch (err) {
-    console.warn('[getCardsTemplateMes] template ou lista não encontrado:', err);
-    return [];
+    console.warn('[getCardsTemplateMes] erro ao buscar listas [TEMPLATES]:', err);
+    try {
+      return await globalFallback();
+    } catch {
+      return [];
+    }
   }
 }
 

@@ -549,6 +549,21 @@ export async function clonarCardTemplate(
 }
 
 /**
+ * Retorna o id do responsável pela etapa com base no texto da etapa e nos ids fornecidos.
+ * Layout → Design; Copy/Revisão interna/Confirmação de agendamento → Social Media.
+ * Aprovação do cliente (tipo aprovacao_cliente) não recebe responsável interno — retorna undefined.
+ */
+export function responsavelEtapa(
+  texto: string,
+  ids: { designId?: string; socialId?: string },
+): string | undefined {
+  const t = texto.trim().toLowerCase();
+  if (t === 'layout') return ids.designId;
+  if (t === 'copy' || t === 'revisão interna' || t === 'confirmação de agendamento') return ids.socialId;
+  return undefined;
+}
+
+/**
  * Gera cards de post para a lista-mês, um por data cujo dia da semana está em diasSemana,
  * limitando ao total de `quantidade`. Retorna a quantidade efetivamente criada.
  */
@@ -560,6 +575,7 @@ export async function gerarPostsMes(
   diasSemana: number[],
   quantidade: number,
   ordemInicial = 1,
+  responsaveis?: { designId?: string; socialId?: string },
 ): Promise<number> {
   const ultimoDia = new Date(ano, mes, 0).getDate();
   const datas: Date[] = [];
@@ -578,12 +594,16 @@ export async function gerarPostsMes(
       nome: `${dd} ${DIAS_SEMANA_CURTO[dt.getDay()]}: `,
       data_post: `${ano}-${mm}-${dd} 12:00:00`,
       status_post: 'em_producao',
-      etapas_card: ESTEIRA_SOCIAL.map((e) => ({
-        id: smUuid(),
-        texto: e.texto,
-        tipo: e.tipo,
-        feito: false,
-      })),
+      etapas_card: ESTEIRA_SOCIAL.map((e) => {
+        const resp = responsavelEtapa(e.texto, responsaveis ?? {});
+        return {
+          id: smUuid(),
+          texto: e.texto,
+          tipo: e.tipo,
+          feito: false,
+          ...(resp ? { responsavel: resp } : {}),
+        };
+      }),
       ordem: ordemInicial + i,
       descricao: ORIENTACOES_DESIGN_TEMPLATE,
       concluido: false,
@@ -606,13 +626,19 @@ export async function criarTarefaSocialMedia(
   clienteId: string,
   mes: number,
   ano: number,
+  responsaveis?: { designId?: string; socialId?: string },
 ): Promise<import('@/tarefas/types').Tarefa> {
-  const etapas: EtapaTarefa[] = ESTEIRA_SOCIAL.map((e) => ({
-    id: smUuid(),
-    texto: e.texto,
-    tipo: e.tipo,
-    feito: false,
-  }));
+  const etapas: EtapaTarefa[] = ESTEIRA_SOCIAL.map((e) => {
+    const resp = responsavelEtapa(e.texto, responsaveis ?? {});
+    return {
+      id: smUuid(),
+      texto: e.texto,
+      tipo: e.tipo,
+      feito: false,
+      ...(resp ? { responsavel: resp } : {}),
+    };
+  });
+  const responsaveisIds = [...new Set([responsaveis?.designId, responsaveis?.socialId].filter(Boolean))] as string[];
   return criarTarefa({
     nome: `Social Media — ${MESES_PT[mes - 1]}/${ano}`,
     cliente: clienteId,
@@ -620,7 +646,7 @@ export async function criarTarefaSocialMedia(
     status: statusInicial(),
     etapas,
     projeto: '',
-    responsaveis: [],
+    responsaveis: responsaveisIds,
     contato: '',
     etiquetas: [],
     ordem: 0,

@@ -221,6 +221,8 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const [mesSel, setMesSel] = useState<number>(new Date().getMonth() + 1);
   const [anoSel, setAnoSel] = useState<number>(anoAtual);
   const [criandoMes, setCriandoMes] = useState(false);
+  const [designSel, setDesignSel] = useState('');
+  const [socialSel, setSocialSel] = useState('');
   const [tipoQtd, setTipoQtd] = useState<'padrao8' | 'padrao12' | 'personalizado'>('padrao8');
   const [qtdCustom, setQtdCustom] = useState(8);
   const [diasCustom, setDiasCustom] = useState<number[]>([1, 3, 5]);
@@ -285,6 +287,19 @@ export function QuadroBoardPage({ id }: { id: string }) {
     for (const c of cartoes) for (const m of c.membros ?? []) if (m) s.add(m);
     return [...s].sort();
   }, [cartoes]);
+
+  const membrosDesign = useMemo<Usuario[]>(
+    () => Object.values(usuariosMap).filter(
+      (u) => u.status === 'Ativo' && u.role !== 'Cliente' && (u.area ?? '').trim().toLowerCase() === 'design',
+    ),
+    [usuariosMap],
+  );
+  const membrosSocial = useMemo<Usuario[]>(
+    () => Object.values(usuariosMap).filter(
+      (u) => u.status === 'Ativo' && u.role !== 'Cliente' && (u.area ?? '').trim().toLowerCase() === 'social media',
+    ),
+    [usuariosMap],
+  );
 
   function passaFiltro(c: Cartao): boolean {
     if (busca) { const t = busca.toLowerCase(); if (!((c.nome ?? '').toLowerCase().includes(t) || (c.descricao ?? '').toLowerCase().includes(t))) return false; }
@@ -406,8 +421,10 @@ export function QuadroBoardPage({ id }: { id: string }) {
         else console.warn('[adicionarMes] falha ao clonar card template:', card.nome);
       }
 
+      const responsaveisIds = { designId: designSel || undefined, socialId: socialSel || undefined };
+
       // 2. Gerar posts na sequência, capturando a quantidade real criada
-      const qtdPosts = await gerarPostsMes(id, listaCriada.id, mesSel, anoSel, diasSemana, quantidade, ordemAtual);
+      const qtdPosts = await gerarPostsMes(id, listaCriada.id, mesSel, anoSel, diasSemana, quantidade, ordemAtual, responsaveisIds);
       ordemAtual += qtdPosts;
 
       // 3. Clonar cards restantes (OUTRAS ATIVIDADES, CRIATIVOS, RELATÓRIOS, …)
@@ -418,9 +435,11 @@ export function QuadroBoardPage({ id }: { id: string }) {
       }
 
       if (quadro?.cliente) {
-        const tarefa = await criarTarefaSocialMedia(quadro.cliente, mesSel, anoSel);
+        const tarefa = await criarTarefaSocialMedia(quadro.cliente, mesSel, anoSel, responsaveisIds);
         await vincularTarefaLista(listaCriada.id, tarefa.id);
       }
+      setDesignSel('');
+      setSocialSel('');
       setAddMesOpen(false);
       await recarregar();
     } catch {
@@ -617,7 +636,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
         </div>
 
         {/* Dialog: adicionar mês */}
-        <Dialog open={addMesOpen} onOpenChange={setAddMesOpen}>
+        <Dialog open={addMesOpen} onOpenChange={(open) => { setAddMesOpen(open); if (!open) { setDesignSel(''); setSocialSel(''); } }}>
           <DialogContent className="max-w-sm">
             <div className="flex flex-col gap-4 p-5">
               <DialogTitle className="flex items-center gap-2">
@@ -710,6 +729,44 @@ export function QuadroBoardPage({ id }: { id: string }) {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Responsáveis por função */}
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="sel-design" className="text-xs text-muted-foreground">Design</label>
+                  <select
+                    id="sel-design"
+                    value={designSel}
+                    onChange={(e) => setDesignSel(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <option value="">—</option>
+                    {membrosDesign.map((u) => (
+                      <option key={u.id} value={u.id}>{u.nome}</option>
+                    ))}
+                  </select>
+                  {membrosDesign.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">Nenhum membro com função Design</p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="sel-social" className="text-xs text-muted-foreground">Social Media</label>
+                  <select
+                    id="sel-social"
+                    value={socialSel}
+                    onChange={(e) => setSocialSel(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <option value="">—</option>
+                    {membrosSocial.map((u) => (
+                      <option key={u.id} value={u.id}>{u.nome}</option>
+                    ))}
+                  </select>
+                  {membrosSocial.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">Nenhum membro com função Social Media</p>
+                  )}
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 border-t border-border pt-3">

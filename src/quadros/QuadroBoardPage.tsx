@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal, Clock, Search, SlidersHorizontal, CalendarDays, ChevronsRightLeft, ChevronsLeftRight } from 'lucide-react';
+import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal, Clock, Search, SlidersHorizontal, CalendarDays, ChevronsRightLeft, ChevronsLeftRight, RefreshCw } from 'lucide-react';
 import {
   getQuadro, listListas, listCartoes, moverCartao,
   criarCartao, criarLista, atualizarLista, arquivarLista,
@@ -8,6 +8,7 @@ import {
   listListasArquivadas, restaurarLista,
   removerCartao, deletarListaComCards,
   criarListaMes, getCardsTemplateMes, clonarCardTemplate, gerarPostsMes, vincularTarefaLista, criarTarefaSocialMedia,
+  getRecorrenciaMes, salvarRecorrenciaMes, desativarRecorrenciaMes,
   MESES_PT, DIAS_SEMANA_CURTO,
 } from './quadrosService';
 import { listUsuarios } from '@/usuarios/usuariosService';
@@ -19,7 +20,7 @@ import { Archive } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
+import type { Quadro, Lista, Cartao, EtiquetaCartao, RecorrenciaMes } from './types';
 import { capaEhCor, capaCorClara, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, statusDaEsteira, thumbUrl } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
@@ -226,6 +227,9 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const [tipoQtd, setTipoQtd] = useState<'padrao8' | 'padrao12' | 'personalizado'>('padrao8');
   const [qtdCustom, setQtdCustom] = useState(8);
   const [diasCustom, setDiasCustom] = useState<number[]>([1, 3, 5]);
+  const [recorrenciaMensal, setRecorrenciaMensal] = useState(false);
+  const [recorrencia, setRecorrencia] = useState<RecorrenciaMes | null>(null);
+  const [desativandoRecorrencia, setDesativandoRecorrencia] = useState(false);
   useEffect(() => { listUsuarios().then((us) => { const m: Record<string, Usuario> = {}; for (const u of us) m[u.id] = u; setUsuariosMap(m); }).catch(() => { /* */ }); }, []);
 
   async function abrirArquivados() {
@@ -258,11 +262,14 @@ export function QuadroBoardPage({ id }: { id: string }) {
   }
 
   useEffect(() => {
+    let vivo = true;
     setCarregando(true);
     Promise.all([getQuadro(id), listListas(id), listCartoes(id)])
       .then(([q, ls, cs]) => { setQuadro(q); setListas(ls); setCartoes(cs); setErro(''); })
       .catch(() => setErro('Não foi possível carregar o quadro.'))
       .finally(() => setCarregando(false));
+    getRecorrenciaMes(id).then((r) => { if (vivo) setRecorrencia(r); }).catch(() => {});
+    return () => { vivo = false; };
   }, [id]);
 
   const porLista = useMemo(() => {
@@ -435,18 +442,41 @@ export function QuadroBoardPage({ id }: { id: string }) {
       }
 
       if (quadro?.cliente) {
-        const tarefa = await criarTarefaSocialMedia(quadro.cliente, mesSel, anoSel, responsaveisIds);
+        const tarefa = await criarTarefaSocialMedia(
+          quadro.cliente,
+          mesSel,
+          anoSel,
+          responsaveisIds,
+          quadro.expand?.cliente?.nome_fantasia || quadro.expand?.cliente?.nome || '',
+        );
         await vincularTarefaLista(listaCriada.id, tarefa.id);
       }
+      if (recorrenciaMensal) {
+        try {
+          const rec = await salvarRecorrenciaMes({ quadro: id, ativa: true, padrao_posts: tipoQtd, qtd_custom: qtdCustom, dias_custom: diasCustom, design_id: designSel || undefined, social_id: socialSel || undefined, ultimo_mes: mesSel, ultimo_ano: anoSel });
+          setRecorrencia(rec);
+        } catch {
+          setErro('Mês criado, mas não foi possível salvar a recorrência.');
+        }
+      }
+      setRecorrenciaMensal(false);
       setDesignSel('');
       setSocialSel('');
       setAddMesOpen(false);
-      await recarregar();
     } catch {
       setErro('Não foi possível criar o mês.');
     } finally {
       setCriandoMes(false);
     }
+    await recarregar().catch(() => {});
+  }
+
+  async function desativarRecorrencia() {
+    if (!confirm('Desativar a recorrência mensal deste quadro? A lista do próximo mês não será criada automaticamente.')) return;
+    setDesativandoRecorrencia(true);
+    try { await desativarRecorrenciaMes(id); setRecorrencia((r) => r ? { ...r, ativa: false } : r); }
+    catch { setErro('Não foi possível desativar a recorrência.'); }
+    finally { setDesativandoRecorrencia(false); }
   }
 
   if (carregando) return <Skeleton className="h-[70vh] w-full rounded-xl" />;
@@ -501,6 +531,16 @@ export function QuadroBoardPage({ id }: { id: string }) {
           )}
           {erro && <span className="text-xs text-destructive">{erro}</span>}
           <div className="ml-auto flex items-center gap-1.5">
+            {recorrencia?.ativa && (
+              <div className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-primary/80" role="status" aria-label="Recorrência mensal ativa neste quadro">
+                <RefreshCw className="size-3.5 shrink-0" aria-hidden="true" />
+                <span>Recorrência mensal ativa</span>
+                <button type="button" aria-label="Desativar recorrência mensal" disabled={desativandoRecorrencia} onClick={desativarRecorrencia}
+                  className="ml-0.5 rounded p-0.5 text-primary/50 transition-colors hover:bg-primary/10 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40">
+                  <X className="size-3" aria-hidden="true" />
+                </button>
+              </div>
+            )}
             {listas.some(l => l.tipo === 'mes') && (
               <Link
                 to={`/quadros/${id}/calendario`}
@@ -636,7 +676,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
         </div>
 
         {/* Dialog: adicionar mês */}
-        <Dialog open={addMesOpen} onOpenChange={(open) => { setAddMesOpen(open); if (!open) { setDesignSel(''); setSocialSel(''); } }}>
+        <Dialog open={addMesOpen} onOpenChange={(open) => { setAddMesOpen(open); if (!open) { setDesignSel(''); setSocialSel(''); setRecorrenciaMensal(false); } }}>
           <DialogContent className="max-w-sm">
             <div className="flex flex-col gap-4 p-5">
               <DialogTitle className="flex items-center gap-2">
@@ -767,6 +807,17 @@ export function QuadroBoardPage({ id }: { id: string }) {
                     <p className="text-[11px] text-muted-foreground">Nenhum membro com função Social Media</p>
                   )}
                 </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="toggle-recorrencia" className="cursor-pointer select-none text-sm font-medium leading-none">Recorrência mensal</label>
+                  <button id="toggle-recorrencia" type="button" role="switch" aria-checked={recorrenciaMensal} onClick={() => setRecorrenciaMensal((v) => !v)}
+                    className={cn('relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60', recorrenciaMensal ? 'bg-primary' : 'bg-input')}>
+                    <span className={cn('pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform', recorrenciaMensal ? 'translate-x-4' : 'translate-x-0')} />
+                  </button>
+                </div>
+                {recorrenciaMensal && (<p className="text-[11px] text-muted-foreground">Todo dia 01, às 00:01, a lista do próximo mês será criada automaticamente com os mesmos responsáveis.</p>)}
               </div>
 
               <div className="flex justify-end gap-2 border-t border-border pt-3">

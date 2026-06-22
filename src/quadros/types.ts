@@ -145,6 +145,7 @@ export interface RecorrenciaMes {
   dias_custom?: number[];
   design_id?: string;
   social_id?: string;
+  projeto_id?: string;
   ultimo_mes: number;
   ultimo_ano: number;
   created?: string;

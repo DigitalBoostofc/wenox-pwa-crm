@@ -13,6 +13,8 @@ import {
 } from './quadrosService';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
+import { listProjetos } from '@/projetos/projetosService';
+import type { Projeto } from '@/projetos/types';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { HeaderSlot } from '@/components/layout/HeaderSlot';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -230,6 +232,8 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const [recorrenciaMensal, setRecorrenciaMensal] = useState(false);
   const [recorrencia, setRecorrencia] = useState<RecorrenciaMes | null>(null);
   const [desativandoRecorrencia, setDesativandoRecorrencia] = useState(false);
+  const [projetoSel, setProjetoSel] = useState('');
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
   useEffect(() => { listUsuarios().then((us) => { const m: Record<string, Usuario> = {}; for (const u of us) m[u.id] = u; setUsuariosMap(m); }).catch(() => { /* */ }); }, []);
 
   async function abrirArquivados() {
@@ -271,6 +275,11 @@ export function QuadroBoardPage({ id }: { id: string }) {
     getRecorrenciaMes(id).then((r) => { if (vivo) setRecorrencia(r); }).catch(() => {});
     return () => { vivo = false; };
   }, [id]);
+
+  useEffect(() => {
+    if (!quadro?.cliente) { setProjetos([]); return; }
+    listProjetos({ clienteId: quadro.cliente }).then(setProjetos).catch(() => setProjetos([]));
+  }, [quadro?.cliente]);
 
   const porLista = useMemo(() => {
     const m = new Map<string, Cartao[]>();
@@ -448,12 +457,13 @@ export function QuadroBoardPage({ id }: { id: string }) {
           anoSel,
           responsaveisIds,
           quadro.expand?.cliente?.nome_fantasia || quadro.expand?.cliente?.nome || '',
+          projetoSel || undefined,
         );
         await vincularTarefaLista(listaCriada.id, tarefa.id);
       }
       if (recorrenciaMensal) {
         try {
-          const rec = await salvarRecorrenciaMes({ quadro: id, ativa: true, padrao_posts: tipoQtd, qtd_custom: qtdCustom, dias_custom: diasCustom, design_id: designSel || undefined, social_id: socialSel || undefined, ultimo_mes: mesSel, ultimo_ano: anoSel });
+          const rec = await salvarRecorrenciaMes({ quadro: id, ativa: true, padrao_posts: tipoQtd, qtd_custom: qtdCustom, dias_custom: diasCustom, design_id: designSel || undefined, social_id: socialSel || undefined, projeto_id: projetoSel || undefined, ultimo_mes: mesSel, ultimo_ano: anoSel });
           setRecorrencia(rec);
         } catch {
           setErro('Mês criado, mas não foi possível salvar a recorrência.');
@@ -462,6 +472,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
       setRecorrenciaMensal(false);
       setDesignSel('');
       setSocialSel('');
+      setProjetoSel('');
       setAddMesOpen(false);
     } catch {
       setErro('Não foi possível criar o mês.');
@@ -676,7 +687,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
         </div>
 
         {/* Dialog: adicionar mês */}
-        <Dialog open={addMesOpen} onOpenChange={(open) => { setAddMesOpen(open); if (!open) { setDesignSel(''); setSocialSel(''); setRecorrenciaMensal(false); } }}>
+        <Dialog open={addMesOpen} onOpenChange={(open) => { setAddMesOpen(open); if (!open) { setDesignSel(''); setSocialSel(''); setRecorrenciaMensal(false); setProjetoSel(''); } }}>
           <DialogContent className="max-w-sm">
             <div className="flex flex-col gap-4 p-5">
               <DialogTitle className="flex items-center gap-2">
@@ -809,6 +820,30 @@ export function QuadroBoardPage({ id }: { id: string }) {
                 </div>
               </div>
 
+              {/* Projeto (obrigatório) */}
+              <div className="flex flex-col gap-1">
+                <label htmlFor="sel-projeto" className="text-xs text-muted-foreground">
+                  Projeto <span className="text-destructive">*</span>
+                </label>
+                {projetos.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Este cliente não tem projetos cadastrados — cadastre um projeto pra criar o mês.
+                  </p>
+                ) : (
+                  <select
+                    id="sel-projeto"
+                    value={projetoSel}
+                    onChange={(e) => setProjetoSel(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <option value="">—</option>
+                    {projetos.map((p) => (
+                      <option key={p.id} value={p.id}>{p.nome}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-3">
                   <label htmlFor="toggle-recorrencia" className="cursor-pointer select-none text-sm font-medium leading-none">Recorrência mensal</label>
@@ -824,7 +859,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
                 <Button variant="outline" size="sm" onClick={() => setAddMesOpen(false)} disabled={criandoMes}>
                   Cancelar
                 </Button>
-                <Button size="sm" onClick={adicionarMes} disabled={criandoMes || (tipoQtd === 'personalizado' && diasCustom.length === 0)}>
+                <Button size="sm" onClick={adicionarMes} disabled={criandoMes || !projetoSel || projetos.length === 0 || (tipoQtd === 'personalizado' && diasCustom.length === 0)}>
                   {criandoMes ? 'Criando…' : 'Confirmar'}
                 </Button>
               </div>

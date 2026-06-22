@@ -59,6 +59,7 @@ const {
   gerarPostsMesMock,
   vincularTarefaListaMock,
   criarTarefaSocialMediaMock,
+  listProjetosMock,
 } = vi.hoisted(() => ({
   getQuadroMock: vi.fn(),
   listListasMock: vi.fn(),
@@ -72,6 +73,7 @@ const {
   gerarPostsMesMock: vi.fn(),
   vincularTarefaListaMock: vi.fn(),
   criarTarefaSocialMediaMock: vi.fn(),
+  listProjetosMock: vi.fn(),
 }));
 
 vi.mock('@/quadros/quadrosService', () => ({
@@ -111,6 +113,10 @@ vi.mock('@/usuarios/usuariosService', () => ({
   listUsuarios: listUsuariosMock,
 }));
 
+vi.mock('@/projetos/projetosService', () => ({
+  listProjetos: listProjetosMock,
+}));
+
 /* ---- import do componente (após todos os vi.mock) ---- */
 import { QuadroBoardPage } from '@/quadros/QuadroBoardPage';
 
@@ -124,6 +130,7 @@ function setupBase() {
   listCartoesMock.mockResolvedValue([]);
   getRecorrenciaMesMock.mockResolvedValue(null);
   listUsuariosMock.mockResolvedValue([]);
+  listProjetosMock.mockResolvedValue([{ id: 'p1', nome: 'Projeto Teste', cliente: 'c1' }]);
 }
 
 /* ======================================================== */
@@ -247,6 +254,10 @@ describe('QuadroBoardPage — toggle recorrência: reset após Confirmar', () =>
     const toggle = await screen.findByRole('switch');
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+    // seleciona projeto (obrigatório para habilitar Confirmar)
+    const selectProjeto = await screen.findByLabelText(/projeto/i);
+    fireEvent.change(selectProjeto, { target: { value: 'p1' } });
 
     fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
 

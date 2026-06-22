@@ -26,6 +26,7 @@ export interface Tarefa {
   collectionName?: string;
   nome: string;
   descricao?: string;
+  tipo?: string; // classificação explícita (ex.: 'Social Media'); substitui projeto.tipo no filtro de área
   projeto?: string; // id do projeto (vazio = tarefa interna avulsa)
   cliente?: string; // id do cliente (derivado do projeto)
   lado?: LadoTarefa;

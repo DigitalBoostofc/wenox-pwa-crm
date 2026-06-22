@@ -621,12 +621,15 @@ export async function vincularTarefaLista(listaId: string, tarefaId: string): Pr
   return (await lcol().update(listaId, { tarefa: tarefaId })) as unknown as Lista;
 }
 
-/** Cria a tarefa "Social Media" para o mês/ano com a ESTEIRA_SOCIAL (5 etapas). */
+/** Cria a tarefa "Social Media" para o mês/ano com a ESTEIRA_SOCIAL (5 etapas).
+ *  Responsável da tarefa = somente Social (Design só aparece nas etapas dos posts).
+ *  Nome: "MÊS - CLIENTE - SOCIAL MEDIA" quando nomeCliente fornecido. */
 export async function criarTarefaSocialMedia(
   clienteId: string,
   mes: number,
   ano: number,
   responsaveis?: { designId?: string; socialId?: string },
+  nomeCliente?: string,
 ): Promise<import('@/tarefas/types').Tarefa> {
   const etapas: EtapaTarefa[] = ESTEIRA_SOCIAL.map((e) => {
     const resp = responsavelEtapa(e.texto, responsaveis ?? {});
@@ -638,9 +641,12 @@ export async function criarTarefaSocialMedia(
       ...(resp ? { responsavel: resp } : {}),
     };
   });
-  const responsaveisIds = [...new Set([responsaveis?.designId, responsaveis?.socialId].filter(Boolean))] as string[];
+  const responsaveisIds = [...new Set([responsaveis?.socialId].filter(Boolean))] as string[];
+  const nomeTarefa = nomeCliente?.trim()
+    ? `${MESES_PT[mes - 1].toUpperCase()} - ${nomeCliente.trim().toUpperCase()} - SOCIAL MEDIA`
+    : `Social Media — ${MESES_PT[mes - 1]}/${ano}`;
   return criarTarefa({
-    nome: `Social Media — ${MESES_PT[mes - 1]}/${ano}`,
+    nome: nomeTarefa,
     cliente: clienteId,
     lado: 'wenox',
     status: statusInicial(),

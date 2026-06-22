@@ -435,7 +435,13 @@ export function QuadroBoardPage({ id }: { id: string }) {
       }
 
       if (quadro?.cliente) {
-        const tarefa = await criarTarefaSocialMedia(quadro.cliente, mesSel, anoSel, responsaveisIds);
+        const tarefa = await criarTarefaSocialMedia(
+          quadro.cliente,
+          mesSel,
+          anoSel,
+          responsaveisIds,
+          quadro.expand?.cliente?.nome_fantasia || quadro.expand?.cliente?.nome || '',
+        );
         await vincularTarefaLista(listaCriada.id, tarefa.id);
       }
       setDesignSel('');

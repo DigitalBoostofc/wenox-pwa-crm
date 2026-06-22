@@ -8,7 +8,7 @@ import {
   listListasArquivadas, restaurarLista,
   removerCartao, deletarListaComCards,
   criarListaMes, getCardsTemplateMes, clonarCardTemplate, gerarPostsMes, vincularTarefaLista, criarTarefaSocialMedia,
-  getRecorrenciaMes, salvarRecorrenciaMes, desativarRecorrenciaMes,
+  getRecorrenciaMes, salvarRecorrenciaMes, desativarRecorrenciaMes, editarMesLista,
   MESES_PT, DIAS_SEMANA_CURTO,
 } from './quadrosService';
 import { listUsuarios } from '@/usuarios/usuariosService';
@@ -234,6 +234,15 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const [desativandoRecorrencia, setDesativandoRecorrencia] = useState(false);
   const [projetoSel, setProjetoSel] = useState('');
   const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [editMesOpen, setEditMesOpen] = useState(false);
+  const [editMesLista, setEditMesLista] = useState<Lista | null>(null);
+  const [editandoMes, setEditandoMes] = useState(false);
+  const [editTipoQtd, setEditTipoQtd] = useState<'padrao8' | 'padrao12' | 'personalizado'>('padrao8');
+  const [editQtdCustom, setEditQtdCustom] = useState(8);
+  const [editDiasCustom, setEditDiasCustom] = useState<number[]>([1, 3, 5]);
+  const [editDesignSel, setEditDesignSel] = useState('');
+  const [editSocialSel, setEditSocialSel] = useState('');
+  const [editProjetoSel, setEditProjetoSel] = useState('');
   useEffect(() => { listUsuarios().then((us) => { const m: Record<string, Usuario> = {}; for (const u of us) m[u.id] = u; setUsuariosMap(m); }).catch(() => { /* */ }); }, []);
 
   async function abrirArquivados() {
@@ -482,6 +491,47 @@ export function QuadroBoardPage({ id }: { id: string }) {
     await recarregar().catch(() => {});
   }
 
+  function abrirEditarMes(l: Lista) {
+    setEditMesLista(l);
+    setEditTipoQtd((recorrencia?.padrao_posts as 'padrao8' | 'padrao12' | 'personalizado') || 'padrao8');
+    setEditQtdCustom(recorrencia?.qtd_custom ?? 8);
+    setEditDiasCustom(recorrencia?.dias_custom ?? [1, 3, 5]);
+    setEditDesignSel(recorrencia?.design_id ?? '');
+    setEditSocialSel(recorrencia?.social_id ?? '');
+    setEditProjetoSel(recorrencia?.projeto_id ?? '');
+    setEditMesOpen(true);
+  }
+
+  async function salvarEdicaoMes() {
+    if (!editMesLista) return;
+    const postsDoMes = cartoes.filter((c) => c.lista === editMesLista.id && !!c.status_post);
+    const temAgendadoOuPostado = postsDoMes.some((c) => c.status_post === 'agendado' || c.status_post === 'postado');
+    let aviso = `Isso vai SUBSTITUIR os ${postsDoMes.length} posts atuais desta lista.`;
+    if (temAgendadoOuPostado) aviso += '\n\nATENÇÃO: há posts agendados ou já postados que serão removidos!';
+    aviso += '\n\nDeseja continuar?';
+    if (!confirm(aviso)) return;
+    setEditandoMes(true);
+    setErro('');
+    try {
+      await editarMesLista(
+        id,
+        editMesLista,
+        editTipoQtd,
+        editQtdCustom,
+        editDiasCustom,
+        editDesignSel || undefined,
+        editSocialSel || undefined,
+        editProjetoSel || undefined,
+      );
+      setEditMesOpen(false);
+      await recarregar().catch(() => {});
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Não foi possível editar o mês.');
+    } finally {
+      setEditandoMes(false);
+    }
+  }
+
   async function desativarRecorrencia() {
     if (!confirm('Desativar a recorrência mensal deste quadro? A lista do próximo mês não será criada automaticamente.')) return;
     setDesativandoRecorrencia(true);
@@ -622,6 +672,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => toggleColapsar(l.id)}>Recolher lista</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setRenomeando(l.id)}>Renomear</DropdownMenuItem>
+                      {l.tipo === 'mes' && <DropdownMenuItem onClick={() => abrirEditarMes(l)}>Editar</DropdownMenuItem>}
                       <DropdownMenuItem onClick={() => arquivar(l.id)} className="text-destructive">Arquivar lista</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -861,6 +912,164 @@ export function QuadroBoardPage({ id }: { id: string }) {
                 </Button>
                 <Button size="sm" onClick={adicionarMes} disabled={criandoMes || !projetoSel || projetos.length === 0 || (tipoQtd === 'personalizado' && diasCustom.length === 0)}>
                   {criandoMes ? 'Criando…' : 'Confirmar'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog: editar mês */}
+        <Dialog open={editMesOpen} onOpenChange={(open) => {
+          setEditMesOpen(open);
+          if (!open) {
+            setEditMesLista(null);
+            setEditTipoQtd('padrao8');
+            setEditQtdCustom(8);
+            setEditDiasCustom([1, 3, 5]);
+            setEditDesignSel('');
+            setEditSocialSel('');
+            setEditProjetoSel('');
+          }
+        }}>
+          <DialogContent className="max-w-sm">
+            <div className="flex flex-col gap-4 p-5">
+              <DialogTitle className="flex items-center gap-2">
+                <CalendarDays className="size-4 text-primary" /> Editar mês
+              </DialogTitle>
+
+              {/* Quantidade de posts */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-muted-foreground">Posts do mês</label>
+                {([
+                  { id: 'padrao8', label: '8 posts', desc: 'Terça e Quinta' },
+                  { id: 'padrao12', label: '12 posts', desc: 'Seg, Qua e Sex' },
+                  { id: 'personalizado', label: 'Personalizado', desc: 'Escolha os dias' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setEditTipoQtd(opt.id)}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                      editTipoQtd === opt.id ? 'border-primary bg-primary/5 text-foreground' : 'border-border hover:bg-secondary',
+                    )}
+                  >
+                    <span className={cn('size-3.5 shrink-0 rounded-full border-2 transition-colors', editTipoQtd === opt.id ? 'border-primary bg-primary' : 'border-muted-foreground')} />
+                    <span className="font-medium">{opt.label}</span>
+                    <span className="text-xs text-muted-foreground">{opt.desc}</span>
+                  </button>
+                ))}
+
+                {/* Painel personalizado */}
+                {editTipoQtd === 'personalizado' && (
+                  <div className="mt-1 flex flex-col gap-3 rounded-md border border-border bg-secondary/30 p-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-muted-foreground">Quantidade</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={editQtdCustom}
+                        onChange={(e) => setEditQtdCustom(Math.max(1, Number(e.target.value)))}
+                        className="h-8 w-24 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs text-muted-foreground">Dias da semana</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {DIAS_SEMANA_CURTO.map((dia, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setEditDiasCustom((prev) =>
+                              prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort((a, b) => a - b),
+                            )}
+                            className={cn(
+                              'rounded border px-2.5 py-1 text-xs font-medium transition-colors',
+                              editDiasCustom.includes(idx) ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-secondary',
+                            )}
+                          >
+                            {dia}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Responsáveis por função */}
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="edit-sel-design" className="text-xs text-muted-foreground">Design</label>
+                  <select
+                    id="edit-sel-design"
+                    value={editDesignSel}
+                    onChange={(e) => setEditDesignSel(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <option value="">—</option>
+                    {membrosDesign.map((u) => (
+                      <option key={u.id} value={u.id}>{u.nome}</option>
+                    ))}
+                  </select>
+                  {membrosDesign.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">Nenhum membro com função Design</p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="edit-sel-social" className="text-xs text-muted-foreground">Social Media</label>
+                  <select
+                    id="edit-sel-social"
+                    value={editSocialSel}
+                    onChange={(e) => setEditSocialSel(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <option value="">—</option>
+                    {membrosSocial.map((u) => (
+                      <option key={u.id} value={u.id}>{u.nome}</option>
+                    ))}
+                  </select>
+                  {membrosSocial.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">Nenhum membro com função Social Media</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Projeto (obrigatório) */}
+              <div className="flex flex-col gap-1">
+                <label htmlFor="edit-sel-projeto" className="text-xs text-muted-foreground">
+                  Projeto <span className="text-destructive">*</span>
+                </label>
+                {projetos.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Este cliente não tem projetos cadastrados.
+                  </p>
+                ) : (
+                  <select
+                    id="edit-sel-projeto"
+                    value={editProjetoSel}
+                    onChange={(e) => setEditProjetoSel(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <option value="">—</option>
+                    {projetos.map((p) => (
+                      <option key={p.id} value={p.id}>{p.nome}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                As mudanças regeneram os posts deste mês e passam a valer para os próximos meses gerados automaticamente neste quadro.
+              </p>
+
+              <div className="flex justify-end gap-2 border-t border-border pt-3">
+                <Button variant="outline" size="sm" onClick={() => setEditMesOpen(false)} disabled={editandoMes}>
+                  Cancelar
+                </Button>
+                <Button size="sm" onClick={salvarEdicaoMes} disabled={editandoMes || !editProjetoSel || projetos.length === 0 || (editTipoQtd === 'personalizado' && editDiasCustom.length === 0)}>
+                  {editandoMes ? 'Salvando…' : 'Salvar'}
                 </Button>
               </div>
             </div>

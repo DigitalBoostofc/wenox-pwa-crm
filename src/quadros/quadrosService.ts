@@ -4,7 +4,7 @@ import type { Cliente } from '@/clientes/types';
 import { logoUrl } from '@/clientes/clientesService';
 import { ESTEIRA_SOCIAL, statusDaEsteira, ORIENTACOES_DESIGN_TEMPLATE } from './types';
 import { carregarModeloRemoto } from './modeloPost';
-import { criarTarefa, concluirEtapa, getTarefa } from '@/tarefas/tarefasService';
+import { criarTarefa, concluirEtapa, getTarefa, atualizarTarefa } from '@/tarefas/tarefasService';
 import { statusInicial, statusDoPapel } from '@/tarefas/status';
 import type { EtapaTarefa } from '@/tarefas/types';
 
@@ -732,6 +732,116 @@ export async function desativarRecorrenciaMes(quadroId: string): Promise<void> {
   const existente = await getRecorrenciaMes(quadroId);
   if (!existente) return;
   await rcol().update(existente.id, { ativa: false });
+}
+
+/**
+ * Atualiza APENAS os campos de configuração da recorrência (padrão de posts,
+ * design, social, projeto) SEM tocar em ativa/ultimo_mes/ultimo_ano.
+ * Se não existir registro de recorrência para o quadro, retorna null sem criar.
+ */
+export async function atualizarConfigRecorrenciaMes(
+  quadroId: string,
+  cfg: {
+    padrao_posts?: string;
+    qtd_custom?: number;
+    dias_custom?: number[];
+    design_id?: string;
+    social_id?: string;
+    projeto_id?: string;
+  },
+): Promise<RecorrenciaMes | null> {
+  const existente = await getRecorrenciaMes(quadroId);
+  if (!existente) return null;
+  return (await rcol().update(existente.id, {
+    padrao_posts: cfg.padrao_posts,
+    qtd_custom: cfg.qtd_custom,
+    dias_custom: cfg.dias_custom,
+    design_id: cfg.design_id,
+    social_id: cfg.social_id,
+    projeto_id: cfg.projeto_id,
+  })) as unknown as RecorrenciaMes;
+}
+
+/**
+ * Edita uma lista-mês existente: regenera os posts entre CALENDÁRIO e OUTRAS,
+ * atualiza a tarefa vinculada (preservando feito/feito_por/feito_em) e atualiza
+ * a config de recorrência do quadro sem mexer em ativa/ultimo_mes/ultimo_ano.
+ */
+export async function editarMesLista(
+  quadroId: string,
+  lista: Lista,
+  tipoQtd: 'padrao8' | 'padrao12' | 'personalizado',
+  qtdCustom: number,
+  diasCustom: number[],
+  designId?: string,
+  socialId?: string,
+  projetoId?: string,
+): Promise<void> {
+  const diasSemana = tipoQtd === 'padrao8' ? [2, 4] : tipoQtd === 'padrao12' ? [1, 3, 5] : diasCustom;
+  const quantidade = tipoQtd === 'padrao8' ? 8 : tipoQtd === 'padrao12' ? 12 : qtdCustom;
+
+  const cards = (await ccol().getFullList({
+    filter: `lista="${lista.id}" && arquivado!=true`,
+    sort: 'ordem',
+    batch: 1000,
+  })) as unknown as Cartao[];
+
+  const calendIdx = cards.findIndex((c) => c.nome.toUpperCase().includes('CALEND'));
+  const outrasIdxRaw = cards.findIndex((c) => c.nome.toUpperCase().includes('OUTRAS'));
+  const outrasIdx = outrasIdxRaw === -1 ? cards.length : outrasIdxRaw;
+
+  // Delete posts between CALENDÁRIO and OUTRAS (best-effort, never touches separators)
+  const postsParaDeletar = cards.slice(calendIdx + 1, outrasIdx);
+  for (const c of postsParaDeletar) {
+    try { await removerCartao(c.id); } catch { /* best-effort */ }
+  }
+
+  const ordemInicial = calendIdx >= 0 ? (cards[calendIdx].ordem ?? 0) + 1 : 1;
+  const novaQtd = await gerarPostsMes(
+    quadroId,
+    lista.id,
+    lista.mes!,
+    lista.ano!,
+    diasSemana,
+    quantidade,
+    ordemInicial,
+    { designId, socialId },
+  );
+
+  // Reorder OUTRAS and subsequent cards so they follow the new posts
+  const cardsDepois = cards.slice(outrasIdx);
+  const baseOrdemFinal = ordemInicial + novaQtd;
+  for (let i = 0; i < cardsDepois.length; i++) {
+    try { await ccol().update(cardsDepois[i].id, { ordem: baseOrdemFinal + i }); } catch { /* best-effort */ }
+  }
+
+  // Update linked tarefa (preserve feito/feito_por/feito_em; only swap responsavel)
+  if (lista.tarefa) {
+    try {
+      const tarefa = await getTarefa(lista.tarefa);
+      const novasEtapas = (tarefa.etapas ?? []).map((e) => ({
+        ...e,
+        responsavel: responsavelEtapa(e.texto, { designId, socialId }),
+      }));
+      const responsaveisIds = [...new Set([socialId, designId].filter(Boolean))] as string[];
+      await atualizarTarefa(lista.tarefa, {
+        responsaveis: responsaveisIds,
+        projeto: projetoId ?? '',
+        etapas: novasEtapas,
+      });
+    } catch (err) {
+      console.warn('[editarMesLista] falha ao atualizar tarefa:', err);
+    }
+  }
+
+  await atualizarConfigRecorrenciaMes(quadroId, {
+    padrao_posts: tipoQtd,
+    qtd_custom: qtdCustom,
+    dias_custom: diasCustom,
+    design_id: designId || undefined,
+    social_id: socialId || undefined,
+    projeto_id: projetoId || undefined,
+  });
 }
 
 /* ------------------- Saúde dos vínculos (R1.B) -------------------- */

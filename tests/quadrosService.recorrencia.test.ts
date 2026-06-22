@@ -1,6 +1,6 @@
 /**
  * Fase A + Fase C — quadrosService:
- *   - criarTarefaSocialMedia: nome em maiúsculo sem ano, responsáveis = só socialId, fallback
+ *   - criarTarefaSocialMedia: nome em maiúsculo sem ano, responsáveis = [socialId, designId], fallback
  *   - getRecorrenciaMes: retorna null em 404, relança outros erros
  *   - salvarRecorrenciaMes: UPSERT (cria quando ausente, atualiza quando existe), força ativa=true
  *   - desativarRecorrenciaMes: seta ativa=false, não apaga o registro
@@ -95,17 +95,22 @@ describe('criarTarefaSocialMedia — responsáveis da tarefa', () => {
     criarTarefaMock.mockResolvedValue({ id: 't1', nome: '' });
   });
 
-  it('responsaveis = somente [socialId] (NÃO inclui designId)', async () => {
+  it('responsaveis = [socialId, designId] quando ambos fornecidos', async () => {
     await criarTarefaSocialMedia('c1', 6, 2025, { designId: 'd1', socialId: 's1' }, 'Acme');
     const payload = criarTarefaMock.mock.calls[0][0];
-    expect(payload.responsaveis).toEqual(['s1']);
-    expect(payload.responsaveis).not.toContain('d1');
+    expect(payload.responsaveis).toEqual(['s1', 'd1']);
   });
 
-  it('responsaveis = [] quando socialId não fornecido', async () => {
+  it('responsaveis = [designId] quando só design fornecido (sem social)', async () => {
     await criarTarefaSocialMedia('c1', 6, 2025, { designId: 'd1' }, 'Acme');
     const payload = criarTarefaMock.mock.calls[0][0];
-    expect(payload.responsaveis).toEqual([]);
+    expect(payload.responsaveis).toEqual(['d1']);
+  });
+
+  it('responsaveis = [socialId] quando só social fornecido (sem design)', async () => {
+    await criarTarefaSocialMedia('c1', 6, 2025, { socialId: 's1' }, 'Acme');
+    const payload = criarTarefaMock.mock.calls[0][0];
+    expect(payload.responsaveis).toEqual(['s1']);
   });
 
   it('responsaveis = [] quando responsaveis omitido', async () => {

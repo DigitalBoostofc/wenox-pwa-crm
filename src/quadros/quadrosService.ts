@@ -642,7 +642,9 @@ export async function criarTarefaSocialMedia(
       ...(resp ? { responsavel: resp } : {}),
     };
   });
-  const responsaveisIds = [...new Set([responsaveis?.socialId].filter(Boolean))] as string[];
+  // Social primeiro, Design em seguida — Set evita duplicata se forem o mesmo usuário.
+  // Design consta aqui pra que EtapasStepper resolva o nome do responsável da etapa Layout via expand.
+  const responsaveisIds = [...new Set([responsaveis?.socialId, responsaveis?.designId].filter(Boolean))] as string[];
   const nomeTarefa = nomeCliente?.trim()
     ? `${MESES_PT[mes - 1].toUpperCase()} - ${nomeCliente.trim().toUpperCase()} - SOCIAL MEDIA`
     : `Social Media — ${MESES_PT[mes - 1]}/${ano}`;

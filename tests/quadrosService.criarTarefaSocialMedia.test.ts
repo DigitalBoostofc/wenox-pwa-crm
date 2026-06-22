@@ -43,18 +43,29 @@ describe('criarTarefaSocialMedia — prazo, projeto e status', () => {
     tarefasApi.update.mockResolvedValue({});
   });
 
-  it('prazo é dia 30 em mês com 31 dias (Julho)', async () => {
-    await criarTarefaSocialMedia('cli1', 7, 2026);
+  // Prazo = dia 30 do MÊS ANTERIOR ao gerado, com rollover de ano e clamp.
+  it('prazo Agosto/2026 → 2026-07-30 (dia 30 de Julho, mês anterior)', async () => {
+    await criarTarefaSocialMedia('cli1', 8, 2026);
     expect(criarTarefaInput?.prazo).toBe('2026-07-30');
   });
 
-  it('prazo é clampado para último dia em Fevereiro não-bissexto (28)', async () => {
-    await criarTarefaSocialMedia('cli1', 2, 2025);
-    expect(criarTarefaInput?.prazo).toBe('2025-02-28');
+  it('prazo Julho/2026 → 2026-06-30 (dia 30 de Junho, mês anterior)', async () => {
+    await criarTarefaSocialMedia('cli1', 7, 2026);
+    expect(criarTarefaInput?.prazo).toBe('2026-06-30');
   });
 
-  it('prazo é clampado para último dia em Fevereiro bissexto (29)', async () => {
-    await criarTarefaSocialMedia('cli1', 2, 2024);
+  it('prazo Janeiro/2027 → 2026-12-30 (dia 30 de Dezembro, com rollover de ano)', async () => {
+    await criarTarefaSocialMedia('cli1', 1, 2027);
+    expect(criarTarefaInput?.prazo).toBe('2026-12-30');
+  });
+
+  it('prazo Março/2026 → 2026-02-28 (clampado para último dia de Fevereiro não-bissexto)', async () => {
+    await criarTarefaSocialMedia('cli1', 3, 2026);
+    expect(criarTarefaInput?.prazo).toBe('2026-02-28');
+  });
+
+  it('prazo Março/2024 → 2024-02-29 (clampado para último dia de Fevereiro bissexto)', async () => {
+    await criarTarefaSocialMedia('cli1', 3, 2024);
     expect(criarTarefaInput?.prazo).toBe('2024-02-29');
   });
 

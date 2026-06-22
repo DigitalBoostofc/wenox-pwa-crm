@@ -177,9 +177,14 @@ export async function atualizarLista(id: string, dados: Partial<Lista>): Promise
   return (await lcol().update(id, dados)) as unknown as Lista;
 }
 
-/** Arquiva a lista (some do quadro; dados preservados). */
+/** Arquiva a lista (some do quadro; dados preservados). Propaga arquivamento à tarefa vinculada (best-effort). */
 export async function arquivarLista(id: string): Promise<Lista> {
-  return (await lcol().update(id, { fechada: true })) as unknown as Lista;
+  const lista = (await lcol().getOne(id)) as unknown as Lista;
+  const result = (await lcol().update(id, { fechada: true })) as unknown as Lista;
+  if (lista.tarefa) {
+    try { await pb.collection('tarefas').update(lista.tarefa, { arquivada: true }); } catch { /* best-effort */ }
+  }
+  return result;
 }
 
 /** Listas arquivadas de um quadro. */
@@ -191,17 +196,23 @@ export async function listListasArquivadas(quadroId: string): Promise<Lista[]> {
   return res as unknown as Lista[];
 }
 
-/** Restaura uma lista arquivada (torna visível no quadro novamente). */
+/** Restaura uma lista arquivada (torna visível no quadro novamente). Propaga restauração à tarefa vinculada (best-effort). */
 export async function restaurarLista(id: string): Promise<Lista> {
-  return (await lcol().update(id, { fechada: false })) as unknown as Lista;
+  const lista = (await lcol().getOne(id)) as unknown as Lista;
+  const result = (await lcol().update(id, { fechada: false })) as unknown as Lista;
+  if (lista.tarefa) {
+    try { await pb.collection('tarefas').update(lista.tarefa, { arquivada: false }); } catch { /* best-effort */ }
+  }
+  return result;
 }
 
 export async function removerLista(id: string): Promise<void> {
   await lcol().delete(id);
 }
 
-/** Deleta permanentemente uma lista e todos os cartões contidos nela (evita órfãos). */
+/** Deleta permanentemente uma lista e todos os cartões contidos nela (evita órfãos). Deleta também a tarefa vinculada (best-effort). */
 export async function deletarListaComCards(id: string): Promise<void> {
+  const lista = (await lcol().getOne(id)) as unknown as Lista;
   const cards = await ccol().getFullList({ filter: pb.filter('lista = {:lid}', { lid: id }), batch: 1000 });
   let falhas = 0;
   for (const c of cards) {
@@ -209,6 +220,9 @@ export async function deletarListaComCards(id: string): Promise<void> {
   }
   if (falhas > 0) throw new Error(`Não foi possível deletar ${falhas} cartão(ões) da lista; lista preservada.`);
   await lcol().delete(id);
+  if (lista.tarefa) {
+    try { await pb.collection('tarefas').delete(lista.tarefa); } catch { /* best-effort: 404 ok */ }
+  }
 }
 
 /* ----------------------------- Anexos / capa ----------------------------- */
@@ -650,9 +664,11 @@ export async function criarTarefaSocialMedia(
     ? `${MESES_PT[mes - 1].toUpperCase()} - ${nomeCliente.trim().toUpperCase()} - SOCIAL MEDIA`
     : `Social Media — ${MESES_PT[mes - 1]}/${ano}`;
 
-  const ultimoDia = new Date(ano, mes, 0).getDate();
-  const diaPrazo = Math.min(30, ultimoDia);
-  const prazoMes = `${ano}-${String(mes).padStart(2, '0')}-${String(diaPrazo).padStart(2, '0')}`;
+  const mesAnterior = mes === 1 ? 12 : mes - 1;
+  const anoAnterior = mes === 1 ? ano - 1 : ano;
+  const ultimoDiaAnt = new Date(anoAnterior, mesAnterior, 0).getDate();
+  const diaPrazo = Math.min(30, ultimoDiaAnt);
+  const prazoMes = `${anoAnterior}-${String(mesAnterior).padStart(2, '0')}-${String(diaPrazo).padStart(2, '0')}`;
 
   const tarefa = await criarTarefa({
     nome: nomeTarefa,

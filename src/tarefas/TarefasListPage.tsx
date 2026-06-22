@@ -172,10 +172,10 @@ export function TarefasListPage() {
     return () => clearTimeout(timer);
   }, [busca, escopo, user?.id, recarrega, isCliente, respFiltro]);
 
-  // Filtros client-side: "só abertas" (vindo do Pulso) + tipo de projeto (barra).
+  // Filtros client-side: arquivadas (listas arquivadas somem aqui) + "só abertas" + tipo de projeto.
   // Tarefas avulsas (sem projeto) não pertencem a um tipo → sempre aparecem.
   const tarefasExibidas = useMemo(() => {
-    let arr = tarefas;
+    let arr = tarefas.filter((t) => !t.arquivada);
     if (soAbertas) arr = arr.filter((t) => !tarefaConcluida(t.status));
     if (tipoAtivo) arr = arr.filter((t) => t.tipo ? t.tipo === tipoAtivo : (!t.projeto || t.expand?.projeto?.tipo === tipoAtivo));
     return arr;

@@ -42,6 +42,7 @@ export interface Tarefa {
   checklist?: ItemChecklist[];
   etapas?: EtapaTarefa[];
   etiquetas?: string[];
+  arquivada?: boolean;
   ordem?: number;
   created_by?: string;
   updated_by?: string;

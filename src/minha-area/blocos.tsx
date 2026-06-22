@@ -177,7 +177,7 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
 
   const uid = user?.id ?? '';
   const minhasTarefas = todasTarefas.filter(
-    (t) => (t.responsaveis ?? []).includes(uid),
+    (t) => (t.responsaveis ?? []).includes(uid) && !t.arquivada,
   );
 
   const suaVezAgora = [...minhasTarefas]

@@ -44,6 +44,21 @@ describe('tarefasService', () => {
     expect(api.update).toHaveBeenCalledWith('t1', expect.objectContaining({ status: 'Concluído' }));
   });
 
+  it('listar sempre exclui arquivadas (sem opts)', async () => {
+    api.getList.mockResolvedValue({ items: [] });
+    await listTarefas();
+    const opts = api.getList.mock.calls[0][2];
+    expect(opts.filter).toContain('arquivada != true');
+  });
+
+  it('listar sempre exclui arquivadas mesmo com outros filtros', async () => {
+    api.getList.mockResolvedValue({ items: [] });
+    await listTarefas({ somenteAvulsas: true });
+    const opts = api.getList.mock.calls[0][2];
+    expect(opts.filter).toContain('arquivada != true');
+    expect(opts.filter).toContain('projeto = ""');
+  });
+
   it('listar com somenteAvulsas filtra tarefas sem projeto', async () => {
     api.getList.mockResolvedValue({ items: [] });
     await listTarefas({ somenteAvulsas: true });

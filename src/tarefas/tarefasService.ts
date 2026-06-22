@@ -105,7 +105,7 @@ interface ListOpts {
 }
 
 export async function listTarefas(o: ListOpts = {}): Promise<Tarefa[]> {
-  const filtros: string[] = [];
+  const filtros: string[] = ['arquivada != true'];
   const q = (o.busca ?? '').trim();
   if (q) {
     const safe = q.replace(/"/g, '');

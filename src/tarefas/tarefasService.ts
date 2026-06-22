@@ -28,7 +28,7 @@ function carimboConclusao(): string {
 
 const EXPAND = 'projeto,cliente,responsaveis,contato';
 const CAMPOS_LISTA = [
-  'id', 'collectionId', 'collectionName', 'nome', 'descricao', 'projeto',
+  'id', 'collectionId', 'collectionName', 'nome', 'descricao', 'tipo', 'projeto',
   'cliente', 'lado', 'responsaveis', 'contato', 'status', 'aprovacao', 'prazo',
   'etiquetas', 'ordem', 'created', 'updated', 'created_by', 'prioridade', 'checklist', 'recorrencia', 'concluida_em', 'etapas',
   'expand.projeto.id', 'expand.projeto.nome', 'expand.projeto.tipo',

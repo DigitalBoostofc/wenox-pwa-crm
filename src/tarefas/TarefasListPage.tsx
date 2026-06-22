@@ -177,7 +177,7 @@ export function TarefasListPage() {
   const tarefasExibidas = useMemo(() => {
     let arr = tarefas;
     if (soAbertas) arr = arr.filter((t) => !tarefaConcluida(t.status));
-    if (tipoAtivo) arr = arr.filter((t) => !t.projeto || t.expand?.projeto?.tipo === tipoAtivo);
+    if (tipoAtivo) arr = arr.filter((t) => t.tipo ? t.tipo === tipoAtivo : (!t.projeto || t.expand?.projeto?.tipo === tipoAtivo));
     return arr;
   }, [tarefas, soAbertas, tipoAtivo]);
 

@@ -650,6 +650,7 @@ export async function criarTarefaSocialMedia(
     : `Social Media — ${MESES_PT[mes - 1]}/${ano}`;
   return criarTarefa({
     nome: nomeTarefa,
+    tipo: 'Social Media',
     cliente: clienteId,
     lado: 'wenox',
     status: statusInicial(),

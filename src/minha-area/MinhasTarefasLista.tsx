@@ -56,7 +56,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
       .catch(() => { /* sem permissão p/ listar → cai no logo do cliente */ });
   }, []);
 
-  const minhas = tarefas.filter((t) => (t.responsaveis ?? []).includes(uid));
+  const minhas = tarefas.filter((t) => (t.responsaveis ?? []).includes(uid) && !t.arquivada);
 
   function iniciarResizeEtapas(key: string, thEl: HTMLElement, e: React.MouseEvent) {
     dragResize(thEl, e, (w) => setLargurasEtapas((prev) => { const n = { ...prev, [key]: w }; salvarLargurasEtapas(n); return n; }));

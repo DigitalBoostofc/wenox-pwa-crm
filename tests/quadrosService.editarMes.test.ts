@@ -202,6 +202,29 @@ describe('editarMesLista — deleção entre CALENDÁRIO e OUTRAS', () => {
   });
 });
 
+describe('editarMesLista — guard: sem CALENDÁRIO lança erro sem deletar', () => {
+  beforeEach(() => {
+    cartoesApi.getFullList.mockResolvedValue([
+      { id: 'c1', nome: 'Post 1', ordem: 1, status_post: 'em_producao' },
+      { id: 'c2', nome: 'Post 2', ordem: 2, status_post: 'em_producao' },
+    ]);
+    rcolApi.getFirstListItem.mockRejectedValue({ status: 404 });
+  });
+
+  it('lança erro quando não há cartão CALENDÁRIO', async () => {
+    await expect(
+      editarMesLista('q1', LISTA_MES, 'padrao8', 8, [2, 4]),
+    ).rejects.toThrow('CALENDÁRIO DE POSTS');
+  });
+
+  it('NÃO chama removerCartao quando não há CALENDÁRIO', async () => {
+    await expect(
+      editarMesLista('q1', LISTA_MES, 'padrao8', 8, [2, 4]),
+    ).rejects.toThrow();
+    expect(cartoesApi.delete).not.toHaveBeenCalled();
+  });
+});
+
 describe('editarMesLista — guard: OUTRAS ausente usa cards.length', () => {
   it('deleta até o fim sem ir além dos cards existentes', async () => {
     cartoesApi.getFullList.mockResolvedValue([

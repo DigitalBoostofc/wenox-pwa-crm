@@ -787,6 +787,11 @@ export async function editarMesLista(
   })) as unknown as Cartao[];
 
   const calendIdx = cards.findIndex((c) => c.nome.toUpperCase().includes('CALEND'));
+
+  if (calendIdx === -1) {
+    throw new Error('Lista sem cartão "CALENDÁRIO DE POSTS" — não é possível regenerar os posts.');
+  }
+
   const outrasIdxRaw = cards.findIndex((c) => c.nome.toUpperCase().includes('OUTRAS'));
   const outrasIdx = outrasIdxRaw === -1 ? cards.length : outrasIdxRaw;
 
@@ -821,7 +826,7 @@ export async function editarMesLista(
       const tarefa = await getTarefa(lista.tarefa);
       const novasEtapas = (tarefa.etapas ?? []).map((e) => ({
         ...e,
-        responsavel: responsavelEtapa(e.texto, { designId, socialId }),
+        responsavel: responsavelEtapa(e.texto, { designId, socialId }) ?? e.responsavel,
       }));
       const responsaveisIds = [...new Set([socialId, designId].filter(Boolean))] as string[];
       await atualizarTarefa(lista.tarefa, {
@@ -838,9 +843,9 @@ export async function editarMesLista(
     padrao_posts: tipoQtd,
     qtd_custom: qtdCustom,
     dias_custom: diasCustom,
-    design_id: designId || undefined,
-    social_id: socialId || undefined,
-    projeto_id: projetoId || undefined,
+    design_id: designId || '',
+    social_id: socialId || '',
+    projeto_id: projetoId || '',
   });
 }
 

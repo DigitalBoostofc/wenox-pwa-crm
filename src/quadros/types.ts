@@ -135,6 +135,22 @@ export function thumbUrl(url?: string | null, largura = 600): string {
   return `https://img.wenox.com.br/insecure/rs:fit:${largura}:0/q:72/plain/${url}@webp`;
 }
 
+/** Config de recorrência mensal por quadro (coleção recorrencias_mes). */
+export interface RecorrenciaMes {
+  id: string;
+  quadro: string;
+  ativa: boolean;
+  padrao_posts?: string;   // 'padrao8' | 'padrao12' | 'personalizado'
+  qtd_custom?: number;
+  dias_custom?: number[];
+  design_id?: string;
+  social_id?: string;
+  ultimo_mes: number;
+  ultimo_ano: number;
+  created?: string;
+  updated?: string;
+}
+
 /** Progresso agregado dos checklists do card. */
 export function progressoChecklist(c: Pick<Cartao, 'checklists'>): { feitos: number; total: number } {
   let feitos = 0, total = 0;

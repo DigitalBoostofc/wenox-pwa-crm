@@ -1,5 +1,5 @@
 import { pb } from '@/lib/pocketbase';
-import type { Quadro, Lista, Cartao, ComentarioCartao, AnexoCartao, EtapaCard } from './types';
+import type { Quadro, Lista, Cartao, ComentarioCartao, AnexoCartao, EtapaCard, RecorrenciaMes } from './types';
 import type { Cliente } from '@/clientes/types';
 import { logoUrl } from '@/clientes/clientesService';
 import { ESTEIRA_SOCIAL, statusDaEsteira, ORIENTACOES_DESIGN_TEMPLATE } from './types';
@@ -11,6 +11,7 @@ import type { EtapaTarefa } from '@/tarefas/types';
 const qcol = () => pb.collection('quadros');
 const lcol = () => pb.collection('listas');
 const ccol = () => pb.collection('cartoes');
+const rcol = () => pb.collection('recorrencias_mes');
 
 /** Lista os quadros (com cliente expandido), ordenados por nome. */
 export async function listQuadros(): Promise<Quadro[]> {
@@ -659,6 +660,40 @@ export async function criarTarefaSocialMedia(
     checklist: [],
     aprovacao: '',
   });
+}
+
+/* ------------------- Recorrência mensal por quadro -------------------- */
+
+/** Retorna a config de recorrência do quadro, ou null se não houver. */
+export async function getRecorrenciaMes(quadroId: string): Promise<RecorrenciaMes | null> {
+  try {
+    return (await rcol().getFirstListItem(
+      pb.filter('quadro = {:q}', { q: quadroId }),
+    )) as unknown as RecorrenciaMes;
+  } catch (err) {
+    if ((err as { status?: number })?.status === 404) return null;
+    console.error('[getRecorrenciaMes] erro inesperado:', err);
+    throw err;
+  }
+}
+
+/** UPSERT da config de recorrência; seta ativa=true e grava ultimo_mes/ultimo_ano. */
+export async function salvarRecorrenciaMes(
+  cfg: Omit<RecorrenciaMes, 'id' | 'created' | 'updated'>,
+): Promise<RecorrenciaMes> {
+  const existente = await getRecorrenciaMes(cfg.quadro);
+  const payload = { ...cfg, ativa: true };
+  if (existente) {
+    return (await rcol().update(existente.id, payload)) as unknown as RecorrenciaMes;
+  }
+  return (await rcol().create(payload)) as unknown as RecorrenciaMes;
+}
+
+/** Desativa a recorrência do quadro (preserva a config para reativação futura). */
+export async function desativarRecorrenciaMes(quadroId: string): Promise<void> {
+  const existente = await getRecorrenciaMes(quadroId);
+  if (!existente) return;
+  await rcol().update(existente.id, { ativa: false });
 }
 
 /* ------------------- Saúde dos vínculos (R1.B) -------------------- */

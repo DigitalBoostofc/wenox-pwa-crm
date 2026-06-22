@@ -54,6 +54,11 @@ const {
   salvarRecorrenciaMesMock,
   desativarRecorrenciaMesMock,
   listUsuariosMock,
+  criarListaMesMock,
+  getCardsTemplateMesMock,
+  gerarPostsMesMock,
+  vincularTarefaListaMock,
+  criarTarefaSocialMediaMock,
 } = vi.hoisted(() => ({
   getQuadroMock: vi.fn(),
   listListasMock: vi.fn(),
@@ -62,6 +67,11 @@ const {
   salvarRecorrenciaMesMock: vi.fn(),
   desativarRecorrenciaMesMock: vi.fn(),
   listUsuariosMock: vi.fn(),
+  criarListaMesMock: vi.fn(),
+  getCardsTemplateMesMock: vi.fn(),
+  gerarPostsMesMock: vi.fn(),
+  vincularTarefaListaMock: vi.fn(),
+  criarTarefaSocialMediaMock: vi.fn(),
 }));
 
 vi.mock('@/quadros/quadrosService', () => ({
@@ -83,12 +93,12 @@ vi.mock('@/quadros/quadrosService', () => ({
   restaurarLista: vi.fn(),
   removerCartao: vi.fn(),
   deletarListaComCards: vi.fn(),
-  criarListaMes: vi.fn(),
-  getCardsTemplateMes: vi.fn(),
+  criarListaMes: criarListaMesMock,
+  getCardsTemplateMes: getCardsTemplateMesMock,
   clonarCardTemplate: vi.fn(),
-  gerarPostsMes: vi.fn(),
-  vincularTarefaLista: vi.fn(),
-  criarTarefaSocialMedia: vi.fn(),
+  gerarPostsMes: gerarPostsMesMock,
+  vincularTarefaLista: vincularTarefaListaMock,
+  criarTarefaSocialMedia: criarTarefaSocialMediaMock,
   /* constantes usadas no JSX do Dialog */
   MESES_PT: [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -209,5 +219,45 @@ describe('QuadroBoardPage — selo "Recorrência mensal ativa"', () => {
     await waitFor(() => {
       expect(desativarRecorrenciaMesMock).toHaveBeenCalledWith('q1');
     });
+  });
+});
+
+/* ======================================================== */
+/* M1 — toggle deve resetar para OFF após Confirmar         */
+/* ======================================================== */
+
+describe('QuadroBoardPage — toggle recorrência: reset após Confirmar', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupBase();
+    criarListaMesMock.mockResolvedValue({ id: 'l1', nome: 'Jan 2025', ordem: 1 });
+    getCardsTemplateMesMock.mockResolvedValue([]);
+    gerarPostsMesMock.mockResolvedValue(0);
+    criarTarefaSocialMediaMock.mockResolvedValue({ id: 't1' });
+    vincularTarefaListaMock.mockResolvedValue(undefined);
+    salvarRecorrenciaMesMock.mockResolvedValue({ id: 'r1', quadro: 'q1', ativa: true, ultimo_mes: 1, ultimo_ano: 2025 });
+  });
+
+  it('toggle volta a aria-checked=false ao reabrir o dialog após Confirmar com sucesso', async () => {
+    render(<QuadroBoardPage id="q1" />);
+
+    const addMesBtn = await screen.findByRole('button', { name: /adicionar mês/i });
+    fireEvent.click(addMesBtn);
+
+    const toggle = await screen.findByRole('switch');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+
+    // aguarda o dialog fechar (toggle sai do DOM)
+    await waitFor(() => {
+      expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    });
+
+    // reabre o dialog — toggle deve estar OFF
+    fireEvent.click(screen.getByRole('button', { name: /adicionar mês/i }));
+    const toggleReaberto = await screen.findByRole('switch');
+    expect(toggleReaberto).toHaveAttribute('aria-checked', 'false');
   });
 });

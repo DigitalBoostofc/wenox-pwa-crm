@@ -262,12 +262,14 @@ export function QuadroBoardPage({ id }: { id: string }) {
   }
 
   useEffect(() => {
+    let vivo = true;
     setCarregando(true);
     Promise.all([getQuadro(id), listListas(id), listCartoes(id)])
       .then(([q, ls, cs]) => { setQuadro(q); setListas(ls); setCartoes(cs); setErro(''); })
       .catch(() => setErro('Não foi possível carregar o quadro.'))
       .finally(() => setCarregando(false));
-    getRecorrenciaMes(id).then(setRecorrencia).catch(() => {});
+    getRecorrenciaMes(id).then((r) => { if (vivo) setRecorrencia(r); }).catch(() => {});
+    return () => { vivo = false; };
   }, [id]);
 
   const porLista = useMemo(() => {
@@ -457,15 +459,16 @@ export function QuadroBoardPage({ id }: { id: string }) {
           setErro('Mês criado, mas não foi possível salvar a recorrência.');
         }
       }
+      setRecorrenciaMensal(false);
       setDesignSel('');
       setSocialSel('');
       setAddMesOpen(false);
-      await recarregar();
     } catch {
       setErro('Não foi possível criar o mês.');
     } finally {
       setCriandoMes(false);
     }
+    await recarregar().catch(() => {});
   }
 
   async function desativarRecorrencia() {

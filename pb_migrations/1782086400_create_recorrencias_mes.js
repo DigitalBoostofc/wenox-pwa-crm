@@ -9,6 +9,7 @@
 
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
+  const quadrosCol = app.findCollectionByNameOrId("quadros");
   const collection = new Collection({
     name: "recorrencias_mes",
     type: "base",
@@ -18,7 +19,7 @@ migrate((app) => {
         type: "relation",
         required: true,
         options: {
-          collectionId: "_pb_quadros_",   // substitua pelo collectionId real em produção
+          collectionId: quadrosCol.id,
           cascadeDelete: true,
           maxSelect: 1,
           minSelect: 1,

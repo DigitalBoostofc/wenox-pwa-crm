@@ -914,7 +914,8 @@ export function TarefaSheet({
                 </div>
               </div>
 
-              {/* 2c. Repetir */}
+              {/* 2c. Repetir — oculto para tarefas Social Media (gerenciadas pelo quadro) */}
+              {t.tipo !== 'Social Media' && (
               <div>
                 <RotuloCampo>Repetir</RotuloCampo>
                 <div className="flex flex-wrap gap-2">
@@ -950,6 +951,7 @@ export function TarefaSheet({
                   </p>
                 )}
               </div>
+              )}
 
               {/* 3. Projeto */}
               <div>

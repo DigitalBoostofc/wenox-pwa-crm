@@ -5,7 +5,7 @@ import { logoUrl } from '@/clientes/clientesService';
 import { ESTEIRA_SOCIAL, statusDaEsteira, ORIENTACOES_DESIGN_TEMPLATE } from './types';
 import { carregarModeloRemoto } from './modeloPost';
 import { criarTarefa, concluirEtapa, getTarefa } from '@/tarefas/tarefasService';
-import { statusInicial } from '@/tarefas/status';
+import { statusInicial, statusDoPapel } from '@/tarefas/status';
 import type { EtapaTarefa } from '@/tarefas/types';
 
 const qcol = () => pb.collection('quadros');
@@ -631,6 +631,7 @@ export async function criarTarefaSocialMedia(
   ano: number,
   responsaveis?: { designId?: string; socialId?: string },
   nomeCliente?: string,
+  projetoId?: string,
 ): Promise<import('@/tarefas/types').Tarefa> {
   const etapas: EtapaTarefa[] = ESTEIRA_SOCIAL.map((e) => {
     const resp = responsavelEtapa(e.texto, responsaveis ?? {});
@@ -648,21 +649,39 @@ export async function criarTarefaSocialMedia(
   const nomeTarefa = nomeCliente?.trim()
     ? `${MESES_PT[mes - 1].toUpperCase()} - ${nomeCliente.trim().toUpperCase()} - SOCIAL MEDIA`
     : `Social Media — ${MESES_PT[mes - 1]}/${ano}`;
-  return criarTarefa({
+
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const diaPrazo = Math.min(30, ultimoDia);
+  const prazoMes = `${ano}-${String(mes).padStart(2, '0')}-${String(diaPrazo).padStart(2, '0')}`;
+
+  const tarefa = await criarTarefa({
     nome: nomeTarefa,
     tipo: 'Social Media',
     cliente: clienteId,
     lado: 'wenox',
     status: statusInicial(),
     etapas,
-    projeto: '',
+    projeto: projetoId ?? '',
     responsaveis: responsaveisIds,
     contato: '',
     etiquetas: [],
     ordem: 0,
     checklist: [],
     aprovacao: '',
+    prazo: prazoMes,
   });
+
+  // criarTarefa deriva status por etapas (todas zeradas → "Não iniciado").
+  // Forçamos "Em andamento" diretamente no PB, sem ruído no histórico.
+  try {
+    await pb.collection('tarefas').update(tarefa.id, {
+      status: statusDoPapel('em_andamento') ?? 'Em andamento',
+    });
+  } catch (err) {
+    console.warn('[criarTarefaSocialMedia] falha ao forçar status Em andamento:', err);
+  }
+
+  return tarefa;
 }
 
 /* ------------------- Recorrência mensal por quadro -------------------- */

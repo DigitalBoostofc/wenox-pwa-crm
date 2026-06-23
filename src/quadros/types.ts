@@ -7,11 +7,19 @@ export interface ItemChecklistCartao { texto: string; feito: boolean }
 export interface ChecklistCartao { nome: string; itens: ItemChecklistCartao[] }
 export interface AnexoCartao { nome?: string; url?: string; trello_url?: string; mime?: string; bytes?: number; data?: string }
 
+/**
+ * Papel funcional da etapa na esteira. Fonte de verdade pro render/status —
+ * desacopla a lógica do `texto` (que vira numerado nos ciclos: "Revisão interna 2",
+ * "Revisão Layout 3", etc.). Ver docs/esteira-revisao-layout-contract.md.
+ */
+export type Papel = 'copy' | 'layout' | 'revisao' | 'aprovacao_cliente' | 'agendamento' | 'revisao_layout';
+
 /** Etapa da esteira de produção de um card-post. */
 export interface EtapaCard {
   id: string;
   texto: string;
   tipo: 'interna' | 'aprovacao_cliente';
+  papel?: Papel;
   responsavel?: string;
   feito: boolean;
   feito_por?: string;
@@ -20,23 +28,40 @@ export interface EtapaCard {
   motivo?: string;
 }
 
+/** Fallback legado: deriva o papel a partir do texto de etapas sem `papel`. */
+function derivaPapelDoTexto(texto: string): Papel {
+  const t = (texto ?? '').trim();
+  if (t.startsWith('Revisão Layout')) return 'revisao_layout';
+  if (t === 'Copy') return 'copy';
+  if (t === 'Layout') return 'layout';
+  if (t.startsWith('Revisão interna')) return 'revisao';
+  if (t.startsWith('Aprovação do cliente')) return 'aprovacao_cliente';
+  if (t === 'Confirmação de agendamento') return 'agendamento';
+  return 'revisao'; // default conservador p/ textos desconhecidos
+}
+
+/** Papel da etapa: usa `papel` quando presente, senão deriva do texto (compat legado). */
+export function papelDaEtapa(e: Pick<EtapaCard, 'papel' | 'texto'>): Papel {
+  return e.papel ?? derivaPapelDoTexto(e.texto);
+}
+
 /** Esteira de produção padrão de Social Media (5 etapas). */
 export const ESTEIRA_SOCIAL = [
-  { texto: 'Copy',                         tipo: 'interna'           as const },
-  { texto: 'Layout',                       tipo: 'interna'           as const },
-  { texto: 'Revisão interna',              tipo: 'interna'           as const },
-  { texto: 'Aprovação do cliente',         tipo: 'aprovacao_cliente' as const },
-  { texto: 'Confirmação de agendamento',   tipo: 'interna'           as const },
+  { texto: 'Copy',                         tipo: 'interna'           as const, papel: 'copy'              as const },
+  { texto: 'Layout',                       tipo: 'interna'           as const, papel: 'layout'            as const },
+  { texto: 'Revisão interna',              tipo: 'interna'           as const, papel: 'revisao'           as const },
+  { texto: 'Aprovação do cliente',         tipo: 'aprovacao_cliente' as const, papel: 'aprovacao_cliente' as const },
+  { texto: 'Confirmação de agendamento',   tipo: 'interna'           as const, papel: 'agendamento'       as const },
 ] as const;
 
-/** Deriva status_post a partir das etapas_card de um card. */
+/** Deriva status_post a partir das etapas_card de um card — POR PAPEL. */
 export function statusDaEsteira(etapas_card?: EtapaCard[]): 'em_producao' | 'agendar' | 'agendado' | 'em_alteracao' {
   if (!etapas_card?.length) return 'em_producao';
   const idx = etapas_card.findIndex((e) => !e.feito);
   if (idx === -1) return 'agendado';
-  const atual = etapas_card[idx];
-  if (atual.veredito === 'reprovado') return 'em_alteracao';
-  if (atual.texto === 'Confirmação de agendamento') return 'agendar';
+  const papel = papelDaEtapa(etapas_card[idx]);
+  if (papel === 'revisao_layout') return 'em_alteracao';
+  if (papel === 'agendamento') return 'agendar';
   return 'em_producao';
 }
 

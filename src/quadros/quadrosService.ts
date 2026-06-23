@@ -615,6 +615,7 @@ export async function gerarPostsMes(
           id: smUuid(),
           texto: e.texto,
           tipo: e.tipo,
+          papel: e.papel,
           feito: false,
           ...(resp ? { responsavel: resp } : {}),
         };

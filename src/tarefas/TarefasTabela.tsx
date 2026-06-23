@@ -7,7 +7,7 @@ import { addComentario } from '@/atividade/atividadeService';
 import { useStatuses } from './status';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { EtapasStepper } from './EtapasStepper';
-import { etapaAtual, temEtapas } from './etapas';
+import { etapaAtual, etapaAtualIndex, temEtapas } from './etapas';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial } from '@/clientes/format';
 import {
@@ -320,9 +320,28 @@ export function TarefasTabela({
         ? <img src={logo} alt={nome} title={nome} loading="lazy" className="size-8 shrink-0 rounded-lg object-cover" />
         : <div title={nome} className={cn('grid size-8 shrink-0 place-items-center rounded-lg text-xs font-bold text-white', corAvatar(nome))}>{inicial(nome)}</div>;
     }
-    if (key === 'status') return t.status
-      ? <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>{t.status}</Badge>
-      : <span className="text-muted-foreground">—</span>;
+    if (key === 'status') {
+      // Sem esteira de etapas: mantém o badge de status genérico (ou "—").
+      if (!temEtapas(t)) {
+        return t.status
+          ? <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>{t.status}</Badge>
+          : <span className="text-muted-foreground">—</span>;
+      }
+      // Com etapas: mostra a etapa atual "Etapa n/total · texto · responsável".
+      const i = etapaAtualIndex(t.etapas);
+      if (i === -1) return <span className="text-xs text-emerald-500">Concluído</span>;
+      const e = t.etapas![i];
+      const n = i + 1;
+      const total = t.etapas!.length;
+      if (e.tipo === 'aprovacao_cliente') {
+        const txt = `Etapa ${n}/${total} · Aprovação do cliente`;
+        return <span className="block truncate text-xs text-amber-500/90" title={txt}>{txt}</span>;
+      }
+      const resp = (t.expand?.responsaveis ?? []).find((r) => r.id === e.responsavel);
+      const primeiroNome = resp?.nome?.split(' ')[0];
+      const txt = `Etapa ${n}/${total} · ${e.texto}${primeiroNome ? ` · ${primeiroNome}` : ''}`;
+      return <span className="block truncate text-xs text-foreground" title={txt}>{txt}</span>;
+    }
     if (key === 'prazo') {
       if (!t.prazo) return <span className="text-muted-foreground">—</span>;
       return <span className={cn('text-xs', corPrazo(catPrazo(t)))}>{prazoBR(t.prazo)}</span>;

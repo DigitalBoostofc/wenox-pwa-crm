@@ -227,13 +227,15 @@ function CellEditor({ valorInicial, placeholder, onSalvar, onCancelar }: {
  * `persistPrefix` separa as preferências (colunas/larguras/ordem) por contexto.
  */
 export function TarefasTabela({
-  tarefas, onAbrir, persistPrefix, onMudou,
+  tarefas, onAbrir, persistPrefix, onMudou, etapaSemDots = false,
 }: {
   tarefas: Tarefa[];
   onAbrir: (id: string) => void;
   persistPrefix: string;
   /** Chamado após salvar uma edição inline (descrição/comentário) p/ recarregar. */
   onMudou?: () => void;
+  /** Oculta as bolinhas de progresso na coluna "Etapa atual" (só caption). */
+  etapaSemDots?: boolean;
 }) {
   const statuses = useStatuses();
   const [colDefs, setColDefs] = useState<ColDef[]>(() => carregarColunas(persistPrefix));
@@ -361,6 +363,7 @@ export function TarefasTabela({
           prazo={t.prazo}
           status={t.status}
           mostrarPrazo={false}
+          mostrarDots={!etapaSemDots}
         />
       );
     }

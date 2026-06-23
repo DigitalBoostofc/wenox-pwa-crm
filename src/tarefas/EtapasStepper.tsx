@@ -16,6 +16,8 @@ export interface EtapasStepperProps {
   status?: string;
   /** Exibe a data de prazo no caption (compact). Desligue quando houver coluna de prazo dedicada. */
   mostrarPrazo?: boolean;
+  /** Exibe as bolinhas de progresso (compact). Desligue para mostrar só o caption. */
+  mostrarDots?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -100,10 +102,12 @@ function StepperCompact({
   etapas,
   responsaveis,
   mostrarPrazo = true,
+  mostrarDots = true,
 }: {
   etapas: EtapaTarefa[];
   responsaveis: MembroAvatar[];
   mostrarPrazo?: boolean;
+  mostrarDots?: boolean;
 }) {
   const atualIdx = etapaAtualIndex(etapas);
   const { feitas, total } = progressoEtapas(etapas);
@@ -116,6 +120,7 @@ function StepperCompact({
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
       {/* dots row */}
+      {mostrarDots && (
       <ol aria-label={`Etapas: ${feitas} de ${total} concluídas`} className="flex items-center">
         {etapas.map((etapa, i) => {
           const estado = estadoDaEtapa(i, etapa, atualIdx);
@@ -151,6 +156,7 @@ function StepperCompact({
           );
         })}
       </ol>
+      )}
 
       {/* caption da etapa atual */}
       {atual && (
@@ -286,12 +292,14 @@ function StepperSemEtapas({
   status,
   variant,
   mostrarPrazo = true,
+  mostrarDots = true,
 }: {
   responsaveis: MembroAvatar[];
   prazo?: string;
   status?: string;
   variant: 'compact' | 'full';
   mostrarPrazo?: boolean;
+  mostrarDots?: boolean;
 }) {
   const resp: MembroAvatar | undefined =
     responsaveis.length > 0 ? responsaveis[0] : undefined;
@@ -300,12 +308,14 @@ function StepperSemEtapas({
 
   if (variant === 'compact') {
     return (
-      <ol aria-label="Tarefa: 1 etapa" className="flex items-center">
+      <ol aria-label="Tarefa: 1 etapa" className="flex items-center gap-1.5">
         <li aria-current="step" className="flex items-center gap-1.5">
-          <div
-            aria-hidden="true"
-            className={cn('size-2.5 shrink-0 rounded-full', dotBg)}
-          />
+          {mostrarDots && (
+            <div
+              aria-hidden="true"
+              className={cn('size-2.5 shrink-0 rounded-full', dotBg)}
+            />
+          )}
           {status && (
             <span className="text-[11px] text-muted-foreground">{status}</span>
           )}
@@ -385,6 +395,7 @@ export function EtapasStepper({
   prazo,
   status,
   mostrarPrazo = true,
+  mostrarDots = true,
 }: EtapasStepperProps) {
   if ((etapas?.length ?? 0) === 0) {
     return (
@@ -394,12 +405,13 @@ export function EtapasStepper({
         status={status}
         variant={variant}
         mostrarPrazo={mostrarPrazo}
+        mostrarDots={mostrarDots}
       />
     );
   }
 
   if (variant === 'compact') {
-    return <StepperCompact etapas={etapas!} responsaveis={responsaveis} mostrarPrazo={mostrarPrazo} />;
+    return <StepperCompact etapas={etapas!} responsaveis={responsaveis} mostrarPrazo={mostrarPrazo} mostrarDots={mostrarDots} />;
   }
 
   return <StepperFull etapas={etapas!} responsaveis={responsaveis} />;

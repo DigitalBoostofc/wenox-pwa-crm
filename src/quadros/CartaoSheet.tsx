@@ -218,6 +218,14 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     if (!dataStr) { salvar({ data_post: '' }); return; }
     salvar({ data_post: `${dataStr} ${dpTimeStr || '00:00'}:00`, nome: tituloComData(c.nome, dataStr) });
   }
+  // Tipos de post selecionados (multi). Legado: card só com `formato` vira [formato].
+  const formatosSel: string[] = c?.formatos ?? (c?.formato ? [c.formato] : []);
+  // Alterna um tipo; mantém `formato` = principal (1º selecionado) p/ compat backend/exibição.
+  function toggleFormato(f: string) {
+    if (!c) return;
+    const novos = formatosSel.includes(f) ? formatosSel.filter((x) => x !== f) : [...formatosSel, f];
+    salvar({ formatos: novos, formato: (novos[0] ?? '') as Cartao['formato'] });
+  }
 
   async function abrirRevisao() {
     if (!c?.lista) return;
@@ -518,19 +526,29 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                       {/* COPY → Orientações para o design + Legenda + Hashtags */}
                                       {papel === 'copy' && (
                                         <>
-                                          {/* Tipo de post (1º item da Copy) */}
+                                          {/* Tipo de post (1º item da Copy) — múltipla escolha */}
                                           <div className="flex flex-col gap-1">
-                                            <span className="text-xs text-muted-foreground">Tipo de post</span>
-                                            <select
-                                              value={c.formato ?? ''}
-                                              onChange={(e) => salvar({ formato: e.target.value as Cartao['formato'] })}
-                                              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                                            >
-                                              <option value="">— selecione —</option>
-                                              {FORMATOS_POST.map((f) => (
-                                                <option key={f} value={f}>{TIPO_POST_LABEL[f] ?? f}</option>
-                                              ))}
-                                            </select>
+                                            <span className="text-xs text-muted-foreground">Tipo de post <span className="text-[10px] text-muted-foreground/60">(escolha um ou mais)</span></span>
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {FORMATOS_POST.map((f) => {
+                                                const sel = formatosSel.includes(f);
+                                                return (
+                                                  <button
+                                                    key={f}
+                                                    type="button"
+                                                    onClick={() => toggleFormato(f)}
+                                                    className={cn(
+                                                      'rounded-full border px-3 py-1 text-xs transition-colors',
+                                                      sel
+                                                        ? 'border-primary bg-primary/15 text-primary'
+                                                        : 'border-border bg-background text-muted-foreground hover:bg-secondary',
+                                                    )}
+                                                  >
+                                                    {sel ? '✓ ' : ''}{TIPO_POST_LABEL[f] ?? f}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
                                           </div>
                                           {/* Referência/Modelo (opcional) */}
                                           <div className="flex flex-col gap-1">
@@ -599,16 +617,30 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                           <Button
                                             size="sm"
                                             className="h-7 w-fit text-xs"
-                                            disabled={!descRasc.trim() || !legendaLocal.trim() || !hashtagsLocal.trim()}
+                                            disabled={formatosSel.length === 0 || !descRasc.trim() || !legendaLocal.trim() || !hashtagsLocal.trim() || legendaLocal.length > 2200}
                                             onClick={() => handleConfirmarEtapa(idx)}
                                           >
                                             ✓ Confirmar Copy
                                           </Button>
-                                          {(!descRasc.trim() || !legendaLocal.trim() || !hashtagsLocal.trim()) && (
-                                            <span className="text-[10px] text-amber-400">
-                                              Preencha {[!descRasc.trim() && 'orientações', !legendaLocal.trim() && 'legenda', !hashtagsLocal.trim() && 'hashtags'].filter(Boolean).join(', ')} para confirmar.
-                                            </span>
-                                          )}
+                                          {(() => {
+                                            const pend = [
+                                              formatosSel.length === 0 && 'tipo de post',
+                                              !descRasc.trim() && 'orientações',
+                                              !legendaLocal.trim() && 'legenda',
+                                              !hashtagsLocal.trim() && 'hashtags',
+                                            ].filter(Boolean) as string[];
+                                            if (pend.length) return (
+                                              <span className="text-[10px] text-amber-400">
+                                                Preencha {pend.join(', ')} para confirmar.
+                                              </span>
+                                            );
+                                            if (legendaLocal.length > 2200) return (
+                                              <span className="text-[10px] text-red-400">
+                                                Legenda excede 2.200 caracteres ({legendaLocal.length}). Reduza para confirmar.
+                                              </span>
+                                            );
+                                            return null;
+                                          })()}
                                         </>
                                       )}
 

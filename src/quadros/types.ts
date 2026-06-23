@@ -208,6 +208,8 @@ export interface Cartao {
   data_post?: string;
   redes?: string[];
   formato?: 'feed' | 'story' | 'reels' | 'carrossel' | '';
+  /** Tipos de post (multi). `formato` segue como o "principal" (= formatos[0]) p/ compat backend. */
+  formatos?: string[];
   status_post?: 'em_producao' | 'agendar' | 'agendado' | 'postado' | 'em_alteracao' | '';
   agendado_em?: string;
   objetivo?: string;

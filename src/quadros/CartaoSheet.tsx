@@ -14,7 +14,7 @@ import {
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { Archive } from 'lucide-react';
 import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
-import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, FORMATOS_POST, alertaAgendar, TIPO_POST_LABEL, ORIENTACOES_DESIGN_TEMPLATE } from './types';
+import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, FORMATOS_POST, alertaAgendar, TIPO_POST_LABEL, ORIENTACOES_DESIGN_TEMPLATE, papelDaEtapa } from './types';
 import { PreviewPost } from './PreviewPost';
 import { prazoBR, parsePrazo } from '@/tarefas/format';
 import { listUsuarios } from '@/usuarios/usuariosService';
@@ -501,6 +501,19 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                           {etapas.map((etapa, idx) => {
                             const isAtual = idx === idxAtual;
                             const isFutura = idx > idxAtual && idxAtual !== -1;
+                            const papel = papelDaEtapa(etapa);
+                            // p/ revisao_layout: motivo da última revisão/aprovação reprovada acima
+                            const motivoReprovacao = papel === 'revisao_layout'
+                              ? (() => {
+                                  for (let i = idx - 1; i >= 0; i--) {
+                                    const p = papelDaEtapa(etapas[i]);
+                                    if ((p === 'revisao' || p === 'aprovacao_cliente') && etapas[i].veredito === 'reprovado') {
+                                      return etapas[i].motivo ?? '';
+                                    }
+                                  }
+                                  return '';
+                                })()
+                              : '';
                             return (
                               <div
                                 key={etapa.id}
@@ -544,7 +557,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                   {isAtual && (
                                     <div className="flex flex-col gap-2">
                                       {/* COPY → Orientações para o design + Legenda + Hashtags */}
-                                      {etapa.texto === 'Copy' && (
+                                      {papel === 'copy' && (
                                         <>
                                           {/* Referência/Modelo (opcional, 1º item) */}
                                           <div className="flex flex-col gap-1">
@@ -626,9 +639,17 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                         </>
                                       )}
 
-                                      {/* LAYOUT → conteúdo da Copy (read-only) + atalho de anexo */}
-                                      {etapa.texto === 'Layout' && (
+                                      {/* LAYOUT / REVISÃO LAYOUT → conteúdo da Copy (read-only) + atalho de anexo */}
+                                      {(papel === 'layout' || papel === 'revisao_layout') && (
                                         <>
+                                          {papel === 'revisao_layout' && (
+                                            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                                              <span className="font-semibold">Reprovado na revisão anterior.</span>
+                                              {motivoReprovacao
+                                                ? <> Motivo: <span className="text-amber-200">{motivoReprovacao}</span></>
+                                                : <> Ajuste a arte conforme o feedback e confirme.</>}
+                                            </div>
+                                          )}
                                           {((c.referencia ?? '').trim() || (c.descricao ?? '').trim() || (c.legenda ?? '').trim() || (c.hashtags ?? '').trim()) && (
                                             <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-background/40 p-2.5">
                                               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Conteúdo da Copy (social media)</span>
@@ -672,13 +693,13 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                             className="h-7 w-fit text-xs"
                                             onClick={() => handleConfirmarEtapa(idx)}
                                           >
-                                            ✓ Confirmar Layout
+                                            {papel === 'revisao_layout' ? '✓ Confirmar Revisão Layout' : '✓ Confirmar Layout'}
                                           </Button>
                                         </>
                                       )}
 
                                       {/* REVISÃO INTERNA / APROVAÇÃO DO CLIENTE → abrir tela de revisão */}
-                                      {(etapa.texto === 'Revisão interna' || etapa.texto === 'Aprovação do cliente') && (
+                                      {(papel === 'revisao' || papel === 'aprovacao_cliente') && (
                                         <div className="flex flex-col gap-1.5">
                                           <p className="text-xs text-muted-foreground">
                                             Use a tela de revisão para aprovar ou reprovar todos os posts do mês de uma vez.
@@ -695,7 +716,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                       )}
 
                                       {/* CONFIRMAÇÃO DE AGENDAMENTO → data/hora */}
-                                      {etapa.texto === 'Confirmação de agendamento' && (
+                                      {papel === 'agendamento' && (
                                         <>
                                           <div className="flex flex-wrap items-center gap-2">
                                             <input

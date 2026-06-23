@@ -380,63 +380,6 @@ export async function getListaPorToken(token: string): Promise<Lista> {
   return (await lcol().getFirstListItem(`review_token="${token}"`)) as unknown as Lista;
 }
 
-/**
- * Registra a decisão (aprovado/reprovado) de um card na etapa idx da esteira.
- * - aprovado: marca feito=true, status via statusDaEsteira, faz gating na tarefa.
- * - reprovado: feito=false, veredito='reprovado', reabre o Layout (idx 1), status='em_alteracao'.
- */
-export async function decidirRevisaoCard(
-  card: Cartao,
-  idx: number,
-  uid: string,
-  veredito: 'aprovado' | 'reprovado',
-  motivo?: string,
-): Promise<Cartao> {
-  if (veredito === 'aprovado') {
-    const etapas = (card.etapas_card ?? []).map((e, i) =>
-      i !== idx ? e : {
-        ...e,
-        feito: true,
-        feito_por: uid,
-        feito_em: wallclock(),
-        veredito: 'aprovado' as const,
-      } as EtapaCard,
-    );
-    const status_post = statusDaEsteira(etapas);
-    const updated = await atualizarCartao(card.id, { etapas_card: etapas, status_post });
-
-    try {
-      const todos = (await listCartoes(card.quadro)).filter(
-        (c) => c.lista === card.lista && (c.etapas_card?.length ?? 0) > 0,
-      );
-      const todosFeitos = todos.length > 0 && todos.every((c) => {
-        const eCard = c.id === card.id ? etapas : (c.etapas_card ?? []);
-        return eCard[idx]?.feito === true;
-      });
-      if (todosFeitos) {
-        const lista = (await lcol().getOne(card.lista!)) as unknown as Lista;
-        if (lista.tarefa) {
-          const tarefa = await getTarefa(lista.tarefa);
-          const etapaTarefa = tarefa.etapas?.[idx];
-          if (etapaTarefa && !etapaTarefa.feito) {
-            await concluirEtapa(tarefa, etapaTarefa.id);
-          }
-        }
-      }
-    } catch { /* gating best-effort */ }
-
-    return updated;
-  } else {
-    // reprovado: mantém feito=false na etapa atual, reabre o Layout (idx 1)
-    const etapas = (card.etapas_card ?? []).map((e, i) => {
-      if (i === idx) return { ...e, feito: false, veredito: 'reprovado' as const, motivo: motivo ?? '' } as EtapaCard;
-      if (i === 1) return { ...e, feito: false, veredito: undefined, motivo: undefined } as EtapaCard;
-      return e;
-    });
-    return await atualizarCartao(card.id, { etapas_card: etapas, status_post: 'em_alteracao' });
-  }
-}
-
 /** Popula a lista-mês com 1 card por item do modelo global de post. */
 export async function seedTemplateMes(quadroId: string, listaId: string): Promise<void> {
   const modelo = await carregarModeloRemoto();
@@ -615,6 +558,7 @@ export async function gerarPostsMes(
           id: smUuid(),
           texto: e.texto,
           tipo: e.tipo,
+          papel: e.papel,
           feito: false,
           ...(resp ? { responsavel: resp } : {}),
         };

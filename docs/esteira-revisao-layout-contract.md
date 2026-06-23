@@ -32,7 +32,8 @@ Cada etapa ganha o campo `papel` (string):
 - `Confirmação de agendamento` → `agendamento`
 - texto que começa com `Revisão Layout` → `revisao_layout`
 
-Implemente `papelDaEtapa(e): Papel = e.papel ?? derivaDoTexto(e.texto)`.
+Implemente `papelDaEtapa(e, i?): Papel = e.papel ?? derivaDoTexto(e.texto) ?? POS[i] ?? 'revisao'`
+(o fallback posicional `POS[i]` é o ÚLTIMO recurso e só entra com `i` fornecido — ver **§9**).
 
 ---
 
@@ -88,6 +89,11 @@ Mantenha o resto do fluxo (aprovar/reprovar/agendar postam
 **Defensivo**: se `papelEtapa`/`textoEtapa` vierem ausentes (resposta antiga), caia no
 comportamento atual por idx (2/3/4) — mas o backend vai mandar os campos.
 
+> ⚠️ Com os ciclos de revisão as esteiras divergem de tamanho POR POST, então o
+> `idxEtapa` global **não pode** indexar os outros posts. Ver **§9** para a indexação
+> por-post (`sessionIndex`/`classify`) — o `idxEtapa` global vira só representativo
+> (título/exibição).
+
 ---
 
 ## 6. `CartaoSheet` (`src/quadros/CartaoSheet.tsx`) — render por papel
@@ -122,3 +128,77 @@ Os rótulos das etapas (lista) e a numeração da bolinha seguem a esteira como 
 A propagação card → `tarefa.etapas` é feita pelo backend por papel; a tarefa NÃO cresce com
 ciclos (continua 5 etapas). No frontend, só garanta que nada quebre quando a esteira do CARD
 tiver mais de 5 itens (a tarefa segue 5).
+
+---
+
+## 9. Indexação por-post (`RevisaoPostsPage`) — espelha o backend byte-a-byte
+
+Com os ciclos "Revisão Layout", a esteira de cada post pode ter tamanho diferente. Um
+`idxEtapa` global mandaria veredito pra etapa errada. A página passa a derivar **por post**
+o índice acionável e o estado, a partir do **papel da sessão** (`papelEtapa` do GET; em
+respostas antigas, o POSICIONAL do `idxEtapa`).
+
+### Helpers canônicos (`src/quadros/types.ts`)
+
+```
+GATES = ['revisao', 'aprovacao_cliente', 'agendamento']
+POS   = { 0:'copy', 1:'layout', 2:'revisao', 3:'aprovacao_cliente', 4:'agendamento' }
+
+// papel da etapa, com fallback posicional como ÚLTIMO recurso:
+papelDaEtapa(e, i?) = e.papel ?? derivaPapelDoTexto(e.texto) ?? POS[i] ?? 'revisao'
+// (derivaPapelDoTexto agora devolve `undefined` p/ texto desconhecido; `i` é opcional —
+//  sem ele mantém o default legado 'revisao', não quebrando os callers atuais.)
+
+// 1ª etapa não-feita do post é o gate da sessão? então é o idx a acionar; senão -1.
+function sessionIndex(ec, papelEtapa) {
+  const i = ec.findIndex(e => !e.feito);
+  if (i === -1) return -1;
+  return papelDaEtapa(ec[i], i) === papelEtapa ? i : -1;
+}
+
+// classifica o post na sessão
+function classify(ec, papelEtapa) {
+  const i = ec.findIndex(e => !e.feito);
+  if (i === -1) return { state: 'CONCLUIDO' };
+  const p0 = papelDaEtapa(ec[i], i);
+  if (GATES.includes(p0)) return p0 === papelEtapa ? { state: 'PENDENTE', idx: i } : { state: 'ADIANTE' };
+  if (p0 === 'revisao_layout') {
+    const r = ec[i-1];
+    const pr = r ? papelDaEtapa(r, i-1) : '';
+    if (pr === papelEtapa && r.veredito === 'reprovado') return { state: 'REPROVADO', idx: i-1, motivo: r.motivo || '' };
+    return { state: 'RETRABALHO_OUTRO' };
+  }
+  return { state: 'EM_PRODUCAO' };
+}
+```
+
+### Como cada cálculo deriva (por post, não pelo idx global)
+
+| Cálculo | Regra |
+|---|---|
+| `papelSessao` | `papelEtapa || POS[idxEtapa] || ''` (fallback compat respostas antigas). `idxEtapa` global é só título/exibição. |
+| posição inicial | 1º post com `classify(...).state === 'PENDENTE'` (fallback 0). |
+| acionável (post atual) | `sessionIndex(ec, papelSessao) !== -1` (≡ `classify().state === 'PENDENTE'`). |
+| `decididos` | `posts.filter(p => classify(p.ec, papelSessao).state !== 'PENDENTE').length`. |
+| `total` | `posts.length`. |
+| `todosDecididos` | `!posts.some(p => classify(...).state === 'PENDENTE')`. |
+| `reprovados` | posts com ícone `reprovado` (classify `REPROVADO` **ou** gate da sessão já decidido `reprovado` — pega o reprovar otimista antes do refetch). |
+| `aprovados` | `decididos − reprovados`. |
+| badge / ícone do post | `PENDENTE → ○` · `REPROVADO/reprovado otimista → ✗ vermelho` · resto decidido → `✓ verde`. |
+| `idxGate` (exibição) | `sessionIndex` se pendente; senão a etapa do papel da sessão logo antes da 1ª não-feita (ou a última se concluído). Usado p/ o veredito/motivo/data exibidos. |
+
+### POST de decisão e idx -1
+
+- `enviarDecisao`/`enviarAgendamento` mandam `idx = sessionIndex(post.ec, papelSessao)`.
+- **NUNCA postar `idx === -1`**: se não acionável, os botões somem e o post mostra
+  *"em retrabalho — aguardando o design"*. O backend **não é rede de segurança** — `idx -1`
+  corromperia a esteira (wrap em índice Python).
+- Updates otimistos (`atualizarPostLocal`/`atualizarPostAgendado`) aplicam no `sessionIndex`
+  daquele post. Aprovado **e** reprovado marcam `feito = true` (saem de PENDENTE). As novas
+  etapas do ciclo (revisao_layout + re-revisão numerada) são inseridas pelo **backend** e só
+  aparecem no refetch — o frontend não as simula.
+
+### Caminho feliz (sem loops)
+
+Com esteira de 5, `sessionIndex == idxEtapa` global e `classify` reproduz o comportamento
+anterior (revisão idx 2 / aprovação idx 3 / agendamento idx 4) — sem regressão.

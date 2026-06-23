@@ -268,6 +268,12 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     ...(c?.anexos ?? []).filter((a) => (a.mime ?? '').startsWith('image') && a.url).map((a) => ({ url: a.url!, nome: a.nome })),
     ...(c?.uploads ?? []).filter(ehImg).map((fn) => ({ url: urlUpload(c!, fn), nome: fn })),
   ];
+  // Pré-visualizar só a partir da 3ª etapa (Revisão interna): Copy e Layout já feitos
+  // (etapa atual não é copy/layout/revisao_layout) E com arte anexada pelo design.
+  const _ecPrev = c?.etapas_card ?? [];
+  const _idxPrev = _ecPrev.findIndex((e) => !e.feito);
+  const _passouDesign = _idxPrev === -1 || !['copy', 'layout', 'revisao_layout'].includes(papelDaEtapa(_ecPrev[_idxPrev], _idxPrev));
+  const previewDisponivel = _passouDesign && imgs.length > 0;
   // lista unificada de anexos pra exibição estilo Trello (miniatura + nome + data)
   const extDe = (nome?: string, url?: string) => {
     const s = (nome || url || '').split('?')[0];
@@ -444,13 +450,15 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                       <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         <CalendarDays className="size-3.5" /> Post
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewAberto(true)}
-                        className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                      >
-                        👁 Pré-visualizar
-                      </button>
+                      {previewDisponivel && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewAberto(true)}
+                          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                        >
+                          👁 Pré-visualizar
+                        </button>
+                      )}
                     </div>
 
                     {alertaAgendar(c) && (

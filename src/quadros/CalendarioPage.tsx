@@ -6,7 +6,7 @@ import {
   criarCartao, atualizarCartao,
 } from './quadrosService';
 import type { Quadro, Lista, Cartao } from './types';
-import { corStatusPost, STATUS_POST, alertaAgendar, statusDaEsteira } from './types';
+import { corStatusPost, STATUS_POST, alertaAgendar, statusDaEsteira, ehCartaoPost } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { parsePrazo } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -189,6 +189,8 @@ export function CalendarioPage({ id }: { id: string }) {
 
   const cli = quadro.expand?.cliente;
   const logo = cli?.logo ? logoUrl(cli as never, '100x100') : '';
+  const cartaoAberto = cartoes.find(c => c.id === abertoId) ?? null;
+  const abertoEhPost = !!cartaoAberto && ehCartaoPost(cartaoAberto);
 
   // ─── VISÃO DIA ─────────────────────────────────────────────────────────────
   if (visaoDia) {
@@ -274,7 +276,7 @@ export function CalendarioPage({ id }: { id: string }) {
           cartaoId={abertoId}
           aberto={abertoId !== null}
           clienteId={quadro.cliente}
-          ehPost
+          ehPost={abertoEhPost}
           onClose={() => { setAbertoId(null); recarregar(); }}
           onMudou={recarregar}
         />
@@ -498,7 +500,7 @@ export function CalendarioPage({ id }: { id: string }) {
         cartaoId={abertoId}
         aberto={abertoId !== null}
         clienteId={quadro.cliente}
-        ehPost
+        ehPost={abertoEhPost}
         onClose={() => { setAbertoId(null); recarregar(); }}
         onMudou={recarregar}
       />

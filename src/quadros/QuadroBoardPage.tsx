@@ -23,7 +23,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao, RecorrenciaMes } from './types';
-import { capaEhCor, capaCorClara, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, statusDaEsteira, thumbUrl } from './types';
+import { capaEhCor, capaCorClara, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, statusDaEsteira, thumbUrl, ehCartaoPost } from './types';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -546,6 +546,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
 
   const cli = quadro.expand?.cliente;
   const logo = cli?.logo ? logoUrl(cli as never, '100x100') : '';
+  const cartaoAberto = cartoes.find((x) => x.id === abertoId) ?? null;
 
   return (
     <div style={fundoBoardStyle(quadro)} className="-mx-4 -my-6 flex min-h-0 flex-1 flex-col gap-3 bg-cover bg-center px-4 py-6 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
@@ -681,7 +682,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
 
               <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
                 {cards.map((c) => (
-                  <MiniCard key={c.id} c={c} onClick={() => setAbertoId(c.id)} onSoltarAntes={soltarAntes} expandidas={etExpand} onToggleEt={toggleEtExpand} usuariosMap={usuariosMap} ehPost={l.tipo === 'mes'} />
+                  <MiniCard key={c.id} c={c} onClick={() => setAbertoId(c.id)} onSoltarAntes={soltarAntes} expandidas={etExpand} onToggleEt={toggleEtExpand} usuariosMap={usuariosMap} ehPost={ehCartaoPost(c)} />
                 ))}
               </div>
 
@@ -1082,8 +1083,8 @@ export function QuadroBoardPage({ id }: { id: string }) {
         aberto={abertoId !== null}
         labelsDisponiveis={labelsDisponiveis}
         clienteId={quadro.cliente}
-        listaNome={listas.find((l) => l.id === cartoes.find((x) => x.id === abertoId)?.lista)?.nome}
-        ehPost={listas.find((l) => l.id === cartoes.find((x) => x.id === abertoId)?.lista)?.tipo === 'mes'}
+        listaNome={listas.find((l) => l.id === cartaoAberto?.lista)?.nome}
+        ehPost={!!cartaoAberto && ehCartaoPost(cartaoAberto)}
         onClose={() => setAbertoId(null)}
         onMudou={recarregar}
       />

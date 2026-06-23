@@ -5,6 +5,7 @@ import { logoUrl } from '@/clientes/clientesService';
 import { ESTEIRA_SOCIAL, statusDaEsteira, ORIENTACOES_DESIGN_TEMPLATE, ORDEM_PAPEL, ordemPendenteCard } from './types';
 import { carregarModeloRemoto } from './modeloPost';
 import { criarTarefa, concluirEtapa, getTarefa, atualizarTarefa } from '@/tarefas/tarefasService';
+import { notificar } from '@/notificacoes/notificacoesService';
 import { statusInicial, statusDoPapel } from '@/tarefas/status';
 import type { EtapaTarefa } from '@/tarefas/types';
 
@@ -934,6 +935,19 @@ export async function confirmarEtapaCard(
         if (etapaTarefa && !etapaTarefa.feito) {
           await concluirEtapa(tarefa, etapaTarefa.id);
         }
+      }
+      // Handoff em lote: a etapa anterior fechou em todos os cards → libera a próxima
+      // e notifica o responsável dela (porteira aberta). Pula aprovação do cliente.
+      const proxima = etapas[idx + 1];
+      if (proxima && proxima.responsavel && proxima.tipo !== 'aprovacao_cliente') {
+        try {
+          await notificar([proxima.responsavel], {
+            tipo: 'atribuicao',
+            titulo: `Lote liberado: ${proxima.texto}`,
+            mensagem: `Todos os posts concluíram "${etapas[idx]?.texto ?? 'a etapa anterior'}". ${proxima.texto} está liberado para você.`,
+            link: `/quadros/${card.quadro}?lista=${card.lista}`,
+          });
+        } catch { /* notificação best-effort */ }
       }
     }
   } catch { /* gating best-effort */ }

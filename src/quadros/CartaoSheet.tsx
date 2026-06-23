@@ -292,13 +292,29 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     if (i === -1) return 99; // todas as etapas feitas
     return ORDEM_PAPEL[papelDaEtapa(ec[i], i)] ?? 0;
   }
-  /** {feitos,total} de posts da lista que já concluíram o papel `p` (usa estado vivo do card atual). */
-  function progressoPapel(p: string): { feitos: number; total: number } {
-    const todos = c
+  /** Lote = posts irmãos da lista-mês + card atual com estado vivo. */
+  function loteCards(): Cartao[] {
+    return c
       ? (irmaos.some((x) => x.id === c.id) ? irmaos.map((x) => (x.id === c.id ? c : x)) : [...irmaos, c])
       : irmaos;
+  }
+  /** {feitos,total} de posts da lista que já concluíram o papel `p` (usa estado vivo do card atual). */
+  function progressoPapel(p: string): { feitos: number; total: number } {
     const ord = ORDEM_PAPEL[p] ?? 0;
+    const todos = loteCards();
     return { feitos: todos.filter((x) => ordemPendente(x) > ord).length, total: todos.length };
+  }
+  /**
+   * Porteira em lote: a etapa de papel `p` só é acionável quando a etapa ANTERIOR
+   * estiver 100% concluída em todos os cards da lista. `feitos/total` = cards que já
+   * passaram da etapa anterior. Copy (ordem 0) não tem porteira.
+   */
+  function porteiraDaEtapa(p: string): { aberta: boolean; feitos: number; total: number } {
+    const ord = ORDEM_PAPEL[p] ?? 0;
+    const todos = loteCards();
+    if (ord === 0) return { aberta: true, feitos: todos.length, total: todos.length };
+    const feitos = todos.filter((x) => ordemPendente(x) >= ord).length;
+    return { aberta: feitos >= todos.length, feitos, total: todos.length };
   }
   // lista unificada de anexos pra exibição estilo Trello (miniatura + nome + data)
   const extDe = (nome?: string, url?: string) => {
@@ -567,6 +583,16 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                           </span>
                                         );
                                       })()}
+                                      {(() => {
+                                        const pt = porteiraDaEtapa(papel);
+                                        if (pt.aberta) return null;
+                                        const anterior = idx > 0 ? (etapas[idx - 1]?.texto ?? 'a etapa anterior') : 'a etapa anterior';
+                                        return (
+                                          <span className="w-fit rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-400">
+                                            ⏳ Aguardando todos os posts concluírem "{anterior}" ({pt.feitos}/{pt.total})
+                                          </span>
+                                        );
+                                      })()}
                                       {/* COPY → Orientações para o design + Legenda + Hashtags */}
                                       {papel === 'copy' && (
                                         <>
@@ -764,7 +790,8 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                           <p className="text-xs text-muted-foreground">Anexe a arte final do layout e confirme.</p>
                                           <button
                                             onClick={() => fileRef.current?.click()}
-                                            className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary"
+                                            disabled={!porteiraDaEtapa(papel).aberta}
+                                            className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"
                                           >
                                             <Paperclip className="size-3.5" /> Anexar arte
                                           </button>
@@ -796,7 +823,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                           <Button
                                             size="sm"
                                             className="h-7 w-fit text-xs"
-                                            disabled={imgs.length === 0}
+                                            disabled={imgs.length === 0 || !porteiraDaEtapa(papel).aberta}
                                             onClick={() => handleConfirmarEtapa(idx)}
                                           >
                                             {papel === 'revisao_layout' ? '✓ Confirmar Revisão Layout' : '✓ Confirmar Layout'}
@@ -814,6 +841,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                             size="sm"
                                             variant="outline"
                                             className="h-8 w-fit text-xs gap-1.5"
+                                            disabled={!porteiraDaEtapa(papel).aberta}
                                             onClick={abrirRevisao}
                                           >
                                             🔗 Abrir tela de revisão
@@ -845,7 +873,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                           <Button
                                             size="sm"
                                             className="h-7 w-fit text-xs"
-                                            disabled={!dpDateStr}
+                                            disabled={!dpDateStr || !porteiraDaEtapa(papel).aberta}
                                             onClick={() => handleConfirmarEtapa(idx)}
                                           >
                                             ✓ Confirmar agendamento

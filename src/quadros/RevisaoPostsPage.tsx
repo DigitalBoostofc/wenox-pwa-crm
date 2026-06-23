@@ -36,6 +36,10 @@ interface ApiPost {
 interface ApiReviewData {
   lista: { nome: string };
   idxEtapa: number;
+  /** Papel da etapa em revisão (loop dinâmico). Ausente em respostas antigas. */
+  papelEtapa?: string;
+  /** Texto da etapa em revisão (já numerado nos ciclos). Ausente em respostas antigas. */
+  textoEtapa?: string;
   cliente: ApiCliente | null;
   posts: ApiPost[];
 }
@@ -188,6 +192,8 @@ export function RevisaoPostsPage() {
 
   const [listaNome, setListaNome] = useState('');
   const [idxEtapa, setIdxEtapa] = useState(2);
+  const [papelEtapa, setPapelEtapa] = useState('');
+  const [textoEtapa, setTextoEtapa] = useState('');
   const [cliente, setCliente] = useState<ApiCliente | null>(null);
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [posicao, setPosicao] = useState(0);
@@ -214,10 +220,13 @@ export function RevisaoPostsPage() {
       .then((data) => {
         setListaNome(data.lista.nome);
         setIdxEtapa(data.idxEtapa);
+        setPapelEtapa(data.papelEtapa ?? '');
+        setTextoEtapa(data.textoEtapa ?? '');
         setCliente(data.cliente);
         setPosts(data.posts);
         const idx = data.idxEtapa;
-        const isAgend = idx === 4;
+        // Defensivo: deriva do papel quando o backend manda; senão cai no idx legado (4).
+        const isAgend = data.papelEtapa ? data.papelEtapa === 'agendamento' : idx === 4;
         const pend = data.posts.findIndex((p) =>
           isAgend ? !p.etapas_card?.[idx]?.feito : !p.etapas_card?.[idx]?.veredito
         );
@@ -235,15 +244,16 @@ export function RevisaoPostsPage() {
 
   // Sincroniza campos de agendamento ao navegar entre posts
   const postAtual = posts[posicao] ?? null;
+  // Defensivo: deriva do papel; fallback p/ idx legado (4) em respostas antigas.
+  const isAgendamento = papelEtapa ? papelEtapa === 'agendamento' : idxEtapa === 4;
   useEffect(() => {
-    if (idxEtapa === 4 && postAtual) {
+    if (isAgendamento && postAtual) {
       const parts = parseDateParts(postAtual.data_post ?? '');
       setAgendData(parts.data);
       setAgendHora(parts.hora);
     }
-  }, [posicao, idxEtapa, postAtual?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [posicao, isAgendamento, postAtual?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isAgendamento = idxEtapa === 4;
   const etapaAtual = postAtual?.etapas_card?.[idxEtapa];
   const jaDecidido = isAgendamento ? !!etapaAtual?.feito : !!etapaAtual?.veredito;
   const decididos = posts.filter((p) => {
@@ -255,10 +265,12 @@ export function RevisaoPostsPage() {
   const aprovados = posts.filter((p) => p.etapas_card?.[idxEtapa]?.veredito === 'aprovado').length;
   const reprovados = decididos - aprovados;
 
+  // Nome vem do backend (textoEtapa, já numerado nos ciclos); fallback p/ idx legado.
   const nomeEtapa =
-    idxEtapa === 2 ? 'Revisão interna'
-    : idxEtapa === 3 ? 'Aprovação do cliente'
-    : 'Confirmação de agendamento';
+    textoEtapa
+    || (idxEtapa === 2 ? 'Revisão interna'
+      : idxEtapa === 3 ? 'Aprovação do cliente'
+      : 'Confirmação de agendamento');
 
   function atualizarPostLocal(postId: string, veredito: 'aprovado' | 'reprovado', motivoTexto?: string) {
     setPosts((prev) =>
@@ -286,7 +298,7 @@ export function RevisaoPostsPage() {
               ...p,
               data_post: dataPostAgendada,
               etapas_card: p.etapas_card.map((e, i) =>
-                i === 4 ? { ...e, feito: true } : e,
+                i === idxEtapa ? { ...e, feito: true } : e,
               ),
             },
       ),

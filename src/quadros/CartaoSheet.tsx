@@ -107,8 +107,8 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     listComentariosCartao(cartaoId).then(setComentarios).catch(() => setComentarios([]));
   }, [cartaoId]);
   useEffect(() => { listUsuarios().then((us) => setEquipe(us.filter((u) => u.role !== 'Cliente'))).catch(() => { /* */ }); }, []);
-  // auto-cresce a caixa de orientações (etapa Copy) conforme o conteúdo carrega/muda
-  useEffect(() => { if (ehPost) autoGrow(descTextRef.current); }, [descRasc, ehPost, c?.id]);
+  // auto-cresce a caixa de orientações (Copy) e a descrição (card normal) conforme o conteúdo carrega/muda
+  useEffect(() => { autoGrow(descTextRef.current); }, [descRasc, ehPost, editandoDesc, editandoOrient, c?.id]);
 
   // Registra uma atividade no histórico (aparece junto dos comentários)
   function logAtividade(msg: string) {
@@ -800,8 +800,10 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><FileText className="size-3.5" /> Descrição</span>
-                    {!editandoDesc && (c.descricao ?? '').trim() && (
-                      <button onClick={() => { setDescRasc(c.descricao ?? ''); setEditandoDesc(true); }} className="rounded-md bg-secondary px-3 py-1 text-xs font-medium hover:bg-secondary/70">Editar</button>
+                    {editandoDesc && descRasc !== (c.descricao ?? '') && (
+                      <span className="rounded border border-amber-500/50 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-400">
+                        Alterações não salvas
+                      </span>
                     )}
                   </div>
                   {editandoDesc ? (
@@ -820,16 +822,23 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                         <button onClick={() => prefixarLinhas('- ')} title="Lista" className="grid size-7 place-items-center rounded hover:bg-secondary"><List className="size-3.5" /></button>
                         <button onClick={inserirLink} title="Link" className="grid size-7 place-items-center rounded hover:bg-secondary"><Link2 className="size-3.5" /></button>
                       </div>
-                      <textarea ref={descTextRef} autoFocus value={descRasc} rows={10} onChange={(e) => setDescRasc(e.target.value)} className="w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
+                      <textarea ref={descTextRef} autoFocus value={descRasc} rows={4} onChange={(e) => { setDescRasc(e.target.value); autoGrow(e.target); }} className="w-full resize-none overflow-hidden rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
                       <div className="flex gap-2">
                         <Button size="sm" className="h-7 text-xs" onClick={() => { salvar({ descricao: descRasc }); setEditandoDesc(false); }}>Salvar</Button>
-                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setDescRasc(c.descricao ?? ''); setEditandoDesc(false); }}>Cancelar</Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setDescRasc(c.descricao ?? ''); setEditandoDesc(false); }}>Descartar alterações</Button>
                       </div>
                     </div>
                   ) : (c.descricao ?? '').trim() ? (
                     <div className="relative">
-                      <div ref={descRef} className={cn('rounded-md', !descExpandida && 'max-h-[296px] overflow-hidden')}>
-                        <Markdown>{c.descricao!}</Markdown>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => { setDescRasc(c.descricao ?? ''); setEditandoDesc(true); }}
+                        className="cursor-pointer rounded-md border border-border bg-background/40 p-3 text-left transition-colors hover:border-primary/40"
+                      >
+                        <div ref={descRef} className={cn('rounded-md', !descExpandida && 'max-h-[296px] overflow-hidden')}>
+                          <Markdown>{c.descricao!}</Markdown>
+                        </div>
                       </div>
                       {!descExpandida && descTransborda && <div className="pointer-events-none absolute inset-x-0 bottom-9 h-12 bg-gradient-to-t from-card to-transparent" />}
                       {descTransborda && (

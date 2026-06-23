@@ -444,47 +444,6 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                       </button>
                     </div>
 
-                    {/* Cabeçalho do post: Tipo + Data e hora */}
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs text-muted-foreground">Tipo de post</span>
-                        <select
-                          value={c.formato ?? ''}
-                          onChange={(e) => salvar({ formato: e.target.value as Cartao['formato'] })}
-                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                        >
-                          <option value="">— selecione —</option>
-                          {FORMATOS_POST.map((f) => (
-                            <option key={f} value={f}>{TIPO_POST_LABEL[f] ?? f}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs text-muted-foreground">Data e hora do post</span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <input
-                            type="date"
-                            value={dpDateStr}
-                            onChange={(e) => salvarDataPost(e.target.value)}
-                            className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                          />
-                          <input
-                            type="time"
-                            value={dpTimeStr}
-                            disabled={!dpDateStr}
-                            onChange={(e) => {
-                              if (!dpDateStr) return;
-                              salvar({ data_post: `${dpDateStr} ${e.target.value || '00:00'}:00` });
-                            }}
-                            className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
-                          />
-                          {dpDateStr && (
-                            <button onClick={() => salvar({ data_post: '' })} className="text-xs text-destructive hover:underline">Remover</button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
                     {alertaAgendar(c) && (
                       <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-400">
                         ⚠ Falta agendar — publica em breve
@@ -559,7 +518,21 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                       {/* COPY → Orientações para o design + Legenda + Hashtags */}
                                       {papel === 'copy' && (
                                         <>
-                                          {/* Referência/Modelo (opcional, 1º item) */}
+                                          {/* Tipo de post (1º item da Copy) */}
+                                          <div className="flex flex-col gap-1">
+                                            <span className="text-xs text-muted-foreground">Tipo de post</span>
+                                            <select
+                                              value={c.formato ?? ''}
+                                              onChange={(e) => salvar({ formato: e.target.value as Cartao['formato'] })}
+                                              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                            >
+                                              <option value="">— selecione —</option>
+                                              {FORMATOS_POST.map((f) => (
+                                                <option key={f} value={f}>{TIPO_POST_LABEL[f] ?? f}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                          {/* Referência/Modelo (opcional) */}
                                           <div className="flex flex-col gap-1">
                                             <span className="text-xs text-muted-foreground">Referência/Modelo <span className="text-[10px] text-muted-foreground/60">(opcional)</span></span>
                                             <input
@@ -722,11 +695,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                             <input
                                               type="date"
                                               value={dpDateStr}
-                                              onChange={(e) => {
-                                                const d = e.target.value;
-                                                if (!d) { salvar({ data_post: '' }); return; }
-                                                salvar({ data_post: `${d} ${dpTimeStr || '00:00'}:00` });
-                                              }}
+                                              onChange={(e) => salvarDataPost(e.target.value)}
                                               className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                                             />
                                             <input

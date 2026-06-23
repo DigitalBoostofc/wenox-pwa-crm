@@ -542,6 +542,8 @@ export async function gerarPostsMes(
     if (diasSemana.includes(dt.getDay())) datas.push(dt);
   }
   const selecionadas = datas.slice(0, quantidade);
+  // Membros do card já vêm com Social Media + Design escolhidos na criação/edição do mês.
+  const membrosIds = [...new Set([responsaveis?.socialId, responsaveis?.designId].filter(Boolean))] as string[];
   for (let i = 0; i < selecionadas.length; i++) {
     const dt = selecionadas[i];
     const dd = String(dt.getDate()).padStart(2, '0');
@@ -570,6 +572,7 @@ export async function gerarPostsMes(
       checklists: [],
       anexos: [],
       membros: [],
+      membros_ids: membrosIds,
     });
   }
   return selecionadas.length;

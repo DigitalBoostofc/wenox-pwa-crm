@@ -44,6 +44,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const [equipe, setEquipe] = useState<Usuario[]>([]);
   const [descRasc, setDescRasc] = useState('');
   const [editandoDesc, setEditandoDesc] = useState(false);
+  const [editandoOrient, setEditandoOrient] = useState(false); // Orientações da Copy (estilo Trello: ver → editar → salvar)
   const [novoItem, setNovoItem] = useState<Record<number, string>>({});
   const [novaCl, setNovaCl] = useState('');
   const [novaEtNome, setNovaEtNome] = useState('');
@@ -560,32 +561,63 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                               placeholder="https://… (link ou modelo de referência)"
                                             />
                                           </div>
-                                          {/* Descrição / orientações com formatação + auto-crescer */}
+                                          {/* Orientações para o design — estilo Trello: ver → clicar → editar → salvar */}
                                           <div className="flex flex-col gap-1">
-                                            <span className="text-xs text-muted-foreground">Orientações para o design</span>
-                                            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-background/60 p-1">
-                                              <select defaultValue="" onChange={(e) => { if (e.target.value !== '') definirTitulo(Number(e.target.value)); e.target.value = ''; }}
-                                                className="h-7 rounded border border-input bg-background px-1 text-xs" title="Título">
-                                                <option value="" disabled>Aa</option>
-                                                <option value="0">Texto normal</option>
-                                                <option value="1">Título 1</option>
-                                                <option value="2">Título 2</option>
-                                                <option value="3">Título 3</option>
-                                              </select>
-                                              <button type="button" onClick={() => envolverSel('**', '**')} title="Negrito" className="grid size-7 place-items-center rounded hover:bg-secondary"><Bold className="size-3.5" /></button>
-                                              <button type="button" onClick={() => envolverSel('*', '*')} title="Itálico" className="grid size-7 place-items-center rounded hover:bg-secondary"><Italic className="size-3.5" /></button>
-                                              <button type="button" onClick={() => prefixarLinhas('- ')} title="Lista" className="grid size-7 place-items-center rounded hover:bg-secondary"><List className="size-3.5" /></button>
-                                              <button type="button" onClick={inserirLink} title="Link" className="grid size-7 place-items-center rounded hover:bg-secondary"><Link2 className="size-3.5" /></button>
+                                            <div className="flex items-center justify-between">
+                                              <span className="text-xs text-muted-foreground">Orientações para o design</span>
+                                              {editandoOrient && descRasc !== (c.descricao ?? '') && (
+                                                <span className="rounded border border-amber-500/50 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-400">
+                                                  Alterações não salvas
+                                                </span>
+                                              )}
                                             </div>
-                                            <textarea
-                                              ref={descTextRef}
-                                              rows={4}
-                                              value={descRasc}
-                                              onChange={(e) => { setDescRasc(e.target.value); autoGrow(e.target); }}
-                                              onBlur={(e) => { const v = e.target.value; if (v !== (c.descricao ?? '')) salvar({ descricao: v }); }}
-                                              className="w-full resize-none overflow-hidden rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                                              placeholder={ORIENTACOES_DESIGN_TEMPLATE}
-                                            />
+                                            {editandoOrient ? (
+                                              <div className="flex flex-col gap-2">
+                                                <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-background/60 p-1">
+                                                  <select defaultValue="" onChange={(e) => { if (e.target.value !== '') definirTitulo(Number(e.target.value)); e.target.value = ''; }}
+                                                    className="h-7 rounded border border-input bg-background px-1 text-xs" title="Título">
+                                                    <option value="" disabled>Aa</option>
+                                                    <option value="0">Texto normal</option>
+                                                    <option value="1">Título 1</option>
+                                                    <option value="2">Título 2</option>
+                                                    <option value="3">Título 3</option>
+                                                  </select>
+                                                  <button type="button" onClick={() => envolverSel('**', '**')} title="Negrito" className="grid size-7 place-items-center rounded hover:bg-secondary"><Bold className="size-3.5" /></button>
+                                                  <button type="button" onClick={() => envolverSel('*', '*')} title="Itálico" className="grid size-7 place-items-center rounded hover:bg-secondary"><Italic className="size-3.5" /></button>
+                                                  <button type="button" onClick={() => prefixarLinhas('- ')} title="Lista" className="grid size-7 place-items-center rounded hover:bg-secondary"><List className="size-3.5" /></button>
+                                                  <button type="button" onClick={inserirLink} title="Link" className="grid size-7 place-items-center rounded hover:bg-secondary"><Link2 className="size-3.5" /></button>
+                                                </div>
+                                                <textarea
+                                                  ref={descTextRef}
+                                                  autoFocus
+                                                  rows={4}
+                                                  value={descRasc}
+                                                  onChange={(e) => { setDescRasc(e.target.value); autoGrow(e.target); }}
+                                                  className="w-full resize-none overflow-hidden rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                                  placeholder={ORIENTACOES_DESIGN_TEMPLATE}
+                                                />
+                                                <div className="flex items-center gap-2">
+                                                  <Button size="sm" className="h-7 text-xs" onClick={() => { salvar({ descricao: descRasc }); setEditandoOrient(false); }}>Salvar</Button>
+                                                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setDescRasc(c.descricao ?? ''); setEditandoOrient(false); }}>Descartar alterações</Button>
+                                                </div>
+                                              </div>
+                                            ) : (c.descricao ?? '').trim() ? (
+                                              <button
+                                                type="button"
+                                                onClick={() => { setDescRasc(c.descricao ?? ''); setEditandoOrient(true); }}
+                                                className="rounded-md border border-border bg-background/40 p-3 text-left text-sm transition-colors hover:border-primary/40"
+                                              >
+                                                <Markdown>{c.descricao!}</Markdown>
+                                              </button>
+                                            ) : (
+                                              <button
+                                                type="button"
+                                                onClick={() => { setDescRasc(ORIENTACOES_DESIGN_TEMPLATE); setEditandoOrient(true); }}
+                                                className="rounded-md border border-border bg-background/40 p-3 text-left text-sm text-muted-foreground hover:border-primary/40"
+                                              >
+                                                Adicione as orientações para o design…
+                                              </button>
+                                            )}
                                           </div>
                                           <div className="flex flex-col gap-1">
                                             <div className="flex items-center justify-between">
@@ -617,7 +649,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                           <Button
                                             size="sm"
                                             className="h-7 w-fit text-xs"
-                                            disabled={formatosSel.length === 0 || !descRasc.trim() || !legendaLocal.trim() || !hashtagsLocal.trim() || legendaLocal.length > 2200}
+                                            disabled={formatosSel.length === 0 || !(c.descricao ?? '').trim() || !legendaLocal.trim() || !hashtagsLocal.trim() || legendaLocal.length > 2200}
                                             onClick={() => handleConfirmarEtapa(idx)}
                                           >
                                             ✓ Confirmar Copy
@@ -625,7 +657,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                           {(() => {
                                             const pend = [
                                               formatosSel.length === 0 && 'tipo de post',
-                                              !descRasc.trim() && 'orientações',
+                                              !(c.descricao ?? '').trim() && 'orientações',
                                               !legendaLocal.trim() && 'legenda',
                                               !hashtagsLocal.trim() && 'hashtags',
                                             ].filter(Boolean) as string[];

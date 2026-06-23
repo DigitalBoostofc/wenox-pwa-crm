@@ -25,7 +25,7 @@ const filtroCls =
 
 export type ColKey =
   | 'cliente' | 'projeto' | 'tarefa' | 'status' | 'prazo' | 'prioridade' | 'responsaveis'
-  | 'descricao' | 'comentario' | 'etapa_atual' | 'resp_etapa';
+  | 'descricao' | 'comentario' | 'etapa_atual' | 'resp_etapa' | 'prazo_etapa';
 interface ColDef { key: ColKey; label: string; visivel: boolean }
 
 /** Colunas que se editam clicando na própria célula da linha. */
@@ -43,6 +43,7 @@ const COLS_PADRAO: ColDef[] = [
   { key: 'comentario', label: 'Comentário', visivel: false },
   { key: 'etapa_atual', label: 'Etapa atual', visivel: false },
   { key: 'resp_etapa', label: 'Resp. da etapa', visivel: false },
+  { key: 'prazo_etapa', label: 'Prazo da etapa', visivel: false },
 ];
 
 function carregarColunas(prefix: string): ColDef[] {
@@ -385,6 +386,18 @@ export function TarefasTabela({
           <span className="truncate text-xs text-muted-foreground">{resp.nome?.split(' ')[0] ?? ''}</span>
         </div>
       );
+    }
+    if (key === 'prazo_etapa') {
+      // Sem etapas: cai no prazo da própria tarefa (prazo efetivo).
+      if (!temEtapas(t)) {
+        if (!t.prazo) return <span className="text-xs text-muted-foreground">—</span>;
+        return <span className={cn('text-xs', corPrazo(catPrazo(t)))}>{prazoBR(t.prazo)}</span>;
+      }
+      const atual = etapaAtual(t.etapas);
+      if (!atual) return <span className="text-xs text-emerald-500">Concluído</span>;
+      if (!atual.prazo) return <span className="text-xs text-muted-foreground">—</span>;
+      const cat = catPrazoData(atual.prazo, tarefaConcluida(t.status));
+      return <span className={cn('text-xs', corPrazo(cat))}>{prazoBR(atual.prazo)}</span>;
     }
     return null;
   }

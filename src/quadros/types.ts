@@ -108,6 +108,18 @@ export interface Cartao {
   updated?: string;
 }
 
+/**
+ * true quando o cartão é um POST gerado pela esteira de produção (criado via
+ * `gerarPostsMes`): tem `data_post` agendada OU `etapas_card` preenchidas.
+ * Cartões adicionados manualmente — mesmo dentro de uma lista de mês — nascem
+ * sem nenhum dos dois e devem abrir com o editor de cartão PADRÃO, não a esteira.
+ * Cobre o caso de post gerado cuja `data_post` foi removida: continua post pelas
+ * `etapas_card`.
+ */
+export function ehCartaoPost(c: Pick<Cartao, 'data_post' | 'etapas_card'>): boolean {
+  return !!c.data_post || (c.etapas_card?.length ?? 0) > 0;
+}
+
 export interface ComentarioCartao {
   id: string;
   texto: string;

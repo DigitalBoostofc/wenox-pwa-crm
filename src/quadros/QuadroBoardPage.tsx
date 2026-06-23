@@ -9,8 +9,11 @@ import {
   removerCartao, deletarListaComCards,
   criarListaMes, getCardsTemplateMes, clonarCardTemplate, gerarPostsMes, vincularTarefaLista, criarTarefaSocialMedia,
   getRecorrenciaMes, salvarRecorrenciaMes, desativarRecorrenciaMes, editarMesLista,
+  listQuadros, quadrosAcessiveisIds,
   MESES_PT, DIAS_SEMANA_CURTO,
 } from './quadrosService';
+import { useAuth } from '@/auth/useAuth';
+import { acessoQuadrosRestrito } from '@/auth/perms';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
 import { listProjetos } from '@/projetos/projetosService';
@@ -191,6 +194,9 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const [quadro, setQuadro] = useState<Quadro | null>(null);
   const [listas, setListas] = useState<Lista[]>([]);
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
+  const { user } = useAuth();
+  const restrito = acessoQuadrosRestrito(user?.role);
+  const [semAcesso, setSemAcesso] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [abertoId, setAbertoId] = useState<string | null>(null);
@@ -300,6 +306,17 @@ export function QuadroBoardPage({ id }: { id: string }) {
     getRecorrenciaMes(id).then((r) => { if (vivo) setRecorrencia(r); }).catch(() => {});
     return () => { vivo = false; };
   }, [id]);
+
+  // Guard de acesso: Membro/Visualizador só entram em quadros onde são responsáveis.
+  useEffect(() => {
+    if (!restrito || !user?.id) { setSemAcesso(false); return; }
+    let vivo = true;
+    listQuadros()
+      .then((qs) => quadrosAcessiveisIds(user.id, qs))
+      .then((acess) => { if (vivo) setSemAcesso(!acess.has(id)); })
+      .catch(() => { /* em erro, não bloqueia */ });
+    return () => { vivo = false; };
+  }, [restrito, user?.id, id]);
 
   useEffect(() => {
     if (!quadro?.cliente) { setProjetos([]); return; }
@@ -556,6 +573,12 @@ export function QuadroBoardPage({ id }: { id: string }) {
     finally { setDesativandoRecorrencia(false); }
   }
 
+  if (semAcesso) return (
+    <div className="flex flex-col items-center gap-3 px-5 py-16 text-center">
+      <p className="text-sm text-muted-foreground">Você não tem acesso a este quadro.</p>
+      <Link to="/quadros" className="text-sm text-primary hover:underline">← Voltar para os quadros</Link>
+    </div>
+  );
   if (carregando) return <Skeleton className="h-[70vh] w-full rounded-xl" />;
   if (erro && !quadro) return <p className="text-sm text-destructive">{erro}</p>;
   if (!quadro) return null;

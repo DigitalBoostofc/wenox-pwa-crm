@@ -18,6 +18,10 @@ vi.mock('react-router-dom', () => ({
   useLocation: () => ({ search: '', pathname: '/', hash: '', state: null }),
 }));
 
+vi.mock('@/auth/useAuth', () => ({
+  useAuth: () => ({ user: { id: 'u1', role: 'Owner' } }),
+}));
+
 vi.mock('@/lib/pocketbase', () => ({
   pb: {
     files: { getURL: () => '' },

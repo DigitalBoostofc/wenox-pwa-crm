@@ -20,6 +20,36 @@ export async function listQuadros(): Promise<Quadro[]> {
   return res as unknown as Quadro[];
 }
 
+/**
+ * Ids dos quadros acessíveis a um usuário restrito (Membro/Visualizador):
+ * quadros de clientes onde ele é responsável de um PROJETO, OU quadros que têm
+ * alguma LISTA cuja TAREFA tem ele como responsável. Recebe `quadros` p/ evitar
+ * refetch. Owner/Admin/Gestor não passam por aqui (veem tudo).
+ */
+export async function quadrosAcessiveisIds(uid: string, quadros: Quadro[]): Promise<Set<string>> {
+  const ids = new Set<string>();
+  if (!uid) return ids;
+  // Clientes onde o usuário é responsável de algum projeto.
+  const projetos = (await pb.collection('projetos').getFullList({
+    filter: `responsaveis ~ "${uid}"`, fields: 'cliente', batch: 500,
+  })) as unknown as { cliente?: string }[];
+  const clientes = new Set(projetos.map((p) => p.cliente).filter(Boolean) as string[]);
+  // Quadros que têm lista com tarefa onde o usuário é responsável.
+  const tarefas = (await pb.collection('tarefas').getFullList({
+    filter: `responsaveis ~ "${uid}"`, fields: 'id', batch: 500,
+  })) as unknown as { id: string }[];
+  const quadrosViaTarefa = new Set<string>();
+  if (tarefas.length) {
+    const filtro = tarefas.map((t) => `tarefa="${t.id}"`).join(' || ');
+    const listas = (await lcol().getFullList({ filter: filtro, fields: 'quadro', batch: 1000 })) as unknown as { quadro?: string }[];
+    for (const l of listas) if (l.quadro) quadrosViaTarefa.add(l.quadro);
+  }
+  for (const q of quadros) {
+    if (quadrosViaTarefa.has(q.id) || (q.cliente && clientes.has(q.cliente))) ids.add(q.id);
+  }
+  return ids;
+}
+
 export async function getQuadro(id: string): Promise<Quadro> {
   return (await qcol().getOne(id, { expand: 'cliente' })) as unknown as Quadro;
 }

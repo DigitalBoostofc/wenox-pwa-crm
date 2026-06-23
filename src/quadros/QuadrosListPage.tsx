@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Search, Columns3 as TrelloIcon } from 'lucide-react';
-import { listQuadros } from './quadrosService';
+import { listQuadros, quadrosAcessiveisIds } from './quadrosService';
 import type { Quadro } from './types';
 import { fundoStyle } from './types';
 import { logoUrl } from '@/clientes/clientesService';
+import { useAuth } from '@/auth/useAuth';
+import { acessoQuadrosRestrito } from '@/auth/perms';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -14,16 +16,27 @@ function nomeCliente(q: Quadro): string {
 
 export function QuadrosListPage() {
   const history = useHistory();
+  const { user } = useAuth();
+  const uid = user?.id ?? '';
+  const restrito = acessoQuadrosRestrito(user?.role);
   const [quadros, setQuadros] = useState<Quadro[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState('');
 
   useEffect(() => {
+    let cancelado = false;
+    setCarregando(true);
     listQuadros()
-      .then(setQuadros)
+      .then(async (qs) => {
+        if (!restrito) return qs;
+        const acess = await quadrosAcessiveisIds(uid, qs);
+        return qs.filter((q) => acess.has(q.id));
+      })
+      .then((qs) => { if (!cancelado) setQuadros(qs); })
       .catch(() => { /* */ })
-      .finally(() => setCarregando(false));
-  }, []);
+      .finally(() => { if (!cancelado) setCarregando(false); });
+    return () => { cancelado = true; };
+  }, [restrito, uid]);
 
   const filtrados = useMemo(() => {
     const t = busca.trim().toLowerCase();

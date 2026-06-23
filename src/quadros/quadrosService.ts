@@ -614,8 +614,14 @@ export async function vincularTarefaLista(listaId: string, tarefaId: string): Pr
   return (await lcol().update(listaId, { tarefa: tarefaId })) as unknown as Lista;
 }
 
+/** Dia fixo do prazo de cada etapa (no mês ANTERIOR ao da lista). */
+const DIA_PRAZO_ETAPA: Record<string, number> = {
+  copy: 15, layout: 25, revisao: 26, aprovacao_cliente: 28, agendamento: 30,
+};
+
 /** Cria a tarefa "Social Media" para o mês/ano com a ESTEIRA_SOCIAL (5 etapas).
  *  Responsável da tarefa = somente Social (Design só aparece nas etapas dos posts).
+ *  Cada etapa nasce com prazo em dia fixo do mês anterior (Copy 15 … Agendamento 30).
  *  Nome: "MÊS - CLIENTE - SOCIAL MEDIA" quando nomeCliente fornecido. */
 export async function criarTarefaSocialMedia(
   clienteId: string,
@@ -625,14 +631,27 @@ export async function criarTarefaSocialMedia(
   nomeCliente?: string,
   projetoId?: string,
 ): Promise<import('@/tarefas/types').Tarefa> {
+  // Datas das etapas: dias fixos no mês ANTERIOR ao da lista (produção antes da publicação).
+  const mesAnterior = mes === 1 ? 12 : mes - 1;
+  const anoAnterior = mes === 1 ? ano - 1 : ano;
+  const ultimoDiaAnt = new Date(anoAnterior, mesAnterior, 0).getDate();
+  const mmAnt = String(mesAnterior).padStart(2, '0');
+  const prazoEtapaPapel = (papel: string): string | undefined => {
+    const dia = DIA_PRAZO_ETAPA[papel];
+    if (!dia) return undefined;
+    return `${anoAnterior}-${mmAnt}-${String(Math.min(dia, ultimoDiaAnt)).padStart(2, '0')}`;
+  };
+
   const etapas: EtapaTarefa[] = ESTEIRA_SOCIAL.map((e) => {
     const resp = responsavelEtapa(e.texto, responsaveis ?? {});
+    const prazo = prazoEtapaPapel(e.papel);
     return {
       id: smUuid(),
       texto: e.texto,
       tipo: e.tipo,
       feito: false,
       ...(resp ? { responsavel: resp } : {}),
+      ...(prazo ? { prazo } : {}),
     };
   });
   // Social primeiro, Design em seguida — Set evita duplicata se forem o mesmo usuário.
@@ -642,11 +661,8 @@ export async function criarTarefaSocialMedia(
     ? `${MESES_PT[mes - 1].toUpperCase()} - ${nomeCliente.trim().toUpperCase()} - SOCIAL MEDIA`
     : `Social Media — ${MESES_PT[mes - 1]}/${ano}`;
 
-  const mesAnterior = mes === 1 ? 12 : mes - 1;
-  const anoAnterior = mes === 1 ? ano - 1 : ano;
-  const ultimoDiaAnt = new Date(anoAnterior, mesAnterior, 0).getDate();
-  const diaPrazo = Math.min(30, ultimoDiaAnt);
-  const prazoMes = `${anoAnterior}-${String(mesAnterior).padStart(2, '0')}-${String(diaPrazo).padStart(2, '0')}`;
+  // Prazo geral (fallback) = agendamento (última etapa).
+  const prazoMes = prazoEtapaPapel('agendamento')!;
 
   const tarefa = await criarTarefa({
     nome: nomeTarefa,

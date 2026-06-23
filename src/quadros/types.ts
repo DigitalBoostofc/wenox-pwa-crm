@@ -61,6 +61,18 @@ export function papelDaEtapa(e: Pick<EtapaCard, 'papel' | 'texto'>, i?: number):
   return e.papel ?? derivaPapelDoTexto(e.texto) ?? (i !== undefined ? POS_PAPEL[i] : undefined) ?? 'revisao';
 }
 
+/** Ordem linear dos papéis na esteira (revisao_layout conta como nível do layout). */
+export const ORDEM_PAPEL: Record<string, number> = {
+  copy: 0, layout: 1, revisao_layout: 1, revisao: 2, aprovacao_cliente: 3, agendamento: 4,
+};
+/** Nível (ORDEM_PAPEL) da 1ª etapa pendente do card; 99 se todas feitas. */
+export function ordemPendenteCard(etapas_card?: EtapaCard[]): number {
+  if (!etapas_card?.length) return 99;
+  const i = etapas_card.findIndex((e) => !e.feito);
+  if (i === -1) return 99;
+  return ORDEM_PAPEL[papelDaEtapa(etapas_card[i], i)] ?? 0;
+}
+
 /** Esteira de produção padrão de Social Media (5 etapas). */
 export const ESTEIRA_SOCIAL = [
   { texto: 'Copy',                         tipo: 'interna'           as const, papel: 'copy'              as const },

@@ -7,6 +7,8 @@ import type { Tarefa, EtapaTarefa } from './types';
 import { statusTarefaClass, prazoVencido, prazoBR } from './format';
 import { temEtapas, etapaAtualIndex, progressoEtapas } from './etapas';
 import { EtapasStepper } from './EtapasStepper';
+import { progressoCardsDasTarefas, type ProgressoCardsTarefa } from '@/quadros/quadrosService';
+import { POS_PAPEL } from '@/quadros/types';
 import { useStatuses } from './status';
 import { addComentario } from '@/atividade/atividadeService';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
@@ -58,15 +60,21 @@ export function TarefaViewSheet({
   const [comentEtapa, setComentEtapa] = useState('');
   const [imgEtapa, setImgEtapa] = useState<File | null>(null);
   const [salvando, setSalvando] = useState(false);
+  // Progresso dos cards-post da lista vinculada (p/ travar conclusão manual da etapa).
+  const [progressoCards, setProgressoCards] = useState<ProgressoCardsTarefa | null>(null);
 
   useEffect(() => {
     if (!aberto || !tarefaId) { setT(null); return; }
     setCarregando(true);
     setErro('');
     setConcluindoId(null);
+    setProgressoCards(null);
     getTarefa(tarefaId)
       .then((rec) => { setT(rec as Tarefa); setStatusEdit((rec as Tarefa).status ?? ''); setCarregando(false); })
       .catch(() => { setErro('Não foi possível carregar a tarefa.'); setCarregando(false); });
+    progressoCardsDasTarefas([tarefaId])
+      .then((res) => setProgressoCards(res[tarefaId] ?? null))
+      .catch(() => setProgressoCards(null));
   }, [aberto, tarefaId]);
 
   async function salvarStatus() {
@@ -142,6 +150,13 @@ export function TarefaViewSheet({
   const etapas = t?.etapas ?? [];
   const idxAtual = etapaAtualIndex(etapas);
   const prog = progressoEtapas(etapas);
+
+  // Trava de cards: a etapa atual da tarefa só pode ser concluída quando todos os
+  // cards-post da lista vinculada já concluíram essa etapa.
+  const papelAtual = idxAtual >= 0 ? (POS_PAPEL[idxAtual] ?? '') : '';
+  const cardsTotal = progressoCards?.total ?? 0;
+  const cardsFeitos = papelAtual ? (progressoCards?.porPapel[papelAtual] ?? 0) : 0;
+  const cardsPendentesEtapa = cardsTotal > 0 && cardsFeitos < cardsTotal;
 
   return (
     <Sheet open={aberto} onOpenChange={(abr) => { if (!abr) onClose(); }}>
@@ -277,7 +292,11 @@ export function TarefaViewSheet({
                                   <span className="text-xs text-muted-foreground">Aguardando aprovação do cliente</span>
                                 )
                               ) : minhaVez ? (
-                                concluindoId === e.id ? (
+                                cardsPendentesEtapa ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-400">
+                                    ⏳ Aguardando todos os posts concluírem esta etapa ({cardsFeitos}/{cardsTotal})
+                                  </span>
+                                ) : concluindoId === e.id ? (
                                   <div className="flex flex-col gap-2">
                                     <textarea
                                       value={comentEtapa}

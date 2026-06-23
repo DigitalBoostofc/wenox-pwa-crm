@@ -227,7 +227,7 @@ function CellEditor({ valorInicial, placeholder, onSalvar, onCancelar }: {
  * `persistPrefix` separa as preferências (colunas/larguras/ordem) por contexto.
  */
 export function TarefasTabela({
-  tarefas, onAbrir, persistPrefix, onMudou, etapaSemDots = false,
+  tarefas, onAbrir, persistPrefix, onMudou, etapaSemDots = false, progressoCards,
 }: {
   tarefas: Tarefa[];
   onAbrir: (id: string) => void;
@@ -236,6 +236,8 @@ export function TarefasTabela({
   onMudou?: () => void;
   /** Oculta as bolinhas de progresso na coluna "Etapa atual" (só caption). */
   etapaSemDots?: boolean;
+  /** Por tarefa: contador de cards que concluíram a etapa atual (ex.: 3/8). */
+  progressoCards?: Record<string, { feitos: number; total: number }>;
 }) {
   const statuses = useStatuses();
   const [colDefs, setColDefs] = useState<ColDef[]>(() => carregarColunas(persistPrefix));
@@ -364,6 +366,7 @@ export function TarefasTabela({
           status={t.status}
           mostrarPrazo={false}
           mostrarDots={!etapaSemDots}
+          contador={progressoCards?.[t.id]}
         />
       );
     }

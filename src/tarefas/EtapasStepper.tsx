@@ -18,6 +18,8 @@ export interface EtapasStepperProps {
   mostrarPrazo?: boolean;
   /** Exibe as bolinhas de progresso (compact). Desligue para mostrar só o caption. */
   mostrarDots?: boolean;
+  /** Contador de cards que concluíram a etapa atual (ex.: 3/8), exibido no caption (compact). */
+  contador?: { feitos: number; total: number };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -103,11 +105,13 @@ function StepperCompact({
   responsaveis,
   mostrarPrazo = true,
   mostrarDots = true,
+  contador,
 }: {
   etapas: EtapaTarefa[];
   responsaveis: MembroAvatar[];
   mostrarPrazo?: boolean;
   mostrarDots?: boolean;
+  contador?: { feitos: number; total: number };
 }) {
   const atualIdx = etapaAtualIndex(etapas);
   const { feitas, total } = progressoEtapas(etapas);
@@ -184,6 +188,16 @@ function StepperCompact({
             </>
           )}
           {mostrarPrazo && <PrazoSpan prazo={atual.prazo} feito={atual.feito} />}
+          {contador && contador.total > 0 && (
+            <span className={cn(
+              'shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-medium tabular-nums',
+              contador.feitos >= contador.total
+                ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
+                : 'border-border bg-secondary/60 text-muted-foreground',
+            )}>
+              {contador.feitos}/{contador.total}
+            </span>
+          )}
         </div>
       )}
 
@@ -396,6 +410,7 @@ export function EtapasStepper({
   status,
   mostrarPrazo = true,
   mostrarDots = true,
+  contador,
 }: EtapasStepperProps) {
   if ((etapas?.length ?? 0) === 0) {
     return (
@@ -411,7 +426,7 @@ export function EtapasStepper({
   }
 
   if (variant === 'compact') {
-    return <StepperCompact etapas={etapas!} responsaveis={responsaveis} mostrarPrazo={mostrarPrazo} mostrarDots={mostrarDots} />;
+    return <StepperCompact etapas={etapas!} responsaveis={responsaveis} mostrarPrazo={mostrarPrazo} mostrarDots={mostrarDots} contador={contador} />;
   }
 
   return <StepperFull etapas={etapas!} responsaveis={responsaveis} />;

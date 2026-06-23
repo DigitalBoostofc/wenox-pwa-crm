@@ -2,7 +2,7 @@ import { pb } from '@/lib/pocketbase';
 import type { Quadro, Lista, Cartao, ComentarioCartao, AnexoCartao, EtapaCard, RecorrenciaMes } from './types';
 import type { Cliente } from '@/clientes/types';
 import { logoUrl } from '@/clientes/clientesService';
-import { ESTEIRA_SOCIAL, statusDaEsteira, ORIENTACOES_DESIGN_TEMPLATE } from './types';
+import { ESTEIRA_SOCIAL, statusDaEsteira, ORIENTACOES_DESIGN_TEMPLATE, ORDEM_PAPEL, ordemPendenteCard } from './types';
 import { carregarModeloRemoto } from './modeloPost';
 import { criarTarefa, concluirEtapa, getTarefa, atualizarTarefa } from '@/tarefas/tarefasService';
 import { statusInicial, statusDoPapel } from '@/tarefas/status';
@@ -939,4 +939,46 @@ export async function confirmarEtapaCard(
   } catch { /* gating best-effort */ }
 
   return updated;
+}
+
+/** Progresso dos cards por etapa, agregado por tarefa do mês. */
+export interface ProgressoCardsTarefa {
+  /** total de cards-post da lista vinculada à tarefa */
+  total: number;
+  /** por papel: quantos cards já CONCLUÍRAM aquele papel (passaram dele) */
+  porPapel: Record<string, number>;
+}
+
+/**
+ * Para cada tarefa em `tarefaIds`, calcula o progresso dos cards-post da sua lista
+ * vinculada (lista.tarefa = tarefaId). Só retorna entradas das tarefas que têm
+ * lista com cards de esteira. Usa 2 queries (listas + cards) com filtro batched.
+ */
+export async function progressoCardsDasTarefas(
+  tarefaIds: string[],
+): Promise<Record<string, ProgressoCardsTarefa>> {
+  const ids = [...new Set(tarefaIds.filter(Boolean))];
+  if (!ids.length) return {};
+  const filtroListas = ids.map((id) => `tarefa="${id}"`).join(' || ');
+  const listas = (await lcol().getFullList({ filter: filtroListas, batch: 1000 })) as unknown as Lista[];
+  if (!listas.length) return {};
+  const listaToTarefa = new Map<string, string>();
+  for (const l of listas) if (l.tarefa) listaToTarefa.set(l.id, l.tarefa);
+  const filtroCards = listas.map((l) => `lista="${l.id}"`).join(' || ');
+  const cards = (await ccol().getFullList({
+    filter: `(${filtroCards}) && arquivado!=true`, batch: 2000,
+  })) as unknown as Cartao[];
+  const res: Record<string, ProgressoCardsTarefa> = {};
+  for (const c of cards) {
+    if ((c.etapas_card?.length ?? 0) === 0) continue;
+    const tid = listaToTarefa.get(c.lista ?? '');
+    if (!tid) continue;
+    const r = res[tid] ?? (res[tid] = { total: 0, porPapel: {} });
+    r.total++;
+    const ord = ordemPendenteCard(c.etapas_card);
+    for (const [papel, nivel] of Object.entries(ORDEM_PAPEL)) {
+      if (ord > nivel) r.porPapel[papel] = (r.porPapel[papel] ?? 0) + 1;
+    }
+  }
+  return res;
 }

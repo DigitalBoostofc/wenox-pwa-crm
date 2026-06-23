@@ -360,6 +360,7 @@ export function TarefasTabela({
           variant="compact"
           prazo={t.prazo}
           status={t.status}
+          mostrarPrazo={false}
         />
       );
     }

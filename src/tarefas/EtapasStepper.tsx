@@ -14,6 +14,8 @@ export interface EtapasStepperProps {
   prazo?: string;
   /** Status da tarefa — cor e rótulo do segmento único sem etapas. */
   status?: string;
+  /** Exibe a data de prazo no caption (compact). Desligue quando houver coluna de prazo dedicada. */
+  mostrarPrazo?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -97,9 +99,11 @@ function PrazoSpan({ prazo, feito }: { prazo?: string; feito?: boolean }) {
 function StepperCompact({
   etapas,
   responsaveis,
+  mostrarPrazo = true,
 }: {
   etapas: EtapaTarefa[];
   responsaveis: MembroAvatar[];
+  mostrarPrazo?: boolean;
 }) {
   const atualIdx = etapaAtualIndex(etapas);
   const { feitas, total } = progressoEtapas(etapas);
@@ -173,7 +177,7 @@ function StepperCompact({
               )}
             </>
           )}
-          <PrazoSpan prazo={atual.prazo} feito={atual.feito} />
+          {mostrarPrazo && <PrazoSpan prazo={atual.prazo} feito={atual.feito} />}
         </div>
       )}
 
@@ -281,11 +285,13 @@ function StepperSemEtapas({
   prazo,
   status,
   variant,
+  mostrarPrazo = true,
 }: {
   responsaveis: MembroAvatar[];
   prazo?: string;
   status?: string;
   variant: 'compact' | 'full';
+  mostrarPrazo?: boolean;
 }) {
   const resp: MembroAvatar | undefined =
     responsaveis.length > 0 ? responsaveis[0] : undefined;
@@ -311,7 +317,7 @@ function StepperSemEtapas({
               {resp.nome.split(' ')[0]}
             </span>
           )}
-          {prazo && (
+          {mostrarPrazo && prazo && (
             <span
               className={cn(
                 'shrink-0 text-[10px]',
@@ -378,6 +384,7 @@ export function EtapasStepper({
   variant,
   prazo,
   status,
+  mostrarPrazo = true,
 }: EtapasStepperProps) {
   if ((etapas?.length ?? 0) === 0) {
     return (
@@ -386,12 +393,13 @@ export function EtapasStepper({
         prazo={prazo}
         status={status}
         variant={variant}
+        mostrarPrazo={mostrarPrazo}
       />
     );
   }
 
   if (variant === 'compact') {
-    return <StepperCompact etapas={etapas!} responsaveis={responsaveis} />;
+    return <StepperCompact etapas={etapas!} responsaveis={responsaveis} mostrarPrazo={mostrarPrazo} />;
   }
 
   return <StepperFull etapas={etapas!} responsaveis={responsaveis} />;

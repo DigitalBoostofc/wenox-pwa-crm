@@ -139,8 +139,9 @@ export async function criarTarefa(input: TarefaInput): Promise<Tarefa> {
   const etapas: EtapaTarefa[] = (input.etapas?.length ?? 0) > 0
     ? input.etapas!
     : [{ id: novaEtapaId(), texto: 'Tarefa', tipo: 'interna', responsavel: input.responsaveis?.[0], feito: false }];
-  // Status sempre derivado do fluxo de etapas (agora há sempre ≥ 1 etapa).
-  const dados = { ...input, etapas, status: statusDerivado(etapas, input.aprovacao), ...(uid ? { created_by: uid, updated_by: uid } : {}) };
+  // Status derivado do fluxo; prazo = etapa atual (fallback p/ o prazo informado).
+  const prazo = etapaAtual(etapas)?.prazo ?? input.prazo ?? '';
+  const dados = { ...input, etapas, status: statusDerivado(etapas, input.aprovacao), prazo, ...(uid ? { created_by: uid, updated_by: uid } : {}) };
   const rec = (await col().create(dados)) as unknown as Tarefa;
   await registrarHistorico('tarefa', rec.id, 'Tarefa criada');
   await notificar(input.responsaveis ?? [], {
@@ -304,9 +305,13 @@ export async function salvarEtapas(
   const antesAtual = etapaAtual(rec.etapas);
   const aprovacao = ('aprovacao' in extra ? extra.aprovacao : rec.aprovacao) as string | undefined;
   const tudoFeito = etapas.length > 0 && etapaAtualIndex(etapas) === -1;
+  // Prazo da tarefa = prazo da etapa atual (com fallback p/ o prazo existente
+  // quando a etapa não tem data — não zera tarefas sem deadline por etapa).
+  const prazoAtual = etapaAtual(etapas)?.prazo ?? rec.prazo ?? '';
   const dados: Record<string, unknown> = {
     etapas,
     status: statusDerivado(etapas, aprovacao),
+    prazo: prazoAtual,
     concluida_em: tudoFeito ? carimboConclusao() : '',
     ...extra,
     ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),

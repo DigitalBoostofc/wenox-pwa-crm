@@ -10,8 +10,8 @@ import { RECORRENCIA_LABEL } from './types';
 import { etapaAtualIndex, progressoEtapas, novaEtapaId } from './etapas';
 import { EtapasStepper } from './EtapasStepper';
 import { usePresetsEtapa, presetsDoTipo, type PresetEtapa } from './etapasPreset';
-import { statusTarefaClass, temHoraPrazo } from './format';
-import { useStatuses, statusInicial } from './status';
+import { statusTarefaClass } from './format';
+import { statusInicial } from './status';
 import { AprovacaoTarefa } from './TarefaDetailPage';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { listProjetos } from '@/projetos/projetosService';
@@ -181,13 +181,6 @@ function EtapasFluxoEditor({
   }
 
   function editarPrazo(id: string, prazo: string) {
-    // Regra: a data da ÚLTIMA etapa precisa ser <= prazo final da tarefa.
-    const ultimaId = etapas[etapas.length - 1]?.id;
-    const taskDia = (t.prazo ?? '').slice(0, 10);
-    if (prazo && id === ultimaId && taskDia && prazo > taskDia) {
-      setErro(`A última etapa não pode ter data depois do prazo da tarefa (${taskDia.split('-').reverse().join('/')}).`);
-      return;
-    }
     setErro('');
     persistirEtapas(etapas.map((e) => e.id === id ? { ...e, prazo: prazo || undefined } : e));
   }
@@ -465,7 +458,6 @@ export function TarefaSheet({
 }) {
   const history = useHistory();
   const { user } = useAuth();
-  const statuses = useStatuses();
   const souCliente = ehCliente(user?.role);
   /** Membro/Visualizador: precisa ficar como responsável da tarefa que cria. */
   const ehMembro = !souCliente && !canGerirEquipe(user?.role);
@@ -605,16 +597,6 @@ export function TarefaSheet({
       if (v && v !== t?.nome) salvarCampo({ nome: v });
       e.currentTarget.blur();
     }
-  }
-
-  function handleStatus(e: React.ChangeEvent<HTMLSelectElement>) {
-    salvarCampo({ status: e.target.value });
-  }
-
-  function montarPrazo(data: string, hora: string): string {
-    if (!data) return '';
-    if (!hora) return data;
-    return `${data} ${hora}:00`;
   }
 
   function handlePrioridade(p: 'alta' | 'media' | 'baixa') {
@@ -814,69 +796,17 @@ export function TarefaSheet({
                 />
               </div>
 
-              {/* 2. Status + Prazo */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <RotuloCampo>Status</RotuloCampo>
-                  <select
-                    value={t.status ?? ''}
-                    onChange={handleStatus}
-                    className={selectCls}
-                  >
-                    <option value="">—</option>
-                    {statuses.map((s) => (
-                      <option key={s.id} value={s.nome}>{s.nome}</option>
-                    ))}
-                  </select>
-                  {t.status && (
-                    <Badge className={cn('mt-1 border text-[10px]', statusTarefaClass(t.status))}>
-                      {t.status}
-                    </Badge>
-                  )}
+              {/* 2. Status (derivado das etapas — sem edição manual; prazo vive em cada etapa) */}
+              <div>
+                <RotuloCampo>Status</RotuloCampo>
+                <div className="flex items-center gap-2">
+                  {t.status
+                    ? <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>{t.status}</Badge>
+                    : <span className="text-xs text-muted-foreground">—</span>}
                 </div>
-                <div>
-                  <RotuloCampo>Prazo</RotuloCampo>
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      key={`prazo-d-${t.id || 'rascunho'}`}
-                      defaultValue={(t.prazo ?? '').slice(0, 10)}
-                      onChange={(e) => {
-                        const novaData = e.target.value;
-                        // Regra: o prazo da tarefa não pode ser antes da data da última etapa.
-                        const ets = t.etapas ?? [];
-                        const ultima = ets[ets.length - 1];
-                        if (novaData && ultima?.prazo && ultima.prazo.slice(0, 10) > novaData) {
-                          setErroSalvo(`O prazo da tarefa não pode ser antes da última etapa (${ultima.prazo.slice(0, 10).split('-').reverse().join('/')}).`);
-                          e.target.value = (t.prazo ?? '').slice(0, 10);
-                          return;
-                        }
-                        setErroSalvo('');
-                        const hora = temHoraPrazo(t.prazo)
-                          ? (t.prazo ?? '').replace('T', ' ').replace('Z', '').trim().split(/\s+/)[1]?.slice(0, 5) ?? ''
-                          : '';
-                        salvarCampo({ prazo: montarPrazo(novaData, hora) });
-                      }}
-                      className={cn(inputCls, 'flex-1 [color-scheme:dark]')}
-                    />
-                    <input
-                      type="time"
-                      key={`prazo-h-${t.id || 'rascunho'}`}
-                      defaultValue={
-                        temHoraPrazo(t.prazo)
-                          ? (t.prazo ?? '').replace('T', ' ').replace('Z', '').trim().split(/\s+/)[1]?.slice(0, 5) ?? ''
-                          : ''
-                      }
-                      onChange={(e) => {
-                        const data = (t.prazo ?? '').slice(0, 10);
-                        salvarCampo({ prazo: montarPrazo(data, e.target.value) });
-                      }}
-                      placeholder="HH:MM"
-                      title="Horário limite (opcional)"
-                      className={cn(inputCls, 'w-28 [color-scheme:dark]')}
-                    />
-                  </div>
-                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Derivado das etapas: conclui automaticamente quando todas as etapas terminam. O prazo fica em cada etapa, abaixo.
+                </p>
               </div>
 
               {/* 2b. Prioridade */}

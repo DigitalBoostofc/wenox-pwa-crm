@@ -947,6 +947,9 @@ export interface ProgressoCardsTarefa {
   total: number;
   /** por papel: quantos cards já CONCLUÍRAM aquele papel (passaram dele) */
   porPapel: Record<string, number>;
+  /** quadro e lista vinculados (p/ navegar do "etapas pendentes" pro board) */
+  quadro?: string;
+  lista?: string;
 }
 
 /**
@@ -963,17 +966,22 @@ export async function progressoCardsDasTarefas(
   const listas = (await lcol().getFullList({ filter: filtroListas, batch: 1000 })) as unknown as Lista[];
   if (!listas.length) return {};
   const listaToTarefa = new Map<string, string>();
-  for (const l of listas) if (l.tarefa) listaToTarefa.set(l.id, l.tarefa);
+  const res: Record<string, ProgressoCardsTarefa> = {};
+  for (const l of listas) {
+    if (!l.tarefa) continue;
+    listaToTarefa.set(l.id, l.tarefa);
+    // pré-popula (mesmo sem cards) p/ garantir quadro/lista da navegação
+    if (!res[l.tarefa]) res[l.tarefa] = { total: 0, porPapel: {}, quadro: l.quadro, lista: l.id };
+  }
   const filtroCards = listas.map((l) => `lista="${l.id}"`).join(' || ');
   const cards = (await ccol().getFullList({
     filter: `(${filtroCards}) && arquivado!=true`, batch: 2000,
   })) as unknown as Cartao[];
-  const res: Record<string, ProgressoCardsTarefa> = {};
   for (const c of cards) {
     if ((c.etapas_card?.length ?? 0) === 0) continue;
     const tid = listaToTarefa.get(c.lista ?? '');
-    if (!tid) continue;
-    const r = res[tid] ?? (res[tid] = { total: 0, porPapel: {} });
+    if (!tid || !res[tid]) continue;
+    const r = res[tid];
     r.total++;
     const ord = ordemPendenteCard(c.etapas_card);
     for (const [papel, nivel] of Object.entries(ORDEM_PAPEL)) {

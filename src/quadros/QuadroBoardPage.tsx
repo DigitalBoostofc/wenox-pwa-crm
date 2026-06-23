@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal, Clock, Search, SlidersHorizontal, CalendarDays, ChevronsRightLeft, ChevronsLeftRight, RefreshCw } from 'lucide-react';
 import {
   getQuadro, listListas, listCartoes, moverCartao,
@@ -185,6 +185,9 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
 }
 
 export function QuadroBoardPage({ id }: { id: string }) {
+  const location = useLocation();
+  const listaAlvo = new URLSearchParams(location.search).get('lista'); // ancora vinda de "Etapas Pendentes"
+  const [destacada, setDestacada] = useState<string | null>(null);
   const [quadro, setQuadro] = useState<Quadro | null>(null);
   const [listas, setListas] = useState<Lista[]>([]);
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
@@ -212,6 +215,19 @@ export function QuadroBoardPage({ id }: { id: string }) {
       return n;
     });
   }
+
+  // Âncora vinda do "Etapas Pendentes" (?lista=): expande, rola até a coluna e destaca.
+  useEffect(() => {
+    if (!listaAlvo || carregando || !listas.some((l) => l.id === listaAlvo)) return;
+    setColapsadas((prev) => { if (!prev.has(listaAlvo)) return prev; const n = new Set(prev); n.delete(listaAlvo); return n; });
+    setDestacada(listaAlvo);
+    const tScroll = setTimeout(() => {
+      document.querySelector(`[data-lista-id="${listaAlvo}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, 80);
+    const tClear = setTimeout(() => setDestacada(null), 2800);
+    return () => { clearTimeout(tScroll); clearTimeout(tClear); };
+  }, [listaAlvo, carregando, listas]);
   function toggleSet(setFn: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) {
     setFn((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   }
@@ -625,9 +641,13 @@ export function QuadroBoardPage({ id }: { id: string }) {
             return (
               <div
                 key={l.id}
+                data-lista-id={l.id}
                 onClick={() => toggleColapsar(l.id)}
                 title="Expandir lista"
-                className="flex w-9 shrink-0 cursor-pointer flex-col items-center gap-2 self-start rounded-xl border border-border bg-background/40 p-2 transition-colors hover:bg-secondary/40"
+                className={cn(
+                  'flex w-9 shrink-0 cursor-pointer flex-col items-center gap-2 self-start rounded-xl border bg-background/40 p-2 transition-colors hover:bg-secondary/40',
+                  destacada === l.id ? 'border-primary ring-2 ring-primary/50' : 'border-border',
+                )}
               >
                 <ChevronsLeftRight className="size-4 shrink-0 text-muted-foreground" />
                 <Badge variant="muted" className="text-[10px]">{cards.length}</Badge>
@@ -639,10 +659,12 @@ export function QuadroBoardPage({ id }: { id: string }) {
           return (
             <div
               key={l.id}
+              data-lista-id={l.id}
               onDragOver={(e) => { if (dragCardId || dragListId) { e.preventDefault(); if (recebendo !== l.id) setRecebendo(l.id); } }}
               onDragLeave={() => setRecebendo((r) => (r === l.id ? null : r))}
               onDrop={(e) => { e.preventDefault(); if (dragListId) soltarLista(l.id); else soltarNoFim(l.id); }}
-              className={cn('flex h-full min-h-0 w-72 shrink-0 flex-col gap-2 rounded-xl border bg-background/40 p-2', recebendo === l.id ? 'border-primary bg-primary/5' : 'border-border')}
+              className={cn('flex h-full min-h-0 w-72 shrink-0 flex-col gap-2 rounded-xl border bg-background/40 p-2',
+                recebendo === l.id ? 'border-primary bg-primary/5' : destacada === l.id ? 'border-primary ring-2 ring-primary/50' : 'border-border')}
             >
               <div
                 draggable

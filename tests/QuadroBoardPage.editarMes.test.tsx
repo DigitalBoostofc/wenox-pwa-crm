@@ -15,6 +15,7 @@ vi.mock('react-router-dom', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={String(to)}>{children}</a>
   ),
+  useLocation: () => ({ search: '', pathname: '/', hash: '', state: null }),
 }));
 
 vi.mock('@/lib/pocketbase', () => ({

@@ -6,7 +6,7 @@ import {
 import { Markdown } from './Markdown';
 import {
   getCartao, atualizarCartao, removerCartao, arquivarCartao,
-  subirAnexosMedia, urlUpload,
+  subirAnexosMedia, urlUpload, listCartoes,
   listComentariosCartao, addComentarioCartao, removerComentarioCartao,
   confirmarEtapaCard, getOuCriarReviewToken,
   registrarAtividadeCartao, ehAtividade, textoAtividade, ATIV_MARK,
@@ -60,6 +60,7 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const [legendaLocal, setLegendaLocal] = useState('');
   const [hashtagsLocal, setHashtagsLocal] = useState('');
   const [previewAberto, setPreviewAberto] = useState(false);
+  const [irmaos, setIrmaos] = useState<Cartao[]>([]); // posts da mesma lista-mês (p/ contador x/N por etapa)
   const fileRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLDivElement>(null);
   const descTextRef = useRef<HTMLTextAreaElement>(null);
@@ -107,6 +108,14 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
     listComentariosCartao(cartaoId).then(setComentarios).catch(() => setComentarios([]));
   }, [cartaoId]);
   useEffect(() => { listUsuarios().then((us) => setEquipe(us.filter((u) => u.role !== 'Cliente'))).catch(() => { /* */ }); }, []);
+  // Posts irmãos da mesma lista-mês (p/ o contador "x/N" de cada etapa).
+  useEffect(() => {
+    if (!ehPost || !c?.quadro || !c?.lista) { setIrmaos([]); return; }
+    const lista = c.lista;
+    listCartoes(c.quadro)
+      .then((cards) => setIrmaos(cards.filter((x) => x.lista === lista && (x.etapas_card?.length ?? 0) > 0)))
+      .catch(() => setIrmaos([]));
+  }, [ehPost, c?.quadro, c?.lista, c?.etapas_card]);
   // auto-cresce a caixa de orientações (Copy) e a descrição (card normal) conforme o conteúdo carrega/muda
   useEffect(() => { autoGrow(descTextRef.current); }, [descRasc, ehPost, editandoDesc, editandoOrient, c?.id]);
 
@@ -274,6 +283,23 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
   const _idxPrev = _ecPrev.findIndex((e) => !e.feito);
   const _passouDesign = _idxPrev === -1 || !['copy', 'layout', 'revisao_layout'].includes(papelDaEtapa(_ecPrev[_idxPrev], _idxPrev));
   const previewDisponivel = _passouDesign && imgs.length > 0;
+
+  // Progresso coletivo da etapa: quantos posts da lista já passaram daquele papel.
+  const ORDEM_PAPEL: Record<string, number> = { copy: 0, layout: 1, revisao_layout: 1, revisao: 2, aprovacao_cliente: 3, agendamento: 4 };
+  function ordemPendente(card: Cartao): number {
+    const ec = card.etapas_card ?? [];
+    const i = ec.findIndex((e) => !e.feito);
+    if (i === -1) return 99; // todas as etapas feitas
+    return ORDEM_PAPEL[papelDaEtapa(ec[i], i)] ?? 0;
+  }
+  /** {feitos,total} de posts da lista que já concluíram o papel `p` (usa estado vivo do card atual). */
+  function progressoPapel(p: string): { feitos: number; total: number } {
+    const todos = c
+      ? (irmaos.some((x) => x.id === c.id) ? irmaos.map((x) => (x.id === c.id ? c : x)) : [...irmaos, c])
+      : irmaos;
+    const ord = ORDEM_PAPEL[p] ?? 0;
+    return { feitos: todos.filter((x) => ordemPendente(x) > ord).length, total: todos.length };
+  }
   // lista unificada de anexos pra exibição estilo Trello (miniatura + nome + data)
   const extDe = (nome?: string, url?: string) => {
     const s = (nome || url || '').split('?')[0];
@@ -532,6 +558,15 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                   {/* Ação inline da etapa atual */}
                                   {isAtual && (
                                     <div className="flex flex-col gap-2">
+                                      {(() => {
+                                        const pr = progressoPapel(papel);
+                                        if (pr.total <= 1) return null;
+                                        return (
+                                          <span className="w-fit rounded-full border border-border bg-secondary/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                            {pr.feitos}/{pr.total} posts concluíram esta etapa
+                                          </span>
+                                        );
+                                      })()}
                                       {/* COPY → Orientações para o design + Legenda + Hashtags */}
                                       {papel === 'copy' && (
                                         <>
@@ -733,9 +768,35 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                                           >
                                             <Paperclip className="size-3.5" /> Anexar arte
                                           </button>
+                                          {imgs.length > 0 ? (
+                                            <div className="flex flex-col gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2.5">
+                                              <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+                                                ✓ {imgs.length === 1 ? 'Arte anexada' : `${imgs.length} artes anexadas`}
+                                              </span>
+                                              <div className="flex flex-wrap gap-1.5">
+                                                {imgs.slice(0, 6).map((im) => (
+                                                  <img key={im.url} src={im.url} alt={im.nome ?? 'arte'} title={im.nome} loading="lazy"
+                                                    className="size-14 rounded-md border border-border object-cover" />
+                                                ))}
+                                                {imgs.length > 6 && (
+                                                  <span className="grid size-14 place-items-center rounded-md border border-border bg-secondary text-xs text-muted-foreground">+{imgs.length - 6}</span>
+                                                )}
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => setPreviewAberto(true)}
+                                                className="inline-flex w-fit items-center gap-1 rounded-md border border-border bg-background/60 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                                              >
+                                                👁 Pré-visualizar
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <span className="text-[10px] text-amber-400">Anexe a arte para confirmar o layout.</span>
+                                          )}
                                           <Button
                                             size="sm"
                                             className="h-7 w-fit text-xs"
+                                            disabled={imgs.length === 0}
                                             onClick={() => handleConfirmarEtapa(idx)}
                                           >
                                             {papel === 'revisao_layout' ? '✓ Confirmar Revisão Layout' : '✓ Confirmar Layout'}

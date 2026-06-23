@@ -47,6 +47,7 @@ vi.mock('@/quadros/quadrosService', () => ({
   arquivarCartao: vi.fn(),
   subirAnexosMedia: vi.fn(),
   urlUpload: '',
+  listCartoes: vi.fn().mockResolvedValue([]),
   listComentariosCartao: listComentariosMock,
   addComentarioCartao: vi.fn(),
   removerComentarioCartao: vi.fn(),

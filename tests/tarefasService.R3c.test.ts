@@ -39,11 +39,13 @@ const etapa: EtapaTarefa = {
 describe('criarTarefa — guard R3.c', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('rejeita: 0 etapas e 2+ responsaveis', async () => {
-    await expect(
-      criarTarefa({ nome: 'T', lado: 'wenox', responsaveis: ['u1', 'u2'] } as any),
-    ).rejects.toThrow('Tarefa sem etapas pode ter apenas 1 responsável');
-    expect(api.create).not.toHaveBeenCalled();
+  it('injeta 1 etapa padrão quando não vêm etapas (mesmo com 2+ responsaveis)', async () => {
+    api.create.mockResolvedValue({ id: 't1', nome: 'T' });
+    await criarTarefa({ nome: 'T', lado: 'wenox', responsaveis: ['u1', 'u2'] } as any);
+    expect(api.create).toHaveBeenCalledTimes(1);
+    const dados = api.create.mock.calls[0][0];
+    expect(dados.etapas).toHaveLength(1);
+    expect(dados.etapas[0].responsavel).toBe('u1');
   });
 
   it('aceita: 0 etapas e exatamente 1 responsavel', async () => {

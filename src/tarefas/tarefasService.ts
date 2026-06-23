@@ -8,7 +8,7 @@ import { tarefaConcluida } from './format';
 import { statusInicial, statusDoPapel } from './status';
 import {
   temEtapas, etapaAtual, etapaAtualIndex, aguardandoAprovacaoCliente, statusDerivado,
-  indexEtapaInternaAnterior,
+  indexEtapaInternaAnterior, novaEtapaId,
 } from './etapas';
 
 const col = () => pb.collection('tarefas');
@@ -133,15 +133,14 @@ export async function getTarefa(id: string): Promise<Tarefa> {
 }
 
 export async function criarTarefa(input: TarefaInput): Promise<Tarefa> {
-  if ((input.etapas?.length ?? 0) === 0 && (input.responsaveis?.length ?? 0) > 1) {
-    throw new Error('Tarefa sem etapas pode ter apenas 1 responsável');
-  }
   const uid = pb.authStore?.record?.id;
-  // Se já nasce com etapas, o status é derivado do fluxo.
-  const statusDerivadoInput = (input.etapas?.length ?? 0) > 0
-    ? { status: statusDerivado(input.etapas!, input.aprovacao) }
-    : {};
-  const dados = { ...input, ...statusDerivadoInput, ...(uid ? { created_by: uid, updated_by: uid } : {}) };
+  // Toda tarefa nasce com pelo menos 1 etapa: se não vierem etapas, cria uma
+  // etapa única ("Tarefa") atribuída ao 1º responsável (single-step).
+  const etapas: EtapaTarefa[] = (input.etapas?.length ?? 0) > 0
+    ? input.etapas!
+    : [{ id: novaEtapaId(), texto: 'Tarefa', tipo: 'interna', responsavel: input.responsaveis?.[0], feito: false }];
+  // Status sempre derivado do fluxo de etapas (agora há sempre ≥ 1 etapa).
+  const dados = { ...input, etapas, status: statusDerivado(etapas, input.aprovacao), ...(uid ? { created_by: uid, updated_by: uid } : {}) };
   const rec = (await col().create(dados)) as unknown as Tarefa;
   await registrarHistorico('tarefa', rec.id, 'Tarefa criada');
   await notificar(input.responsaveis ?? [], {

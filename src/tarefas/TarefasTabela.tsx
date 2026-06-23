@@ -7,7 +7,8 @@ import { addComentario } from '@/atividade/atividadeService';
 import { useStatuses } from './status';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { EtapasStepper } from './EtapasStepper';
-import { etapaAtual, temEtapas } from './etapas';
+import { etapaAtual, temEtapas, ehVezDoUsuario, aguardandoAprovacaoCliente } from './etapas';
+import { pb } from '@/lib/pocketbase';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial } from '@/clientes/format';
 import {
@@ -25,8 +26,8 @@ const filtroCls =
 
 export type ColKey =
   | 'cliente' | 'projeto' | 'tarefa' | 'status' | 'prazo' | 'prioridade' | 'responsaveis'
-  | 'descricao' | 'comentario' | 'etapa_atual' | 'resp_etapa' | 'prazo_etapa';
-interface ColDef { key: ColKey; label: string; visivel: boolean }
+  | 'descricao' | 'comentario' | 'etapa_atual' | 'resp_etapa' | 'prazo_etapa' | 'status_etapa' | 'progresso';
+export interface ColDef { key: ColKey; label: string; visivel: boolean }
 
 /** Colunas que se editam clicando na própria célula da linha. */
 const COLS_EDITAVEIS = new Set<ColKey>(['descricao', 'comentario']);
@@ -42,14 +43,26 @@ const COLS_PADRAO: ColDef[] = [
   { key: 'descricao', label: 'Descrição', visivel: false },
   { key: 'comentario', label: 'Comentário', visivel: false },
   { key: 'etapa_atual', label: 'Etapa atual', visivel: false },
+  { key: 'status_etapa', label: 'Status da etapa', visivel: false },
+  { key: 'progresso', label: 'Progresso', visivel: false },
   { key: 'resp_etapa', label: 'Resp. da etapa', visivel: false },
   { key: 'prazo_etapa', label: 'Prazo da etapa', visivel: false },
 ];
 
-function carregarColunas(prefix: string): ColDef[] {
+/** Default de colunas para um contexto: ordena `visiveis` primeiro (visíveis, nessa ordem),
+ *  depois as demais conhecidas (ocultas) — assim o menu mostra todas as opções. */
+export function colunasComVisiveis(visiveis: ColKey[]): ColDef[] {
+  const mapa = new Map(COLS_PADRAO.map((c) => [c.key, c]));
+  const ord: ColDef[] = [];
+  for (const k of visiveis) { const c = mapa.get(k); if (c) ord.push({ ...c, visivel: true }); }
+  for (const c of COLS_PADRAO) if (!ord.some((o) => o.key === c.key)) ord.push({ ...c, visivel: false });
+  return ord;
+}
+
+function carregarColunas(prefix: string, padrao: ColDef[] = COLS_PADRAO): ColDef[] {
   try {
     const s = localStorage.getItem(`${prefix}-colunas-v2`);
-    if (!s) return COLS_PADRAO;
+    if (!s) return padrao;
     const salvo = JSON.parse(s) as ColDef[];
     const conhecidas = new Map(COLS_PADRAO.map((c) => [c.key, c]));
     const ord: ColDef[] = salvo
@@ -57,7 +70,7 @@ function carregarColunas(prefix: string): ColDef[] {
       .map((c) => ({ ...conhecidas.get(c.key)!, visivel: !!c.visivel }));
     for (const c of COLS_PADRAO) if (!ord.some((o) => o.key === c.key)) ord.push(c);
     return ord;
-  } catch { return COLS_PADRAO; }
+  } catch { return padrao; }
 }
 function salvarColunas(prefix: string, cols: ColDef[]) {
   try { localStorage.setItem(`${prefix}-colunas-v2`, JSON.stringify(cols)); } catch { /* */ }
@@ -227,7 +240,7 @@ function CellEditor({ valorInicial, placeholder, onSalvar, onCancelar }: {
  * `persistPrefix` separa as preferências (colunas/larguras/ordem) por contexto.
  */
 export function TarefasTabela({
-  tarefas, onAbrir, persistPrefix, onMudou, etapaSemDots = false, progressoCards,
+  tarefas, onAbrir, persistPrefix, onMudou, etapaSemDots = false, progressoCards, colunasPadrao,
 }: {
   tarefas: Tarefa[];
   onAbrir: (id: string) => void;
@@ -238,9 +251,12 @@ export function TarefasTabela({
   etapaSemDots?: boolean;
   /** Por tarefa: contador de cards que concluíram a etapa atual (ex.: 3/8). */
   progressoCards?: Record<string, { feitos: number; total: number }>;
+  /** Colunas padrão deste contexto (usado só quando não há preferência salva). */
+  colunasPadrao?: ColDef[];
 }) {
+  const uid = pb.authStore?.record?.id ?? '';
   const statuses = useStatuses();
-  const [colDefs, setColDefs] = useState<ColDef[]>(() => carregarColunas(persistPrefix));
+  const [colDefs, setColDefs] = useState<ColDef[]>(() => carregarColunas(persistPrefix, colunasPadrao));
   const [larguras, setLarguras] = useState<Larguras>(() => carregarLarguras(persistPrefix));
   const [ordem, setOrdem] = useState<Ordem>(() => carregarOrdem(persistPrefix));
   const [fStatus, setFStatus] = useState('');
@@ -366,7 +382,7 @@ export function TarefasTabela({
           status={t.status}
           mostrarPrazo={false}
           mostrarDots={!etapaSemDots}
-          contador={progressoCards?.[t.id]}
+          contador={colsVisiveis.some((c) => c.key === 'progresso') ? undefined : progressoCards?.[t.id]}
         />
       );
     }
@@ -405,6 +421,28 @@ export function TarefasTabela({
       if (!atual.prazo) return <span className="text-xs text-muted-foreground">—</span>;
       const cat = catPrazoData(atual.prazo, tarefaConcluida(t.status));
       return <span className={cn('text-xs', corPrazo(cat))}>{prazoBR(atual.prazo)}</span>;
+    }
+    if (key === 'status_etapa') {
+      if (tarefaConcluida(t.status)) return <Badge className="border border-emerald-500/50 bg-emerald-500/15 text-[10px] text-emerald-500">Concluído</Badge>;
+      if (!temEtapas(t)) return <span className="text-xs text-muted-foreground">—</span>;
+      if (!etapaAtual(t.etapas)) return <Badge className="border border-emerald-500/50 bg-emerald-500/15 text-[10px] text-emerald-500">Concluído</Badge>;
+      if (ehVezDoUsuario(t, uid)) return <Badge className="border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">Concluir Etapa</Badge>;
+      if (aguardandoAprovacaoCliente(t)) return <Badge className="border border-yellow-500/50 bg-yellow-500/15 text-[10px] text-yellow-500">Aguardando Cliente</Badge>;
+      return <Badge className="border border-amber-700/50 bg-amber-700/15 text-[10px] text-amber-600">Aguardando Equipe</Badge>;
+    }
+    if (key === 'progresso') {
+      const pr = progressoCards?.[t.id];
+      if (!pr || pr.total === 0) return <span className="text-xs text-muted-foreground">—</span>;
+      return (
+        <span className={cn(
+          'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium tabular-nums',
+          pr.feitos >= pr.total
+            ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
+            : 'border-amber-500/40 bg-amber-500/10 text-amber-500',
+        )}>
+          {pr.feitos}/{pr.total} posts
+        </span>
+      );
     }
     return null;
   }

@@ -59,7 +59,14 @@ export function statusDaEsteira(etapas_card?: EtapaCard[]): 'em_producao' | 'age
   if (!etapas_card?.length) return 'em_producao';
   const idx = etapas_card.findIndex((e) => !e.feito);
   if (idx === -1) return 'agendado';
-  const papel = papelDaEtapa(etapas_card[idx]);
+  const pendente = etapas_card[idx];
+  const papel = papelDaEtapa(pendente);
+  // Legado pré-cutover: card antigo cuja etapa pendente de revisão/aprovação já está
+  // reprovada (estado antigo, antes do backfill injetar a revisao_layout). Sem isto
+  // cairia em 'em_producao' (chip cinza errado) — força 'Em alteração' até o backfill.
+  if ((papel === 'revisao' || papel === 'aprovacao_cliente') && pendente.veredito === 'reprovado') {
+    return 'em_alteracao';
+  }
   if (papel === 'revisao_layout') return 'em_alteracao';
   if (papel === 'agendamento') return 'agendar';
   return 'em_producao';

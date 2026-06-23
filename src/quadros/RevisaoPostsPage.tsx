@@ -324,7 +324,7 @@ export function RevisaoPostsPage() {
     const res = await fetch(`${REVIEW_BASE}/decisao`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, cardId: post.id, idx: 4, veredito: 'agendar', ator, data_post: dataPostStr }),
+      body: JSON.stringify({ token, cardId: post.id, idx: idxEtapa, veredito: 'agendar', ator, data_post: dataPostStr }),
     });
     if (!res.ok) throw new Error('decisao_falhou');
   }

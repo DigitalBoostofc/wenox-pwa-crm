@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { pb } from '@/lib/pocketbase';
 import { useAuth } from '@/auth/useAuth';
+import { papelDaEtapa, sessionIndex, classify, POS_PAPEL, type Papel } from './types';
 
 const REVIEW_BASE = 'https://media.wenox.com.br/_up/review';
 
@@ -17,6 +18,7 @@ interface ApiCliente {
 interface ApiEtapa {
   texto: string;
   tipo: string;
+  papel?: Papel;
   feito: boolean;
   veredito?: 'aprovado' | 'reprovado';
   motivo?: string;
@@ -186,6 +188,38 @@ function parseDateParts(dataPost: string): { data: string; hora: string } {
   return { data: d, hora: t.substring(0, 5) || '12:00' };
 }
 
+/**
+ * Índice do gate desta sessão p/ EXIBIÇÃO (inclui o já-decidido nesta sessão).
+ * - PENDENTE → o próprio gate acionável (sessionIndex).
+ * - decidido nesta sessão (aprovado/reprovado otimista, ou reprovado estrutural com
+ *   `revisao_layout` à frente) → a etapa do papel da sessão imediatamente antes da
+ *   1ª não-feita (ou a última, se tudo concluído).
+ * Senão -1 (post não tem gate desta sessão: em produção / retrabalho de outra sessão).
+ */
+function gateSessaoIdx(ec: ApiEtapa[], papelSessao: string): number {
+  const pend = sessionIndex(ec, papelSessao);
+  if (pend !== -1) return pend;
+  const fni = ec.findIndex((e) => !e.feito);
+  const cand = fni === -1 ? ec.length - 1 : fni - 1;
+  if (cand >= 0 && papelDaEtapa(ec[cand], cand) === papelSessao) return cand;
+  return -1;
+}
+
+type IconePost = 'pendente' | 'reprovado' | 'ok';
+
+/** Ícone do post na sessão (miniaturas + lista-resumo), derivado por `classify`. */
+function iconePost(p: ApiPost, papelSessao: string): IconePost {
+  const ec = p.etapas_card ?? [];
+  const c = classify(ec, papelSessao);
+  if (c.state === 'PENDENTE') return 'pendente';
+  if (c.state === 'REPROVADO') return 'reprovado';
+  // Reprovado otimista: gate desta sessão já decidido reprovado, antes do refetch
+  // que insere a `revisao_layout` (quando classify passaria a devolver REPROVADO).
+  const ig = gateSessaoIdx(ec, papelSessao);
+  if (ig >= 0 && ec[ig].veredito === 'reprovado') return 'reprovado';
+  return 'ok';
+}
+
 export function RevisaoPostsPage() {
   const { token } = useParams<{ token: string }>();
   const { user } = useAuth();
@@ -224,11 +258,13 @@ export function RevisaoPostsPage() {
         setTextoEtapa(data.textoEtapa ?? '');
         setCliente(data.cliente);
         setPosts(data.posts);
-        const idx = data.idxEtapa;
-        // Defensivo: deriva do papel quando o backend manda; senão cai no idx legado (4).
-        const isAgend = data.papelEtapa ? data.papelEtapa === 'agendamento' : idx === 4;
-        const pend = data.posts.findIndex((p) =>
-          isAgend ? !p.etapas_card?.[idx]?.feito : !p.etapas_card?.[idx]?.veredito
+        // Sessão = papel do GET; fallback p/ o POSICIONAL do idxEtapa em respostas antigas
+        // (idx 2/3/4 → revisao/aprovacao_cliente/agendamento), preservando o legado.
+        const papelSessaoLocal = (data.papelEtapa ?? '') || POS_PAPEL[data.idxEtapa] || '';
+        const isAgend = papelSessaoLocal === 'agendamento';
+        // Posição inicial: 1º post PENDENTE nesta sessão (fallback 0).
+        const pend = data.posts.findIndex(
+          (p) => classify(p.etapas_card ?? [], papelSessaoLocal).state === 'PENDENTE',
         );
         const pos = pend >= 0 ? pend : 0;
         setPosicao(pos);
@@ -244,8 +280,10 @@ export function RevisaoPostsPage() {
 
   // Sincroniza campos de agendamento ao navegar entre posts
   const postAtual = posts[posicao] ?? null;
-  // Defensivo: deriva do papel; fallback p/ idx legado (4) em respostas antigas.
-  const isAgendamento = papelEtapa ? papelEtapa === 'agendamento' : idxEtapa === 4;
+  // Sessão = papel do GET; fallback p/ o POSICIONAL do idxEtapa (compat respostas antigas).
+  // `idxEtapa` global é só representativo (título/exibição) — NÃO indexa outros posts.
+  const papelSessao = papelEtapa || POS_PAPEL[idxEtapa] || '';
+  const isAgendamento = papelSessao === 'agendamento';
   useEffect(() => {
     if (isAgendamento && postAtual) {
       const parts = parseDateParts(postAtual.data_post ?? '');
@@ -254,16 +292,26 @@ export function RevisaoPostsPage() {
     }
   }, [posicao, isAgendamento, postAtual?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const etapaAtual = postAtual?.etapas_card?.[idxEtapa];
-  const jaDecidido = isAgendamento ? !!etapaAtual?.feito : !!etapaAtual?.veredito;
-  const decididos = posts.filter((p) => {
-    const e = p.etapas_card?.[idxEtapa];
-    return isAgendamento ? !!e?.feito : !!e?.veredito;
-  }).length;
+  // Derivação POR POST (esteiras divergem de tamanho por causa dos ciclos).
+  const ecAtual = postAtual?.etapas_card ?? [];
+  const idxSessaoAtual = sessionIndex(ecAtual, papelSessao);   // idx acionável (-1 = não postar)
+  const acionavel = idxSessaoAtual !== -1;                      // === classify().state === 'PENDENTE'
+  const idxGateAtual = gateSessaoIdx(ecAtual, papelSessao);     // gate p/ exibição (inclui já-decidido)
+  const etapaGate = idxGateAtual >= 0 ? ecAtual[idxGateAtual] : undefined;
+  const vereditoGate = etapaGate?.veredito;
+  // Tem badge a mostrar (já decidido nesta sessão): agendamento→feito; revisão→veredito.
+  const decididoComBadge = !!etapaGate && (isAgendamento ? !!etapaGate.feito : !!vereditoGate);
+  // Não acionável e sem decisão visível → post em retrabalho / aguardando design.
+  const emRetrabalho = !acionavel && !decididoComBadge;
+
   const total = posts.length;
-  const todosDecididos = total > 0 && decididos === total;
-  const aprovados = posts.filter((p) => p.etapas_card?.[idxEtapa]?.veredito === 'aprovado').length;
-  const reprovados = decididos - aprovados;
+  const decididos = posts.filter(
+    (p) => classify(p.etapas_card ?? [], papelSessao).state !== 'PENDENTE',
+  ).length;
+  const todosDecididos =
+    total > 0 && !posts.some((p) => classify(p.etapas_card ?? [], papelSessao).state === 'PENDENTE');
+  const reprovados = posts.filter((p) => iconePost(p, papelSessao) === 'reprovado').length;
+  const aprovados = decididos - reprovados;
 
   // Nome vem do backend (textoEtapa, já numerado nos ciclos); fallback p/ idx legado.
   const nomeEtapa =
@@ -274,34 +322,34 @@ export function RevisaoPostsPage() {
 
   function atualizarPostLocal(postId: string, veredito: 'aprovado' | 'reprovado', motivoTexto?: string) {
     setPosts((prev) =>
-      prev.map((p) =>
-        p.id !== postId
-          ? p
-          : {
-              ...p,
-              etapas_card: p.etapas_card.map((e, i) =>
-                i === idxEtapa
-                  ? { ...e, feito: veredito === 'aprovado', veredito, motivo: motivoTexto }
-                  : e,
-              ),
-            },
-      ),
+      prev.map((p) => {
+        if (p.id !== postId) return p;
+        const idx = sessionIndex(p.etapas_card ?? [], papelSessao);
+        if (idx === -1) return p; // defensivo: não acionável
+        return {
+          ...p,
+          // Aprovado e reprovado marcam feito=true (sai de PENDENTE). As novas etapas
+          // do ciclo de reprovação são inseridas pelo backend; só refletem no refetch.
+          etapas_card: p.etapas_card.map((e, i) =>
+            i === idx ? { ...e, feito: true, veredito, motivo: motivoTexto } : e,
+          ),
+        };
+      }),
     );
   }
 
   function atualizarPostAgendado(postId: string, dataPostAgendada: string) {
     setPosts((prev) =>
-      prev.map((p) =>
-        p.id !== postId
-          ? p
-          : {
-              ...p,
-              data_post: dataPostAgendada,
-              etapas_card: p.etapas_card.map((e, i) =>
-                i === idxEtapa ? { ...e, feito: true } : e,
-              ),
-            },
-      ),
+      prev.map((p) => {
+        if (p.id !== postId) return p;
+        const idx = sessionIndex(p.etapas_card ?? [], papelSessao);
+        if (idx === -1) return p;
+        return {
+          ...p,
+          data_post: dataPostAgendada,
+          etapas_card: p.etapas_card.map((e, i) => (i === idx ? { ...e, feito: true } : e)),
+        };
+      }),
     );
   }
 
@@ -312,25 +360,30 @@ export function RevisaoPostsPage() {
     veredito: 'aprovado' | 'reprovado',
     motivoTexto?: string,
   ) {
+    // idx POR POST (sessão), nunca o idxEtapa global. -1 nunca é postado.
+    const idx = sessionIndex(post.etapas_card ?? [], papelSessao);
+    if (idx === -1) throw new Error('nao_acionavel');
     const res = await fetch(`${REVIEW_BASE}/decisao`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, cardId: post.id, idx: idxEtapa, veredito, motivo: motivoTexto, ator }),
+      body: JSON.stringify({ token, cardId: post.id, idx, veredito, motivo: motivoTexto, ator }),
     });
     if (!res.ok) throw new Error('decisao_falhou');
   }
 
   async function enviarAgendamento(post: ApiPost, dataPostStr: string) {
+    const idx = sessionIndex(post.etapas_card ?? [], papelSessao);
+    if (idx === -1) throw new Error('nao_acionavel');
     const res = await fetch(`${REVIEW_BASE}/decisao`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, cardId: post.id, idx: idxEtapa, veredito: 'agendar', ator, data_post: dataPostStr }),
+      body: JSON.stringify({ token, cardId: post.id, idx, veredito: 'agendar', ator, data_post: dataPostStr }),
     });
     if (!res.ok) throw new Error('decisao_falhou');
   }
 
   async function aprovar() {
-    if (!postAtual || salvando) return;
+    if (!postAtual || salvando || !acionavel) return;
     setSalvando(true);
     try {
       await enviarDecisao(postAtual, 'aprovado');
@@ -341,7 +394,7 @@ export function RevisaoPostsPage() {
   }
 
   async function reprovar() {
-    if (!postAtual || salvando || !motivo.trim()) return;
+    if (!postAtual || salvando || !motivo.trim() || !acionavel) return;
     setSalvando(true);
     try {
       await enviarDecisao(postAtual, 'reprovado', motivo.trim());
@@ -354,7 +407,7 @@ export function RevisaoPostsPage() {
   }
 
   async function agendar() {
-    if (!postAtual || salvando || !agendData) return;
+    if (!postAtual || salvando || !agendData || !acionavel) return;
     const dataPostStr = `${agendData} ${agendHora}:00`;
     setSalvando(true);
     try {
@@ -454,10 +507,9 @@ export function RevisaoPostsPage() {
           {/* Resumo dos posts */}
           <div className="mt-4 w-full max-w-sm space-y-2">
             {posts.map((p, i) => {
-              const e = p.etapas_card?.[idxEtapa];
-              const concluido = isAgendamento ? !!e?.feito : !!e?.veredito;
-              const v = e?.veredito;
-              const m = e?.motivo;
+              const ic = iconePost(p, papelSessao);
+              const ig = gateSessaoIdx(p.etapas_card ?? [], papelSessao);
+              const gate = ig >= 0 ? (p.etapas_card ?? [])[ig] : undefined;
               return (
                 <button
                   key={p.id}
@@ -466,20 +518,18 @@ export function RevisaoPostsPage() {
                 >
                   <span className={cn(
                     'mt-0.5 shrink-0 text-base',
-                    concluido
-                      ? (isAgendamento || v === 'aprovado') ? 'text-emerald-500' : 'text-red-400'
-                      : 'text-muted-foreground',
+                    ic === 'pendente' ? 'text-muted-foreground'
+                      : ic === 'reprovado' ? 'text-red-400'
+                      : 'text-emerald-500',
                   )}>
-                    {concluido
-                      ? (isAgendamento || v === 'aprovado') ? '✓' : '✗'
-                      : '○'}
+                    {ic === 'pendente' ? '○' : ic === 'reprovado' ? '✗' : '✓'}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{p.nome}</p>
-                    {!isAgendamento && v === 'reprovado' && m && (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{m}</p>
+                    {!isAgendamento && ic === 'reprovado' && gate?.motivo && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{gate.motivo}</p>
                     )}
-                    {isAgendamento && e?.feito && p.data_post && (
+                    {isAgendamento && ic === 'ok' && p.data_post && (
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {new Date(p.data_post.replace(' ', 'T')).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </p>
@@ -519,21 +569,33 @@ export function RevisaoPostsPage() {
               <>
                 <PostVisual post={postAtual} cliente={cliente} />
 
-                {/* Veredito atual (revisão/aprovação) */}
-                {!isAgendamento && jaDecidido && etapaAtual && (
+                {/* Veredito atual (revisão/aprovação) — por gate da sessão deste post */}
+                {!isAgendamento && decididoComBadge && vereditoGate && (
                   <VerediBadge
-                    veredito={etapaAtual.veredito!}
-                    motivo={etapaAtual.motivo}
+                    veredito={vereditoGate}
+                    motivo={etapaGate?.motivo}
                   />
                 )}
 
-                {/* Agendado (etapa 4) */}
-                {isAgendamento && jaDecidido && (
+                {/* Agendado */}
+                {isAgendamento && decididoComBadge && (
                   <AgendadoBadge dataPost={postAtual.data_post} />
                 )}
 
-                {/* Ações — revisão/aprovação (idx 2/3) */}
-                {!isAgendamento && (
+                {/* Não acionável e sem decisão: post em retrabalho / aguardando design */}
+                {emRetrabalho && (
+                  <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-400">
+                    <span className="text-lg">↩</span>
+                    <span className="text-sm font-medium">
+                      {isAgendamento
+                        ? 'Aguardando as etapas anteriores deste post.'
+                        : 'Em retrabalho — aguardando o design. Nada a decidir nesta etapa.'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Ações — revisão/aprovação (só quando acionável nesta sessão) */}
+                {!isAgendamento && acionavel && (
                   reprovando ? (
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-col gap-1.5">
@@ -587,8 +649,8 @@ export function RevisaoPostsPage() {
                   )
                 )}
 
-                {/* Ações — agendamento (idx 4) */}
-                {isAgendamento && !jaDecidido && (
+                {/* Ações — agendamento (só quando acionável nesta sessão) */}
+                {isAgendamento && acionavel && (
                   <div className="flex flex-col gap-3">
                     <div className="flex gap-3">
                       <div className="flex flex-col gap-1.5 flex-1">
@@ -627,9 +689,7 @@ export function RevisaoPostsPage() {
           <div className="border-t border-border bg-card px-3 py-2 overflow-x-auto">
             <div className="flex gap-1.5 min-w-max">
               {posts.map((p, i) => {
-                const e = p.etapas_card?.[idxEtapa];
-                const concluido = isAgendamento ? !!e?.feito : !!e?.veredito;
-                const v = e?.veredito;
+                const ic = iconePost(p, papelSessao);
                 const thumb = p.artes?.[0] ?? null;
                 return (
                   <button
@@ -645,12 +705,12 @@ export function RevisaoPostsPage() {
                       ? <img src={thumb} alt="" className="h-full w-full object-cover" />
                       : <div className="flex h-full w-full items-center justify-center bg-secondary text-[9px] font-bold text-muted-foreground">{i + 1}</div>
                     }
-                    {concluido && (
+                    {ic !== 'pendente' && (
                       <div className={cn(
                         'absolute bottom-0 right-0 grid size-4 place-items-center rounded-tl-md text-[9px] font-bold text-white',
-                        (isAgendamento || v === 'aprovado') ? 'bg-emerald-500' : 'bg-red-500',
+                        ic === 'reprovado' ? 'bg-red-500' : 'bg-emerald-500',
                       )}>
-                        {(isAgendamento || v === 'aprovado') ? '✓' : '✗'}
+                        {ic === 'reprovado' ? '✗' : '✓'}
                       </div>
                     )}
                   </button>

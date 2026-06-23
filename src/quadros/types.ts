@@ -28,8 +28,20 @@ export interface EtapaCard {
   motivo?: string;
 }
 
-/** Fallback legado: deriva o papel a partir do texto de etapas sem `papel`. */
-function derivaPapelDoTexto(texto: string): Papel {
+/**
+ * Fallback POSICIONAL da esteira inicial (espelha o backend): índice → papel.
+ * Só vale como ÚLTIMO recurso, quando não há `papel` salvo nem casamento por texto.
+ */
+export const POS_PAPEL: Record<number, Papel> = {
+  0: 'copy',
+  1: 'layout',
+  2: 'revisao',
+  3: 'aprovacao_cliente',
+  4: 'agendamento',
+};
+
+/** Fallback legado: deriva o papel a partir do texto; `undefined` se desconhecido. */
+function derivaPapelDoTexto(texto: string): Papel | undefined {
   const t = (texto ?? '').trim();
   if (t.startsWith('Revisão Layout')) return 'revisao_layout';
   if (t === 'Copy') return 'copy';
@@ -37,12 +49,16 @@ function derivaPapelDoTexto(texto: string): Papel {
   if (t.startsWith('Revisão interna')) return 'revisao';
   if (t.startsWith('Aprovação do cliente')) return 'aprovacao_cliente';
   if (t === 'Confirmação de agendamento') return 'agendamento';
-  return 'revisao'; // default conservador p/ textos desconhecidos
+  return undefined; // desconhecido — o caller decide (POS_PAPEL[i] ou default 'revisao')
 }
 
-/** Papel da etapa: usa `papel` quando presente, senão deriva do texto (compat legado). */
-export function papelDaEtapa(e: Pick<EtapaCard, 'papel' | 'texto'>): Papel {
-  return e.papel ?? derivaPapelDoTexto(e.texto);
+/**
+ * Papel da etapa: usa `papel`; senão deriva do texto; senão (texto desconhecido e
+ * índice `i` fornecido) cai no POSICIONAL `POS_PAPEL[i]`; por fim default 'revisao'.
+ * `i` é opcional — sem ele mantém o comportamento legado (default 'revisao').
+ */
+export function papelDaEtapa(e: Pick<EtapaCard, 'papel' | 'texto'>, i?: number): Papel {
+  return e.papel ?? derivaPapelDoTexto(e.texto) ?? (i !== undefined ? POS_PAPEL[i] : undefined) ?? 'revisao';
 }
 
 /** Esteira de produção padrão de Social Media (5 etapas). */
@@ -70,6 +86,73 @@ export function statusDaEsteira(etapas_card?: EtapaCard[]): 'em_producao' | 'age
   if (papel === 'revisao_layout') return 'em_alteracao';
   if (papel === 'agendamento') return 'agendar';
   return 'em_producao';
+}
+
+/* ── Indexação por-post da esteira (sessão de revisão) ─────────────────────────
+ * Espelha o backend byte-a-byte. Usado pela RevisaoPostsPage p/ derivar, POR POST,
+ * o índice acionável e o estado do post na sessão (cada post pode ter uma esteira
+ * de tamanho diferente por causa dos ciclos "Revisão Layout").
+ * Ver docs/esteira-revisao-layout-contract.md §9.
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+/** Papéis que são "portões" de decisão na esteira (gates de revisão/aprovação/agendamento). */
+export const GATES_PAPEL: readonly Papel[] = ['revisao', 'aprovacao_cliente', 'agendamento'];
+
+/** Etapa mínima p/ indexar/classificar a esteira numa sessão de revisão. */
+type EtapaEsteira = Pick<EtapaCard, 'papel' | 'texto' | 'feito' | 'veredito' | 'motivo'>;
+
+/**
+ * Índice ACIONÁVEL do post na sessão de papel `papelEtapa`: se a 1ª etapa não-feita
+ * é o gate da sessão, é o `idx` a acionar; senão `-1` (não acionável).
+ * NUNCA poste `idx === -1` (o backend não é rede de segurança e corromperia a esteira).
+ */
+export function sessionIndex(ec: EtapaEsteira[], papelEtapa: string): number {
+  const i = ec.findIndex((e) => !e.feito);
+  if (i === -1) return -1;
+  return papelDaEtapa(ec[i], i) === papelEtapa ? i : -1;
+}
+
+export type EstadoPost =
+  | 'CONCLUIDO'
+  | 'PENDENTE'
+  | 'ADIANTE'
+  | 'REPROVADO'
+  | 'RETRABALHO_OUTRO'
+  | 'EM_PRODUCAO';
+
+/** Classificação de um post dentro de uma sessão de revisão (papel `papelEtapa`). */
+export interface ClassificacaoPost {
+  state: EstadoPost;
+  /** Para PENDENTE: idx a acionar. Para REPROVADO: idx do gate reprovado. */
+  idx?: number;
+  motivo?: string;
+}
+
+/**
+ * Classifica o post na sessão de papel `papelEtapa`. Espelha o backend byte-a-byte.
+ * - CONCLUIDO: nenhuma etapa pendente.
+ * - PENDENTE: o gate da sessão é a 1ª não-feita (`idx` = onde decidir).
+ * - ADIANTE: a 1ª não-feita é um gate de OUTRA sessão.
+ * - REPROVADO: 1ª não-feita é `revisao_layout` logo após o gate DESTA sessão reprovado.
+ * - RETRABALHO_OUTRO: `revisao_layout` de retrabalho de outra sessão.
+ * - EM_PRODUCAO: ainda em etapa não-gate (copy/layout).
+ */
+export function classify(ec: EtapaEsteira[], papelEtapa: string): ClassificacaoPost {
+  const i = ec.findIndex((e) => !e.feito);
+  if (i === -1) return { state: 'CONCLUIDO' };
+  const p0 = papelDaEtapa(ec[i], i);
+  if (GATES_PAPEL.includes(p0)) {
+    return p0 === papelEtapa ? { state: 'PENDENTE', idx: i } : { state: 'ADIANTE' };
+  }
+  if (p0 === 'revisao_layout') {
+    const r = ec[i - 1];
+    const pr = r ? papelDaEtapa(r, i - 1) : '';
+    if (r && pr === papelEtapa && r.veredito === 'reprovado') {
+      return { state: 'REPROVADO', idx: i - 1, motivo: r.motivo || '' };
+    }
+    return { state: 'RETRABALHO_OUTRO' };
+  }
+  return { state: 'EM_PRODUCAO' };
 }
 
 export interface Quadro {

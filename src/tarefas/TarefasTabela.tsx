@@ -249,8 +249,8 @@ export function TarefasTabela({
   onMudou?: () => void;
   /** Oculta as bolinhas de progresso na coluna "Etapa atual" (só caption). */
   etapaSemDots?: boolean;
-  /** Por tarefa: contador de cards que concluíram a etapa atual (ex.: 3/8). */
-  progressoCards?: Record<string, { feitos: number; total: number }>;
+  /** Por tarefa: contador de cards que concluíram a etapa atual (ex.: 3/8) + flag de retrabalho. */
+  progressoCards?: Record<string, { feitos: number; total: number; emAlteracaoInterna?: boolean }>;
   /** Colunas padrão deste contexto (usado só quando não há preferência salva). */
   colunasPadrao?: ColDef[];
 }) {
@@ -341,9 +341,15 @@ export function TarefasTabela({
         ? <img src={logo} alt={nome} title={nome} loading="lazy" className="size-8 shrink-0 rounded-lg object-cover" />
         : <div title={nome} className={cn('grid size-8 shrink-0 place-items-center rounded-lg text-xs font-bold text-white', corAvatar(nome))}>{inicial(nome)}</div>;
     }
-    if (key === 'status') return t.status
-      ? <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>{t.status}</Badge>
-      : <span className="text-muted-foreground">—</span>;
+    if (key === 'status') {
+      // Retrabalho (time pediu revisão num post) sobrepõe o status exibido.
+      if (progressoCards?.[t.id]?.emAlteracaoInterna && !tarefaConcluida(t.status)) {
+        return <Badge className="border border-rose-500/50 bg-rose-500/15 text-[10px] text-rose-400">Em alteração interna</Badge>;
+      }
+      return t.status
+        ? <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>{t.status}</Badge>
+        : <span className="text-muted-foreground">—</span>;
+    }
     if (key === 'prazo') {
       if (!t.prazo) return <span className="text-muted-foreground">—</span>;
       return <span className={cn('text-xs', corPrazo(catPrazo(t)))}>{prazoBR(t.prazo)}</span>;
@@ -424,6 +430,7 @@ export function TarefasTabela({
     }
     if (key === 'status_etapa') {
       if (tarefaConcluida(t.status)) return <Badge className="border border-emerald-500/50 bg-emerald-500/15 text-[10px] text-emerald-500">Concluído</Badge>;
+      if (progressoCards?.[t.id]?.emAlteracaoInterna) return <Badge className="border border-rose-500/50 bg-rose-500/15 text-[10px] text-rose-400">Em alteração interna</Badge>;
       if (!temEtapas(t)) return <span className="text-xs text-muted-foreground">—</span>;
       if (!etapaAtual(t.etapas)) return <Badge className="border border-emerald-500/50 bg-emerald-500/15 text-[10px] text-emerald-500">Concluído</Badge>;
       if (ehVezDoUsuario(t, uid)) return <Badge className="border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">Concluir Etapa</Badge>;

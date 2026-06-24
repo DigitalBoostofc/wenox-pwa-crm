@@ -1010,6 +1010,8 @@ export interface ProgressoCardsTarefa {
   /** quadro e lista vinculados (p/ navegar do "etapas pendentes" pro board) */
   quadro?: string;
   lista?: string;
+  /** algum card em retrabalho (reprovado na revisão interna) → "Em alteração interna" */
+  emAlteracaoInterna?: boolean;
 }
 
 /**
@@ -1047,6 +1049,7 @@ export async function progressoCardsDasTarefas(
     for (const [papel, nivel] of Object.entries(ORDEM_PAPEL)) {
       if (ord > nivel) r.porPapel[papel] = (r.porPapel[papel] ?? 0) + 1;
     }
+    if (statusDaEsteira(c.etapas_card) === 'em_alteracao') r.emAlteracaoInterna = true;
   }
   return res;
 }

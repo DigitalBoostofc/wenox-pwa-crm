@@ -93,7 +93,7 @@ export function TarefasListPage() {
   const [escopo, setEscopo] = useState<Escopo>('minhas');
   const [view, setView] = useState<ViewMode>(carregarView);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
-  const [progressoCards, setProgressoCards] = useState<Record<string, { feitos: number; total: number }>>({});
+  const [progressoCards, setProgressoCards] = useState<Record<string, { feitos: number; total: number; emAlteracaoInterna?: boolean }>>({});
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [recarrega, setRecarrega] = useState(0);
@@ -194,14 +194,14 @@ export function TarefasListPage() {
     progressoCardsDasTarefas(ids)
       .then((res) => {
         if (cancelado) return;
-        const map: Record<string, { feitos: number; total: number }> = {};
+        const map: Record<string, { feitos: number; total: number; emAlteracaoInterna?: boolean }> = {};
         for (const t of tarefasExibidas) {
           const prog = res[t.id];
           if (!prog) continue;
           const idx = etapaAtualIndex(t.etapas);
           if (idx < 0) continue; // todas as etapas feitas
           const papel = POS_PAPEL[idx] ?? 'revisao';
-          map[t.id] = { feitos: prog.porPapel[papel] ?? 0, total: prog.total };
+          map[t.id] = { feitos: prog.porPapel[papel] ?? 0, total: prog.total, emAlteracaoInterna: prog.emAlteracaoInterna };
         }
         setProgressoCards(map);
       })

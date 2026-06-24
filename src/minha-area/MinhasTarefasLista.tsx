@@ -41,14 +41,14 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
 
   // {feitos,total} da etapa atual de cada tarefa → coluna "Progresso".
   const progressoCards = useMemo(() => {
-    const m: Record<string, { feitos: number; total: number }> = {};
+    const m: Record<string, { feitos: number; total: number; emAlteracaoInterna?: boolean }> = {};
     for (const t of minhas) {
       const prog = progressoFull[t.id];
       if (!prog || prog.total === 0) continue;
       const idx = etapaAtualIndex(t.etapas ?? []);
       if (idx < 0) continue;
       const papel = POS_PAPEL[idx] ?? 'revisao';
-      m[t.id] = { feitos: prog.porPapel[papel] ?? 0, total: prog.total };
+      m[t.id] = { feitos: prog.porPapel[papel] ?? 0, total: prog.total, emAlteracaoInterna: prog.emAlteracaoInterna };
     }
     return m;
   }, [minhas, progressoFull]);

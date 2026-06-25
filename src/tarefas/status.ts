@@ -245,6 +245,42 @@ export function espelhoStatus(opcaoId: string): { status_opcao: string; status: 
   return { status_opcao: opcaoId, status: opcaoPorId(opcaoId)?.nome ?? '' };
 }
 
+/* ---------------------- espelho de POSTS (status_post) -------------------- */
+/* Mapa entre as opções de post do seed e o valor legado `status_post` lido
+ * pelo backend Python. Usa ids estáveis do seed (não muda em rename). F3/F4. */
+
+const OPCAO_PARA_STATUS_POST: Record<string, string> = {
+  [SEED_OPCAO.emProducao]:  'em_producao',
+  [SEED_OPCAO.agendar]:     'agendar',
+  [SEED_OPCAO.agendado]:    'agendado',
+  [SEED_OPCAO.postado]:     'postado',
+  [SEED_OPCAO.emAlteracao]: 'em_alteracao',
+};
+const STATUS_POST_PARA_OPCAO: Record<string, string> = {
+  em_producao:  SEED_OPCAO.emProducao,
+  agendar:      SEED_OPCAO.agendar,
+  agendado:     SEED_OPCAO.agendado,
+  postado:      SEED_OPCAO.postado,
+  em_alteracao: SEED_OPCAO.emAlteracao,
+};
+
+/** Valor legado `status_post` equivalente a uma opção ('' se não for opção de post). */
+export function statusPostDaOpcao(opcaoId?: string): string {
+  return (opcaoId && OPCAO_PARA_STATUS_POST[opcaoId]) || '';
+}
+/** Id de opção equivalente a um `status_post` legado (fallback pré-F3). */
+export function opcaoIdDoStatusPost(statusPost?: string): string | undefined {
+  return statusPost ? STATUS_POST_PARA_OPCAO[statusPost] : undefined;
+}
+/** Resolve a opção de um CARD: por id (status_opcao) ou, no legado, por status_post. */
+export function resolverOpcaoCard(opcaoId?: string, statusPost?: string): StatusOpcao | undefined {
+  return opcaoPorId(opcaoId) ?? opcaoPorId(opcaoIdDoStatusPost(statusPost));
+}
+/** Campos a gravar num CARD ao escolher uma opção: id + espelho `status_post`. */
+export function espelhoStatusCard(opcaoId: string): { status_opcao: string; status_post: string } {
+  return { status_opcao: opcaoId, status_post: statusPostDaOpcao(opcaoId) };
+}
+
 /* --------------------------- React hooks (novo) -------------------------- */
 
 export function useStatusGlobal(): StatusGlobalConfig {

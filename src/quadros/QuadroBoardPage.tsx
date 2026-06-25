@@ -26,7 +26,9 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao, RecorrenciaMes } from './types';
-import { capaEhCor, capaCorClara, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, STATUS_POST, corStatusPost, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, statusDaEsteira, thumbUrl, ehCartaoPost } from './types';
+import { capaEhCor, capaCorClara, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, thumbUrl, ehCartaoPost } from './types';
+import { resolverOpcaoCard, statusPostDaOpcao } from '@/tarefas/status';
+import { StatusOpcaoChip } from '@/tarefas/StatusOpcaoChip';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -143,23 +145,11 @@ function MiniCard({ c, onClick, onSoltarAntes, expandidas, onToggleEt, usuariosM
           )}
         </div>
         {/* Info compacta de post (só em listas-mês) */}
-        {ehPost && (c.status_post || c.formato || (c.redes?.length ?? 0) > 0) && (
+        {ehPost && (c.status_post || c.status_opcao || c.formato || (c.redes?.length ?? 0) > 0) && (
           <div className="flex flex-wrap items-center gap-1 border-t border-border/40 pt-1.5">
-            {c.status_post && (() => {
-              // Mostra a etapa atual da esteira quando disponível
-              const etapas = c.etapas_card;
-              const etapaAtualTexto = etapas?.length
-                ? (() => { const idx = etapas.findIndex((e) => !e.feito); return idx >= 0 ? etapas[idx].texto : null; })()
-                : null;
-              const statusExibido = etapaAtualTexto
-                ? statusDaEsteira(etapas)
-                : c.status_post;
-              return (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-semibold', corStatusPost(statusExibido))}
-                  title={etapaAtualTexto ?? undefined}>
-                  {etapaAtualTexto ?? (STATUS_POST.find((s) => s.id === c.status_post)?.label ?? c.status_post)}
-                </span>
-              );
+            {(() => {
+              const op = resolverOpcaoCard(c.status_opcao, c.status_post);
+              return op ? <StatusOpcaoChip opcaoId={op.id} className="text-[9px]" /> : null;
             })()}
             {c.formato && (
               <span className="rounded border border-border bg-secondary px-1.5 py-0.5 text-[9px] text-muted-foreground">
@@ -537,8 +527,14 @@ export function QuadroBoardPage({ id }: { id: string }) {
 
   async function salvarEdicaoMes() {
     if (!editMesLista) return;
-    const postsDoMes = cartoes.filter((c) => c.lista === editMesLista.id && !!c.status_post);
-    const temAgendadoOuPostado = postsDoMes.some((c) => c.status_post === 'agendado' || c.status_post === 'postado');
+    // Status efetivo = espelho da opção (status_opcao) com fallback ao legado status_post,
+    // para não perder posts cujo status veio só pela opção global (F3).
+    const statusEfetivo = (c: Cartao) => statusPostDaOpcao(c.status_opcao) || c.status_post || '';
+    const postsDoMes = cartoes.filter((c) => c.lista === editMesLista.id && (!!c.status_post || !!c.status_opcao));
+    const temAgendadoOuPostado = postsDoMes.some((c) => {
+      const s = statusEfetivo(c);
+      return s === 'agendado' || s === 'postado';
+    });
     let aviso = `Isso vai SUBSTITUIR os ${postsDoMes.length} posts atuais desta lista.`;
     if (temAgendadoOuPostado) aviso += '\n\nATENÇÃO: há posts agendados ou já postados que serão removidos!';
     aviso += '\n\nDeseja continuar?';

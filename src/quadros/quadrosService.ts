@@ -6,7 +6,7 @@ import { ESTEIRA_SOCIAL, statusDaEsteira, ORIENTACOES_DESIGN_TEMPLATE, ORDEM_PAP
 import { carregarModeloRemoto } from './modeloPost';
 import { criarTarefa, concluirEtapa, getTarefa, atualizarTarefa } from '@/tarefas/tarefasService';
 import { notificar } from '@/notificacoes/notificacoesService';
-import { statusInicial, statusDoPapel } from '@/tarefas/status';
+import { statusInicial, statusDoPapel, opcaoIdDoStatusPost } from '@/tarefas/status';
 import type { EtapaTarefa } from '@/tarefas/types';
 
 const qcol = () => pb.collection('quadros');
@@ -425,6 +425,7 @@ export async function seedTemplateMes(quadroId: string, listaId: string): Promis
       formato: card.formato ?? '',
       redes: card.redes ?? [],
       status_post: 'em_producao',
+      status_opcao: opcaoIdDoStatusPost('em_producao') ?? '',
       ordem: i + 1,
       concluido: false,
       etiquetas: [],
@@ -585,6 +586,7 @@ export async function gerarPostsMes(
       nome: `${dd} ${DIAS_SEMANA_CURTO[dt.getDay()]}: `,
       data_post: `${ano}-${mm}-${dd} 12:00:00`,
       status_post: 'em_producao',
+      status_opcao: opcaoIdDoStatusPost('em_producao') ?? '',
       etapas_card: ESTEIRA_SOCIAL.map((e) => {
         const resp = responsavelEtapa(e.texto, responsaveis ?? {});
         return {
@@ -962,7 +964,10 @@ export async function confirmarEtapaCard(
     return { ...resto, feito: false } as EtapaCard;
   });
   const status_post = statusDaEsteira(etapas);
-  const updated = await atualizarCartao(card.id, { etapas_card: etapas, status_post });
+  // F3: mantém o espelho status_opcao em sincronia com a derivação da esteira, p/ o
+  // chip (que lê status_opcao) refletir o avanço. A derivação some no F4 (cutover).
+  const status_opcao = opcaoIdDoStatusPost(status_post) ?? '';
+  const updated = await atualizarCartao(card.id, { etapas_card: etapas, status_post, status_opcao });
 
   // Gating: verifica se todos os cards da lista completaram esta etapa
   try {

@@ -10,7 +10,7 @@ import { TarefaCard } from './TarefaCard';
 import { tarefaConcluida } from './format';
 import { TarefasTabela } from './TarefasTabela';
 import { QuickAddTarefa } from './QuickAddTarefa';
-import { opcoesEmOrdemDeColuna, resolverOpcao, corOpcaoClass, useStatusGlobal, type StatusOpcao } from './status';
+import { opcoesEmOrdemDeColuna, resolverOpcao, corOpcaoClass, useStatusGlobal, espelhoStatus, type StatusOpcao } from './status';
 import { useAuth } from '@/auth/useAuth';
 import { ehCliente, canGerirEquipe } from '@/auth/perms';
 import { listOpcoes } from '@/opcoes/opcoesService';
@@ -227,7 +227,9 @@ export function TarefasListPage() {
   async function mover(tarefaId: string, opcaoId: string) {
     const alvo = tarefas.find((t) => t.id === tarefaId);
     if (!alvo || alvo.status_opcao === opcaoId) return;
-    setTarefas((lst) => lst.map((t) => (t.id === tarefaId ? { ...t, status_opcao: opcaoId } : t)));
+    // Otimista: grava os dois campos (id + espelho nome) p/ o bucketing — que dá
+    // precedência ao nome — refletir a coluna nova na hora, sem snap-back.
+    setTarefas((lst) => lst.map((t) => (t.id === tarefaId ? { ...t, ...espelhoStatus(opcaoId) } : t)));
     try {
       await moverTarefaOpcao(tarefaId, opcaoId);
     } catch {

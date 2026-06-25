@@ -223,6 +223,9 @@ export interface Cartao {
   /** Tipos de post (multi). `formato` segue como o "principal" (= formatos[0]) p/ compat backend. */
   formatos?: string[];
   status_post?: 'em_producao' | 'agendar' | 'agendado' | 'postado' | 'em_alteracao' | '';
+  /** Fonte de verdade do status no modelo global (F3): id de uma StatusOpcao.
+   *  Gravado junto com o espelho legado `status_post` até a retirada (F4). */
+  status_opcao?: string;
   agendado_em?: string;
   objetivo?: string;
   tema?: string;

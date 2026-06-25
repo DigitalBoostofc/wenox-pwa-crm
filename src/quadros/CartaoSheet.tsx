@@ -17,6 +17,8 @@ import type { Cartao, EtiquetaCartao, ComentarioCartao } from './types';
 import { progressoChecklist, corEtiquetaSolida, corPrazoCard, capaCartao, capaEhCor, CORES_ETIQUETA, CORES_CAPA, FORMATOS_POST, alertaAgendar, TIPO_POST_LABEL, ORIENTACOES_DESIGN_TEMPLATE, papelDaEtapa } from './types';
 import { PreviewPost } from './PreviewPost';
 import { prazoBR, parsePrazo } from '@/tarefas/format';
+import { StatusOpcaoSelect } from '@/tarefas/StatusOpcaoSelect';
+import { espelhoStatusCard, resolverOpcaoCard } from '@/tarefas/status';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -508,6 +510,17 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                         ⚠ Falta agendar — publica em breve
                       </div>
                     )}
+
+                    {/* Status do post (manual) */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Status</span>
+                      <StatusOpcaoSelect
+                        value={resolverOpcaoCard(c.status_opcao, c.status_post)?.id ?? ''}
+                        statusLegado={undefined}
+                        onChange={(opcaoId) => salvar(espelhoStatusCard(opcaoId) as Partial<Cartao>)}
+                        ariaLabel="Status do post"
+                      />
+                    </div>
 
                     {/* ── Esteira de produção ── */}
                     {(c.etapas_card ?? []).length > 0 && (() => {

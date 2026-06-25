@@ -6,7 +6,9 @@ import {
   criarCartao, atualizarCartao,
 } from './quadrosService';
 import type { Quadro, Lista, Cartao } from './types';
-import { corStatusPost, STATUS_POST, alertaAgendar, statusDaEsteira, ehCartaoPost } from './types';
+import { alertaAgendar, ehCartaoPost } from './types';
+import { resolverOpcaoCard } from '@/tarefas/status';
+import { StatusOpcaoChip } from '@/tarefas/StatusOpcaoChip';
 import { CartaoSheet } from './CartaoSheet';
 import { parsePrazo } from '@/tarefas/format';
 import { logoUrl } from '@/clientes/clientesService';
@@ -250,18 +252,9 @@ export function CalendarioPage({ id }: { id: string }) {
                       className="flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1 text-sm transition-colors hover:border-primary/40"
                     >
                       <span className="max-w-[200px] truncate">{c.nome}</span>
-                      {c.status_post && (() => {
-                        const etapas = c.etapas_card;
-                        const etapaAtualTexto = etapas?.length
-                          ? (() => { const idx = etapas.findIndex(e => !e.feito); return idx >= 0 ? etapas[idx].texto : null; })()
-                          : null;
-                        const statusExibido = etapaAtualTexto ? statusDaEsteira(etapas) : c.status_post;
-                        return (
-                          <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold', corStatusPost(statusExibido))}
-                            title={etapaAtualTexto ?? undefined}>
-                            {etapaAtualTexto ?? (STATUS_POST.find(s => s.id === c.status_post)?.label ?? c.status_post)}
-                          </span>
-                        );
+                      {(() => {
+                        const op = resolverOpcaoCard(c.status_opcao, c.status_post);
+                        return op ? <StatusOpcaoChip opcaoId={op.id} className="shrink-0 text-[9px]" /> : null;
                       })()}
                       {alertaAgendar(c) && <span className="shrink-0 text-[10px] text-amber-400">⚠</span>}
                     </div>
@@ -418,11 +411,10 @@ export function CalendarioPage({ id }: { id: string }) {
                           className="mb-0.5 cursor-pointer rounded border border-transparent px-1.5 py-0.5 text-xs transition-colors hover:border-border hover:bg-secondary/60"
                         >
                           <div className="flex min-w-0 items-center gap-1">
-                            {c.status_post && (
-                              <span className={cn('shrink-0 rounded px-1 text-[8px] font-bold', corStatusPost(c.status_post))}>
-                                {STATUS_POST.find(s => s.id === c.status_post)?.label?.slice(0, 3)}
-                              </span>
-                            )}
+                            {(() => {
+                              const op = resolverOpcaoCard(c.status_opcao, c.status_post);
+                              return op ? <StatusOpcaoChip opcaoId={op.id} className="shrink-0 text-[8px]" /> : null;
+                            })()}
                             <span className="min-w-0 truncate leading-snug">{c.nome}</span>
                             {alertaAgendar(c) && <span className="shrink-0 text-[9px] text-amber-400">⚠</span>}
                           </div>
@@ -485,11 +477,10 @@ export function CalendarioPage({ id }: { id: string }) {
                 className="cursor-pointer rounded-md border border-border bg-card p-2 text-xs transition-colors hover:border-primary/40"
               >
                 <span className="block truncate font-medium leading-snug">{c.nome}</span>
-                {c.status_post && (
-                  <span className={cn('mt-1 inline-block rounded px-1.5 py-0.5 text-[8px] font-semibold', corStatusPost(c.status_post))}>
-                    {STATUS_POST.find(s => s.id === c.status_post)?.label ?? c.status_post}
-                  </span>
-                )}
+                {(() => {
+                  const op = resolverOpcaoCard(c.status_opcao, c.status_post);
+                  return op ? <StatusOpcaoChip opcaoId={op.id} className="mt-1 text-[8px]" /> : null;
+                })()}
               </div>
             ))}
           </div>

@@ -382,26 +382,9 @@ export function corPrazoCard(prazo?: string, concluido?: boolean): string {
   return 'bg-secondary text-muted-foreground';
 }
 
-/** Status possíveis de um card-post (lista-mês), em ordem de fluxo. */
-export const STATUS_POST = [
-  { id: 'em_producao', label: 'Em produção' },
-  { id: 'agendar',     label: 'Agendar' },
-  { id: 'agendado',    label: 'Agendado' },
-  { id: 'postado',     label: 'Postado' },
-  { id: 'em_alteracao', label: 'Em alteração' },
-] as const;
-
-/** Cor sólida do chip de status do post (estilo corEtiquetaSolida). */
-export function corStatusPost(status?: string): string {
-  switch (status) {
-    case 'em_producao':  return 'bg-slate-500 text-white';
-    case 'agendar':      return 'bg-amber-500 text-black';
-    case 'agendado':     return 'bg-emerald-500 text-white';
-    case 'postado':      return 'bg-emerald-700 text-white';
-    case 'em_alteracao': return 'bg-red-500 text-white';
-    default:             return 'bg-secondary text-muted-foreground';
-  }
-}
+// STATUS_POST/corStatusPost removidos (F4 frontend): o status do post agora é
+// exibido pela opção global (StatusOpcaoChip/resolverOpcaoCard). O valor legado
+// status_post segue como espelho até o cutover do serviço externo (/_up).
 
 /** Formatos de post disponíveis. */
 export const FORMATOS_POST = ['feed', 'story', 'reels', 'carrossel'] as const;

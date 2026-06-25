@@ -128,6 +128,9 @@ export function TarefasListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
 
   // Ícones laterais sempre navegam para a página dedicada da área.
   function trocarTipo(t: string) {
+    // Clicar no ícone da área já ativa é no-op: history v4 não deduplica push da mesma
+    // location → empilharia entrada idêntica e quebraria o Back ("dead back button").
+    if (t === tipoFixo) return;
     if (t) history.push(`/tarefas/area/${encodeURIComponent(t)}`);
     else history.push('/tarefas');
   }

@@ -32,6 +32,9 @@ export interface Tarefa {
   lado?: LadoTarefa;
   responsaveis?: string[]; // ids de usuarios (lado = wenox)
   contato?: string; // id do contato do cliente (lado = cliente)
+  /** Fonte de verdade do status (modelo global, F2): id de uma StatusOpcao. */
+  status_opcao?: string;
+  /** Espelho legado do nome da opção — compat com código/filtros antigos (até F4). */
   status?: string;
   /** Veredito do cliente: '' (pendente) | 'aprovada' | 'alteracao'. */
   aprovacao?: '' | 'aprovada' | 'alteracao';

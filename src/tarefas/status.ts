@@ -272,9 +272,14 @@ export function statusPostDaOpcao(opcaoId?: string): string {
 export function opcaoIdDoStatusPost(statusPost?: string): string | undefined {
   return statusPost ? STATUS_POST_PARA_OPCAO[statusPost] : undefined;
 }
-/** Resolve a opção de um CARD: por id (status_opcao) ou, no legado, por status_post. */
+/** Resolve a opção de um CARD para EXIBIÇÃO.
+ *  Janela de transição (F3→cutover): o n8n/esteira escrevem só `status_post`
+ *  (legado), que é o sinal mais fresco para o card que eles tocam. Por isso,
+ *  quando `status_post` é um valor de post conhecido, ele tem precedência sobre
+ *  um `status_opcao` possivelmente defasado. Sem legado conhecido (vazio ou
+ *  opção customizada sem espelho), usa `status_opcao` (escolha manual). */
 export function resolverOpcaoCard(opcaoId?: string, statusPost?: string): StatusOpcao | undefined {
-  return opcaoPorId(opcaoId) ?? opcaoPorId(opcaoIdDoStatusPost(statusPost));
+  return opcaoPorId(opcaoIdDoStatusPost(statusPost)) ?? opcaoPorId(opcaoId);
 }
 /** Campos a gravar num CARD ao escolher uma opção: id + espelho `status_post`. */
 export function espelhoStatusCard(opcaoId: string): { status_opcao: string; status_post: string } {

@@ -3,6 +3,7 @@ import {
   opcaoInicial, opcaoConcluido, opcaoEhConclusiva, opcaoIdPorNome,
   resolverOpcao, espelhoStatus, corOpcaoClass, grupoDaOpcao,
   opcoesEmOrdemDeColuna, CORES_STATUS,
+  resolverOpcaoCard, statusPostDaOpcao, opcaoIdDoStatusPost,
 } from '@/tarefas/status';
 
 /* Sem config remota/localStorage no teste → usa DEFAULT_STATUS_GLOBAL (seed v1):
@@ -65,5 +66,37 @@ describe('status global — helpers (modelo grupos+opções)', () => {
     expect(ids[ids.length - 1]).toBe('op_postado'); // último grupo, última opção
     // todas as 9 opções do seed
     expect(ids).toHaveLength(9);
+  });
+});
+
+describe('status global — espelho de POSTS (status_post)', () => {
+  it('statusPostDaOpcao mapeia as 5 opções de post; vazio p/ não-post', () => {
+    expect(statusPostDaOpcao('op_agendado')).toBe('agendado');
+    expect(statusPostDaOpcao('op_em_alteracao')).toBe('em_alteracao');
+    expect(statusPostDaOpcao('op_aguardando')).toBe(''); // não é opção de post
+    expect(statusPostDaOpcao(undefined)).toBe('');
+  });
+
+  it('opcaoIdDoStatusPost faz o caminho inverso', () => {
+    expect(opcaoIdDoStatusPost('agendado')).toBe('op_agendado');
+    expect(opcaoIdDoStatusPost('postado')).toBe('op_postado');
+    expect(opcaoIdDoStatusPost('')).toBeUndefined();
+  });
+
+  it('resolverOpcaoCard PREFERE o status_post conhecido (sinal mais fresco na transição)', () => {
+    // n8n mudou status_post sem tocar status_opcao (defasado) → prevalece o legado
+    expect(resolverOpcaoCard('op_em_producao', 'agendado')?.id).toBe('op_agendado');
+    // ambos coerentes
+    expect(resolverOpcaoCard('op_agendado', 'agendado')?.id).toBe('op_agendado');
+    // só legado (card pré-F3)
+    expect(resolverOpcaoCard(undefined, 'postado')?.id).toBe('op_postado');
+  });
+
+  it('resolverOpcaoCard cai no status_opcao quando o legado é vazio/desconhecido', () => {
+    // opção manual não-post (status_post vazio) → preserva a escolha manual
+    expect(resolverOpcaoCard('op_aguardando', '')?.id).toBe('op_aguardando');
+    expect(resolverOpcaoCard('op_concluido', undefined)?.id).toBe('op_concluido');
+    // nada resolve
+    expect(resolverOpcaoCard('id_inexistente', '')).toBeUndefined();
   });
 });

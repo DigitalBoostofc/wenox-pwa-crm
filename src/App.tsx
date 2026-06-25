@@ -44,6 +44,8 @@ const DashboardPage = lazy(() =>
   import('@/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const TarefasListPage = lazy(() =>
   import('@/tarefas/TarefasListPage').then((m) => ({ default: m.TarefasListPage })));
+const TarefasAreaPage = lazy(() =>
+  import('@/tarefas/TarefasAreaPage').then((m) => ({ default: m.TarefasAreaPage })));
 const TarefaDetailPage = lazy(() =>
   import('@/tarefas/TarefaDetailPage').then((m) => ({ default: m.TarefaDetailPage })));
 const PrivacidadePage = lazy(() =>
@@ -198,6 +200,12 @@ function AuthedApp() {
           <Route exact path="/tarefas">
             <Protegido modulo="tarefas"><TarefasListPage /></Protegido>
           </Route>
+          <Route
+            path="/tarefas/area/:tipo"
+            render={() => (
+              <Protegido modulo="tarefas"><TarefasAreaPage /></Protegido>
+            )}
+          />
           <Route exact path="/tarefas/nova">
             <Redirect to="/tarefas" />
           </Route>

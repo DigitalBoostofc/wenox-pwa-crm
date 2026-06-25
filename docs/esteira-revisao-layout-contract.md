@@ -1,5 +1,20 @@
 # Contrato — Loop dinâmico "Revisão Layout" (esteira Social Media)
 
+> ## ⚠️ DEPRECADO
+> Este contrato descreve a **derivação automática** do status do post pela esteira de
+> revisão. O produto está migrando para **status global manual** (modelo Notion,
+> grupos + opções): o status do post deixa de ser derivado e passa a ser uma opção
+> escolhida na mão. **Não construa nada novo sobre este documento.**
+>
+> - Contrato vigente: [`status-global-contract.md`](./status-global-contract.md)
+> - Planejamento e fases: [`status-global-roadmap.md`](./status-global-roadmap.md)
+>
+> Mantido como **referência histórica** até a fase de limpeza (F4 do roadmap), quando a
+> esteira de revisão (`/_up/review`, `revisao_layout`, propagação card→tarefa) é
+> aposentada em conjunto com o backend.
+
+---
+
 > **Fonte única de verdade** para o cutover coordenado entre o **frontend** (este repo,
 > React + TS + PocketBase PWA) e o **backend Python externo** (outra pessoa).
 > Os dois lados DEVEM seguir este documento à risca.

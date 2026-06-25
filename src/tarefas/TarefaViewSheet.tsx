@@ -4,12 +4,13 @@ import {
   getTarefa, atualizarTarefa, concluirEtapa, reabrirEtapa, reenviarAprovacao,
 } from './tarefasService';
 import type { Tarefa, EtapaTarefa } from './types';
-import { statusTarefaClass, prazoVencido, prazoBR } from './format';
+import { prazoVencido, prazoBR } from './format';
 import { temEtapas, etapaAtualIndex, progressoEtapas } from './etapas';
 import { EtapasStepper } from './EtapasStepper';
 import { progressoCardsDasTarefas, type ProgressoCardsTarefa } from '@/quadros/quadrosService';
 import { POS_PAPEL } from '@/quadros/types';
-import { useStatuses } from './status';
+import { StatusOpcaoSelect } from './StatusOpcaoSelect';
+import { StatusOpcaoChip } from './StatusOpcaoChip';
 import { addComentario } from '@/atividade/atividadeService';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { useAuth } from '@/auth/useAuth';
@@ -46,13 +47,12 @@ export function TarefaViewSheet({
 }) {
   const { user } = useAuth();
   const uid = user?.id ?? '';
-  const statuses = useStatuses();
   const [t, setT] = useState<Tarefa | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
 
   // Status editável localmente — só persiste ao clicar "Salvar".
-  const [statusEdit, setStatusEdit] = useState('');
+  const [statusOpcaoEdit, setStatusOpcaoEdit] = useState('');
   const [salvandoStatus, setSalvandoStatus] = useState(false);
 
   // Estado do formulário de conclusão de etapa
@@ -70,7 +70,7 @@ export function TarefaViewSheet({
     setConcluindoId(null);
     setProgressoCards(null);
     getTarefa(tarefaId)
-      .then((rec) => { setT(rec as Tarefa); setStatusEdit((rec as Tarefa).status ?? ''); setCarregando(false); })
+      .then((rec) => { setT(rec as Tarefa); setStatusOpcaoEdit((rec as Tarefa).status_opcao ?? ''); setCarregando(false); })
       .catch(() => { setErro('Não foi possível carregar a tarefa.'); setCarregando(false); });
     progressoCardsDasTarefas([tarefaId])
       .then((res) => setProgressoCards(res[tarefaId] ?? null))
@@ -78,13 +78,13 @@ export function TarefaViewSheet({
   }, [aberto, tarefaId]);
 
   async function salvarStatus() {
-    if (!t || somenteLeitura || statusEdit === t.status) return;
+    if (!t || somenteLeitura || statusOpcaoEdit === (t.status_opcao ?? '')) return;
     setSalvandoStatus(true);
     setErro('');
     try {
-      const at = await atualizarTarefa(t.id, { status: statusEdit });
+      const at = await atualizarTarefa(t.id, { status_opcao: statusOpcaoEdit });
       setT(at as Tarefa);
-      setStatusEdit((at as Tarefa).status ?? '');
+      setStatusOpcaoEdit((at as Tarefa).status_opcao ?? '');
       onMudou();
     } catch {
       setErro('Não foi possível salvar o status.');
@@ -189,17 +189,18 @@ export function TarefaViewSheet({
               <div className="flex flex-wrap items-end gap-4">
                 <div className="min-w-40 flex-1">
                   <RotuloCampo>Status</RotuloCampo>
-                  {comEtapas || somenteLeitura ? (
-                    t.status ? (
-                      <Badge className={cn('border text-[11px]', statusTarefaClass(t.status))}>{t.status}</Badge>
-                    ) : <span className="text-sm text-muted-foreground">—</span>
+                  {/* Status é manual (F2): editável mesmo com etapas — elas não o derivam mais. */}
+                  {somenteLeitura ? (
+                    <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />
                   ) : (
                     <div className="flex items-center gap-2">
-                      <select value={statusEdit} onChange={(e) => setStatusEdit(e.target.value)} className={selectCls}>
-                        <option value="">—</option>
-                        {statuses.map((s) => <option key={s.id} value={s.nome}>{s.nome}</option>)}
-                      </select>
-                      {statusEdit !== (t.status ?? '') && (
+                      <StatusOpcaoSelect
+                        value={statusOpcaoEdit}
+                        statusLegado={t.status}
+                        onChange={setStatusOpcaoEdit}
+                        className={selectCls}
+                      />
+                      {statusOpcaoEdit !== (t.status_opcao ?? '') && (
                         <Button size="sm" onClick={salvarStatus} disabled={salvandoStatus} className="shrink-0">
                           {salvandoStatus ? 'Salvando…' : 'Salvar'}
                         </Button>

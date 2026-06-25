@@ -10,8 +10,7 @@ import { RECORRENCIA_LABEL } from './types';
 import { etapaAtualIndex, progressoEtapas, novaEtapaId } from './etapas';
 import { EtapasStepper } from './EtapasStepper';
 import { usePresetsEtapa, presetsDoTipo, type PresetEtapa } from './etapasPreset';
-import { statusTarefaClass } from './format';
-import { statusInicial } from './status';
+import { StatusOpcaoChip } from './StatusOpcaoChip';
 import { AprovacaoTarefa } from './TarefaDetailPage';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { listProjetos } from '@/projetos/projetosService';
@@ -506,7 +505,6 @@ export function TarefaSheet({
       setT({
         id: '',
         nome: '',
-        status: statusInicial(),
         prazo: hojeLocal(),
         projeto: presetProjeto ?? '',
         cliente: clienteId,
@@ -703,7 +701,6 @@ export function TarefaSheet({
         lado: t.lado ?? 'wenox',
         responsaveis: t.responsaveis ?? [],
         contato: t.contato ?? '',
-        status: t.status ?? statusInicial(),
         prazo: t.prazo ?? '',
         prioridade: t.prioridade,
         recorrencia: t.recorrencia ?? '',
@@ -796,16 +793,14 @@ export function TarefaSheet({
                 />
               </div>
 
-              {/* 2. Status (derivado das etapas — sem edição manual; prazo vive em cada etapa) */}
+              {/* 2. Status (manual — definido no quadro/kanban ou na visão da tarefa) */}
               <div>
                 <RotuloCampo>Status</RotuloCampo>
                 <div className="flex items-center gap-2">
-                  {t.status
-                    ? <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>{t.status}</Badge>
-                    : <span className="text-xs text-muted-foreground">—</span>}
+                  <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />
                 </div>
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  Derivado das etapas: conclui automaticamente quando todas as etapas terminam. O prazo fica em cada etapa, abaixo.
+                  O status é definido manualmente — arraste no quadro (kanban) ou escolha na visão da tarefa. As etapas abaixo são um checklist informativo; o prazo fica em cada etapa.
                 </p>
               </div>
 

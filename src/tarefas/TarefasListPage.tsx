@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Plus, Search, ListChecks, List, Columns3, X } from 'lucide-react';
-import { listTarefas, moverTarefaStatus } from './tarefasService';
+import { listTarefas, moverTarefaOpcao } from './tarefasService';
 import { etapaAtualIndex } from './etapas';
 import { progressoCardsDasTarefas } from '@/quadros/quadrosService';
 import { POS_PAPEL } from '@/quadros/types';
 import type { Tarefa } from './types';
 import { TarefaCard } from './TarefaCard';
-import { statusTarefaClass, tarefaConcluida } from './format';
+import { tarefaConcluida } from './format';
 import { TarefasTabela } from './TarefasTabela';
 import { QuickAddTarefa } from './QuickAddTarefa';
-import { useStatuses } from './status';
+import { opcoesEmOrdemDeColuna, resolverOpcao, corOpcaoClass, useStatusGlobal, type StatusOpcao } from './status';
 import { useAuth } from '@/auth/useAuth';
 import { ehCliente, canGerirEquipe } from '@/auth/perms';
 import { listOpcoes } from '@/opcoes/opcoesService';
@@ -86,7 +86,7 @@ function ViewToggleBtn({ ativo, onClick, icon: Icon, label }: {
 
 export function TarefasListPage() {
   const { user } = useAuth();
-  const statuses = useStatuses();
+  useStatusGlobal(); // re-render quando grupos/opções mudam
   const history = useHistory();
   const location = useLocation();
   const [busca, setBusca] = useState('');
@@ -224,12 +224,12 @@ export function TarefasListPage() {
     setSheetId(id);
   }
 
-  async function mover(tarefaId: string, status: string) {
+  async function mover(tarefaId: string, opcaoId: string) {
     const alvo = tarefas.find((t) => t.id === tarefaId);
-    if (!alvo || alvo.status === status) return;
-    setTarefas((lst) => lst.map((t) => (t.id === tarefaId ? { ...t, status } : t)));
+    if (!alvo || alvo.status_opcao === opcaoId) return;
+    setTarefas((lst) => lst.map((t) => (t.id === tarefaId ? { ...t, status_opcao: opcaoId } : t)));
     try {
-      await moverTarefaStatus(tarefaId, status);
+      await moverTarefaOpcao(tarefaId, opcaoId);
     } catch {
       setErro('Não foi possível mover a tarefa. Tente novamente.');
       setRecarrega((n) => n + 1);
@@ -368,7 +368,7 @@ export function TarefasListPage() {
             </div>
           </Card>
         ) : (
-          <KanbanTarefas tarefas={tarefasExibidas} statuses={statuses.map((s) => s.nome)} onAbrir={abrir} onMover={mover} />
+          <KanbanTarefas tarefas={tarefasExibidas} opcoes={opcoesEmOrdemDeColuna()} onAbrir={abrir} onMover={mover} />
         )
       ) : (
         <div className="flex flex-col gap-3">
@@ -416,29 +416,30 @@ export function TarefasListPage() {
 /*  Kanban                                                                     */
 /* -------------------------------------------------------------------------- */
 
-function KanbanTarefas({ tarefas, statuses, onAbrir, onMover }: {
+function KanbanTarefas({ tarefas, opcoes, onAbrir, onMover }: {
   tarefas: Tarefa[];
-  statuses: readonly string[];
+  opcoes: StatusOpcao[];
   onAbrir: (id: string) => void;
-  onMover: (id: string, status: string) => Promise<void>;
+  onMover: (id: string, opcaoId: string) => Promise<void>;
 }) {
-  const nomes = statuses;
   const buckets = new Map<string, Tarefa[]>();
-  for (const n of nomes) buckets.set(n, []);
+  for (const o of opcoes) buckets.set(o.id, []);
   const semStatus: Tarefa[] = [];
   for (const t of tarefas) {
-    if (t.status && buckets.has(t.status)) buckets.get(t.status)!.push(t);
+    const op = resolverOpcao(t.status_opcao, t.status);
+    if (op && buckets.has(op.id)) buckets.get(op.id)!.push(t);
     else semStatus.push(t);
   }
   return (
     <div className="overflow-x-auto pb-2">
       <div className="flex gap-3">
-        {nomes.map((n) => (
+        {opcoes.map((o) => (
           <ColunaKanban
-            key={n}
-            titulo={n}
-            statusAlvo={n}
-            tarefas={buckets.get(n) ?? []}
+            key={o.id}
+            titulo={o.nome}
+            opcaoId={o.id}
+            corClass={corOpcaoClass(o.id)}
+            tarefas={buckets.get(o.id) ?? []}
             onAbrir={onAbrir}
             onSoltar={onMover}
           />
@@ -451,16 +452,17 @@ function KanbanTarefas({ tarefas, statuses, onAbrir, onMover }: {
   );
 }
 
-function ColunaKanban({ titulo, statusAlvo, tarefas, onAbrir, onSoltar, destaque }: {
+function ColunaKanban({ titulo, opcaoId, corClass, tarefas, onAbrir, onSoltar, destaque }: {
   titulo: string;
-  statusAlvo?: string;
+  opcaoId?: string;
+  corClass?: string;
   tarefas: Tarefa[];
   onAbrir: (id: string) => void;
-  onSoltar?: (id: string, status: string) => Promise<void>;
+  onSoltar?: (id: string, opcaoId: string) => Promise<void>;
   destaque?: boolean;
 }) {
   const [recebendo, setRecebendo] = useState(false);
-  const aceitaDrop = !!(onSoltar && statusAlvo);
+  const aceitaDrop = !!(onSoltar && opcaoId);
   return (
     <div
       onDragOver={(e) => {
@@ -475,7 +477,7 @@ function ColunaKanban({ titulo, statusAlvo, tarefas, onAbrir, onSoltar, destaque
         e.preventDefault();
         setRecebendo(false);
         const id = e.dataTransfer.getData('text/tarefa-id');
-        if (id && statusAlvo) await onSoltar!(id, statusAlvo);
+        if (id && opcaoId) await onSoltar!(id, opcaoId);
       }}
       className={cn(
         'flex min-w-60 flex-1 flex-col gap-2 rounded-lg border border-border bg-background/40 p-3 transition-colors',
@@ -486,7 +488,7 @@ function ColunaKanban({ titulo, statusAlvo, tarefas, onAbrir, onSoltar, destaque
       <div className="flex items-center justify-between px-1">
         <span className={cn(
           'rounded-full border px-2.5 py-0.5 text-xs font-semibold',
-          statusAlvo ? statusTarefaClass(statusAlvo) : 'border-border text-muted-foreground',
+          opcaoId && corClass ? corClass : 'border-border text-muted-foreground',
         )}>
           {titulo}
         </span>

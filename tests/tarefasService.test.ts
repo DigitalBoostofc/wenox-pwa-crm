@@ -80,12 +80,14 @@ describe('tarefasService', () => {
     expect(hist[0].acao).toMatch(/aprovou/i);
   });
 
-  it('pedir alteração exige texto e muda status', async () => {
+  it('pedir alteração exige texto e marca a flag (status é manual)', async () => {
     api.update.mockResolvedValue({ id: 't1', aprovacao: 'alteracao' });
     await expect(pedirAlteracaoTarefa('t1', '  ')).rejects.toThrow();
     await pedirAlteracaoTarefa('t1', 'trocar a cor do banner');
+    // F2: status passou a ser manual — o pedido de alteração só marca a flag
+    // informativa de aprovação, sem forçar uma opção de status.
     expect(api.update).toHaveBeenCalledWith('t1', {
-      aprovacao: 'alteracao', status: 'Em alteração',
+      aprovacao: 'alteracao',
     });
   });
 });

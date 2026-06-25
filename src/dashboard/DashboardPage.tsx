@@ -4,7 +4,7 @@ import {
   Building2, FolderKanban, ListChecks, AlarmClock, ArrowRight,
 } from 'lucide-react';
 import { DadosAgenciaProvider, useDadosAgencia } from './useDadosAgencia';
-import { PulsoEquipeBloco, EtapasPendentesBloco, ValidacaoPendenteBloco, EstagioTarefasBloco } from './blocosNegocio';
+import { PulsoEquipeBloco } from './blocosNegocio';
 import { SeletorMeses } from './SeletorMeses';
 import { VisaoGeralDesempenho, RankingMembros } from './blocosDesempenho';
 import { mesesRecentes } from './relatoriosService';
@@ -131,15 +131,6 @@ function CockpitNegocio() {
             <RankingMembros meses={meses} />
             <PulsoEquipeBloco />
           </div>
-
-          {/* Etapas Pendentes | Validação Pendente */}
-          <div className="grid gap-5 lg:grid-cols-2">
-            <EtapasPendentesBloco />
-            <ValidacaoPendenteBloco />
-          </div>
-
-          {/* Estágio de todas as tarefas — R3.b */}
-          <EstagioTarefasBloco />
         </>
       )}
     </div>

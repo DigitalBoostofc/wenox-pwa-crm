@@ -236,9 +236,14 @@ export function opcaoIdPorNome(nome?: string): string | undefined {
   const alvo = nome.trim().toLowerCase();
   return _cfg.opcoes.find((o) => o.nome.trim().toLowerCase() === alvo)?.id;
 }
-/** Resolve a opção de uma tarefa/card: por id (status_opcao) ou, no legado, por nome. */
+/** Resolve a opção de uma TAREFA para exibição.
+ *  Janela de transição (até o cutover): o n8n (aprovação do cliente por WhatsApp)
+ *  escreve só `status` (nome, legado), que é o sinal mais fresco quando toca a
+ *  tarefa. Por isso o nome conhecido tem precedência sobre um `status_opcao`
+ *  possivelmente defasado; sem nome resolvível, usa `status_opcao`.
+ *  (O drag do kanban grava os dois campos em sincronia — ver TarefasListPage.) */
 export function resolverOpcao(opcaoId?: string, nomeLegado?: string): StatusOpcao | undefined {
-  return opcaoPorId(opcaoId) ?? opcaoPorId(opcaoIdPorNome(nomeLegado));
+  return opcaoPorId(opcaoIdPorNome(nomeLegado)) ?? opcaoPorId(opcaoId);
 }
 /** Campos a gravar ao escolher uma opção: o id + o espelho legado `status` (nome). */
 export function espelhoStatus(opcaoId: string): { status_opcao: string; status: string } {

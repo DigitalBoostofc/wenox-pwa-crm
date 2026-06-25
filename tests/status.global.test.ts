@@ -35,10 +35,15 @@ describe('status global — helpers (modelo grupos+opções)', () => {
     expect(opcaoIdPorNome(undefined)).toBeUndefined();
   });
 
-  it('resolverOpcao prefere o id; cai no nome legado', () => {
+  it('resolverOpcao prefere o nome legado conhecido (transição); cai no id', () => {
+    // sem nome → usa o id
     expect(resolverOpcao('op_agendar')?.id).toBe('op_agendar');
+    // só nome → resolve por nome
     expect(resolverOpcao(undefined, 'Concluído')?.id).toBe('op_concluido');
-    expect(resolverOpcao('id_ruim', 'Em andamento')?.id).toBe('op_em_andamento');
+    // nome conhecido tem precedência sobre status_opcao defasado (n8n escreve só o nome)
+    expect(resolverOpcao('op_concluido', 'Em andamento')?.id).toBe('op_em_andamento');
+    // nome desconhecido → cai no id
+    expect(resolverOpcao('op_concluido', 'NomeQueNaoExiste')?.id).toBe('op_concluido');
     expect(resolverOpcao(undefined, undefined)).toBeUndefined();
   });
 

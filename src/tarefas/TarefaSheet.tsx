@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { Trash2, ExternalLink, Check, X, Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import { Trash2, ExternalLink, Check, X, Plus } from 'lucide-react';
 import {
   getTarefa, atualizarTarefa, removerTarefa, criarTarefa,
-  salvarEtapas, concluirEtapa, reabrirEtapa, reenviarAprovacao,
 } from './tarefasService';
-import type { Tarefa, TarefaInput, EtapaTarefa, TipoEtapa } from './types';
+import type { Tarefa, TarefaInput } from './types';
 import { RECORRENCIA_LABEL } from './types';
-import { etapaAtualIndex, progressoEtapas, novaEtapaId } from './etapas';
-import { EtapasStepper } from './EtapasStepper';
-import { usePresetsEtapa, presetsDoTipo, type PresetEtapa } from './etapasPreset';
 import { StatusOpcaoChip } from './StatusOpcaoChip';
-import { AprovacaoTarefa } from './TarefaDetailPage';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { listProjetos } from '@/projetos/projetosService';
 import { listClientes } from '@/clientes/clientesService';
@@ -27,7 +22,6 @@ import { ehCliente, canGerirEquipe } from '@/auth/perms';
 import {
   Sheet, SheetContent, SheetTitle,
 } from '@/components/ui/sheet';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -57,391 +51,6 @@ function hojeLocal(): string {
   ].join('-');
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Etapas do fluxo                                                           */
-/* -------------------------------------------------------------------------- */
-
-function EtapasFluxoEditor({
-  tarefa: t,
-  setTarefa: setT,
-  modoRascunho,
-  nomeUsuario,
-  tipoTarefa,
-  onMudou,
-  setErro,
-}: {
-  tarefa: Tarefa;
-  setTarefa: (t: Tarefa) => void;
-  modoRascunho: boolean;
-  nomeUsuario: (id: string) => string;
-  /** Tipo da tarefa (do projeto) — define quais etapas-modelo aparecem. */
-  tipoTarefa: string;
-  onMudou: () => void;
-  setErro: (e: string) => void;
-}) {
-  const [novoTexto, setNovoTexto] = useState('');
-  const [novoTipo, setNovoTipo] = useState<TipoEtapa>('interna');
-  const [novoResp, setNovoResp] = useState('');
-  usePresetsEtapa(); // re-renderiza quando os modelos mudam
-  const presets = presetsDoTipo(tipoTarefa);
-
-  const etapas = t.etapas ?? [];
-  const { feitas, total } = progressoEtapas(etapas);
-  const idxAtual = etapaAtualIndex(etapas);
-
-  async function persistirEtapas(novas: EtapaTarefa[]) {
-    // R3.c: ao remover a última etapa com >1 responsável, truncar para 1.
-    const trimResp = novas.length === 0 && (t.responsaveis?.length ?? 0) > 1;
-    if (modoRascunho) {
-      setT({ ...t, etapas: novas, ...(trimResp ? { responsaveis: [t.responsaveis![0]] } : {}) });
-      return;
-    }
-    setErro('');
-    try {
-      const atualizada = await salvarEtapas(t, novas, trimResp ? { responsaveis: [t.responsaveis![0]] } : {});
-      setT(atualizada);
-      onMudou();
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro ao salvar etapas');
-    }
-  }
-
-  function adicionar() {
-    const texto = novoTexto.trim();
-    if (!texto) return;
-    const nova: EtapaTarefa = {
-      id: novaEtapaId(),
-      texto,
-      tipo: novoTipo,
-      responsavel: novoTipo === 'interna' ? novoResp : undefined,
-      feito: false,
-    };
-    persistirEtapas([...etapas, nova]);
-    setNovoTexto('');
-    setNovoTipo('interna');
-    setNovoResp('');
-  }
-
-  function remover(id: string) {
-    persistirEtapas(etapas.filter((e) => e.id !== id));
-  }
-
-  /** Insere uma ou mais etapas-modelo, garantindo o responsável na tarefa. */
-  async function inserirPresets(ps: PresetEtapa[]) {
-    if (ps.length === 0) return;
-    const novas: EtapaTarefa[] = ps.map((p) => ({
-      id: novaEtapaId(),
-      texto: p.texto,
-      tipo: p.tipo,
-      responsavel: p.tipo === 'interna' ? (p.responsavel || undefined) : undefined,
-      feito: false,
-    }));
-    const respAtuais = new Set(t.responsaveis ?? []);
-    const addResp: string[] = [];
-    for (const n of novas) {
-      if (n.responsavel && !respAtuais.has(n.responsavel)) { respAtuais.add(n.responsavel); addResp.push(n.responsavel); }
-    }
-    const novosResp = [...(t.responsaveis ?? []), ...addResp];
-    const todas = [...etapas, ...novas];
-    if (modoRascunho) {
-      setT({ ...t, etapas: todas, responsaveis: novosResp });
-      return;
-    }
-    setErro('');
-    try {
-      const atualizada = await salvarEtapas(t, todas, addResp.length ? { responsaveis: novosResp } : {});
-      setT(atualizada);
-      onMudou();
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro ao salvar etapas');
-    }
-  }
-
-  function mover(idx: number, dir: -1 | 1) {
-    const alvo = idx + dir;
-    if (alvo < 0 || alvo >= etapas.length) return;
-    const copia = [...etapas];
-    [copia[idx], copia[alvo]] = [copia[alvo], copia[idx]];
-    persistirEtapas(copia);
-  }
-
-  function editarTexto(id: string, texto: string) {
-    persistirEtapas(etapas.map((e) => e.id === id ? { ...e, texto } : e));
-  }
-
-  function editarResp(id: string, responsavel: string) {
-    persistirEtapas(etapas.map((e) => e.id === id ? { ...e, responsavel } : e));
-  }
-
-  function editarTipo(id: string, tipo: TipoEtapa) {
-    persistirEtapas(etapas.map((e) => e.id === id ? {
-      ...e, tipo, responsavel: tipo === 'aprovacao_cliente' ? undefined : e.responsavel,
-    } : e));
-  }
-
-  function editarPrazo(id: string, prazo: string) {
-    setErro('');
-    persistirEtapas(etapas.map((e) => e.id === id ? { ...e, prazo: prazo || undefined } : e));
-  }
-
-  async function handleConcluir(etapaId: string) {
-    setErro('');
-    try {
-      const atualizada = await concluirEtapa(t, etapaId);
-      setT(atualizada);
-      onMudou();
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro ao concluir etapa');
-    }
-  }
-
-  async function handleReabrir(etapaId: string) {
-    setErro('');
-    try {
-      const atualizada = await reabrirEtapa(t, etapaId);
-      setT(atualizada);
-      onMudou();
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro ao reabrir etapa');
-    }
-  }
-
-  async function handleReenviar() {
-    setErro('');
-    try {
-      const atualizada = await reenviarAprovacao(t);
-      setT(atualizada);
-      onMudou();
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro ao reenviar aprovação');
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <RotuloCampo>
-        Etapas do fluxo{total > 0 && (
-          <span className="ml-1.5 font-normal text-muted-foreground/70">
-            {feitas}/{total}
-          </span>
-        )}
-      </RotuloCampo>
-
-      {etapas.length > 0 && (
-        <ul className="flex flex-col gap-1">
-          {etapas.map((e, idx) => {
-            const ehAtual = idx === idxAtual;
-            const ehFutura = idxAtual >= 0 && idx > idxAtual;
-
-            return (
-              <li
-                key={e.id}
-                className={cn(
-                  'flex flex-col gap-1.5 rounded-md border px-3 py-2',
-                  ehAtual ? 'border-primary/50 bg-primary/5' : 'border-border',
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-muted-foreground">
-                    {e.feito ? '✓' : idx + 1}
-                  </span>
-
-                  <input
-                    defaultValue={e.texto}
-                    onBlur={(ev) => {
-                      const v = ev.target.value.trim();
-                      if (v && v !== e.texto) editarTexto(e.id, v);
-                    }}
-                    className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none"
-                  />
-
-                  <Badge
-                    className={cn(
-                      'shrink-0 border text-[10px]',
-                      e.tipo === 'aprovacao_cliente'
-                        ? 'border-amber-500/50 bg-amber-500/15 text-amber-400'
-                        : 'border-border bg-secondary text-muted-foreground',
-                    )}
-                  >
-                    {e.tipo === 'aprovacao_cliente' ? 'Aprovação' : 'Interna'}
-                  </Badge>
-
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    <button type="button" onClick={() => mover(idx, -1)} disabled={idx === 0}
-                      className="text-muted-foreground/50 hover:text-foreground disabled:opacity-30"
-                    >
-                      <ChevronUp className="size-3.5" />
-                    </button>
-                    <button type="button" onClick={() => mover(idx, 1)} disabled={idx === etapas.length - 1}
-                      className="text-muted-foreground/50 hover:text-foreground disabled:opacity-30"
-                    >
-                      <ChevronDown className="size-3.5" />
-                    </button>
-                    <button type="button" onClick={() => remover(e.id)}
-                      className="ml-1 text-muted-foreground/50 hover:text-destructive"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Linha de meta: responsável + select tipo + estado */}
-                <div className="flex flex-wrap items-center gap-2 pl-7 text-xs">
-                  {e.tipo === 'interna' && (
-                    (t.responsaveis?.length ?? 0) > 0 ? (
-                      <select
-                        value={e.responsavel ?? ''}
-                        onChange={(ev) => editarResp(e.id, ev.target.value)}
-                        className="h-7 rounded border border-input bg-background/40 px-2 text-xs"
-                      >
-                        <option value="">Sem responsável</option>
-                        {(t.responsaveis ?? []).map((id) => (
-                          <option key={id} value={id}>{nomeUsuario(id)}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground">
-                        Selecione os responsáveis da tarefa para atribuir etapas.
-                      </span>
-                    )
-                  )}
-                  <select
-                    value={e.tipo}
-                    onChange={(ev) => editarTipo(e.id, ev.target.value as TipoEtapa)}
-                    className="h-7 rounded border border-input bg-background/40 px-2 text-xs"
-                  >
-                    <option value="interna">Interna</option>
-                    <option value="aprovacao_cliente">Aprovação do cliente</option>
-                  </select>
-
-                  <input
-                    type="date"
-                    value={(e.prazo ?? '').slice(0, 10)}
-                    onChange={(ev) => editarPrazo(e.id, ev.target.value)}
-                    title="Prazo da etapa"
-                    className="h-7 rounded border border-input bg-background/40 px-2 text-xs text-muted-foreground"
-                  />
-
-                  {/* Estado */}
-                  {e.feito ? (
-                    <span className="text-emerald-500">
-                      ✓ {e.feito_por ? (e.feito_por === 'cliente' ? 'Cliente' : nomeUsuario(e.feito_por)) : 'concluída'}
-                    </span>
-                  ) : ehAtual ? (
-                    <span className="font-medium text-primary">Etapa atual</span>
-                  ) : ehFutura ? (
-                    <span className="text-muted-foreground">Aguardando</span>
-                  ) : null}
-                </div>
-
-                {/* Ações da etapa atual (só modo edição) */}
-                {!modoRascunho && ehAtual && e.tipo === 'interna' && (
-                  <div className="flex gap-2 pl-7">
-                    <Button type="button" size="sm" className="h-7 text-xs" onClick={() => handleConcluir(e.id)}>
-                      Concluir etapa
-                    </Button>
-                  </div>
-                )}
-                {!modoRascunho && ehAtual && e.tipo === 'aprovacao_cliente' && (
-                  <div className="pl-7">
-                    {t.aprovacao === 'alteracao' ? (
-                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={handleReenviar}>
-                        Reenviar para aprovação
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-amber-400">Aguardando aprovação do cliente</span>
-                    )}
-                  </div>
-                )}
-                {/* Reabrir etapa feita (só modo edição) */}
-                {!modoRascunho && e.feito && (
-                  <div className="flex gap-2 pl-7">
-                    <button
-                      type="button"
-                      onClick={() => handleReabrir(e.id)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      Reabrir
-                    </button>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {/* Adicionar etapa */}
-      <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-2">
-        {presets.length > 0 && (
-          <select
-            value=""
-            onChange={(ev) => {
-              const v = ev.target.value;
-              if (v === '__todas__') inserirPresets(presets);
-              else { const p = presets.find((x) => x.id === v); if (p) inserirPresets([p]); }
-              ev.target.value = '';
-            }}
-            className="h-7 rounded border border-primary/40 bg-primary/5 px-2 text-xs text-primary"
-            aria-label="Inserir etapa do modelo"
-          >
-            <option value="">+ Inserir etapa do modelo…</option>
-            <option value="__todas__">★ Aplicar modelo completo ({presets.length})</option>
-            {presets.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.texto}
-                {p.tipo === 'aprovacao_cliente'
-                  ? ' · Aprovação'
-                  : p.responsavel ? ` · ${nomeUsuario(p.responsavel)}` : ''}
-              </option>
-            ))}
-          </select>
-        )}
-        <div className="flex gap-2">
-          <input
-            value={novoTexto}
-            onChange={(ev) => setNovoTexto(ev.target.value)}
-            onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); adicionar(); } }}
-            placeholder="Nova etapa…"
-            className={cn(inputCls, 'flex-1')}
-          />
-          <Button type="button" variant="outline" size="sm" onClick={adicionar} disabled={!novoTexto.trim()}>
-            <Plus className="size-3.5" />
-          </Button>
-        </div>
-        <div className="flex gap-2">
-          <select
-            value={novoTipo}
-            onChange={(ev) => setNovoTipo(ev.target.value as TipoEtapa)}
-            className="h-7 rounded border border-input bg-background/40 px-2 text-xs"
-          >
-            <option value="interna">Interna</option>
-            <option value="aprovacao_cliente">Aprovação do cliente</option>
-          </select>
-          {novoTipo === 'interna' && (
-            (t.responsaveis?.length ?? 0) > 0 ? (
-              <select
-                value={novoResp}
-                onChange={(ev) => setNovoResp(ev.target.value)}
-                className="h-7 flex-1 rounded border border-input bg-background/40 px-2 text-xs"
-              >
-                <option value="">Sem responsável</option>
-                {(t.responsaveis ?? []).map((id) => (
-                  <option key={id} value={id}>{nomeUsuario(id)}</option>
-                ))}
-              </select>
-            ) : (
-              <span className="text-[10px] text-muted-foreground">
-                Selecione os responsáveis da tarefa para atribuir etapas.
-              </span>
-            )
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function TarefaSheet({
   tarefaId, aberto, onClose, onMudou, criar, presetProjeto, presetCliente, tipoProjeto,
 }: {
@@ -458,10 +67,8 @@ export function TarefaSheet({
   const history = useHistory();
   const { user } = useAuth();
   const souCliente = ehCliente(user?.role);
-  /** Membro/Visualizador: precisa ficar como responsável da tarefa que cria. */
   const ehMembro = !souCliente && !canGerirEquipe(user?.role);
 
-  /** true = painel em modo rascunho (criação); false = edição de tarefa existente. */
   const modoRascunho = !!criar;
 
   const [t, setT] = useState<Tarefa | null>(null);
@@ -469,27 +76,22 @@ export function TarefaSheet({
   const [erroSalvo, setErroSalvo] = useState('');
   const [salvandoCriar, setSalvandoCriar] = useState(false);
 
-  // Listas de suporte
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
-  // Inputs controlados de adição
   const [novaTag, setNovaTag] = useState('');
   const inputTagRef = useRef<HTMLInputElement>(null);
 
-  // Guarda se o rascunho já foi inicializado nesta abertura
   const rascunhoIniciado = useRef(false);
 
-  // Carrega listas de suporte uma única vez
   useEffect(() => {
     listProjetos().then(setProjetos);
     listClientes('').then(setClientes);
     listUsuarios().then(setUsuarios as never);
   }, []);
 
-  // Inicializa rascunho ou carrega tarefa existente ao abrir
   useEffect(() => {
     if (!aberto) {
       setT(null);
@@ -498,15 +100,13 @@ export function TarefaSheet({
     }
 
     if (modoRascunho) {
-      if (rascunhoIniciado.current) return; // evita reset quando projetos recarregam
+      if (rascunhoIniciado.current) return;
       rascunhoIniciado.current = true;
       const projetoPreset = projetos.find((p) => p.id === presetProjeto);
       const clienteId = projetoPreset?.cliente ?? presetCliente ?? '';
       setT({
         id: '',
         nome: '',
-        // Área da página (tipoProjeto) nasce gravada na tarefa; na página geral
-        // tipoProjeto é undefined → tarefa nasce sem área (F-006).
         tipo: tipoProjeto ?? '',
         prazo: hojeLocal(),
         projeto: presetProjeto ?? '',
@@ -528,23 +128,15 @@ export function TarefaSheet({
       setT(rec as Tarefa);
       setCarregando(false);
     }).catch(() => setCarregando(false));
-  // projetos na dep: necessário para derivar cliente quando projetos carregam antes do init
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto, modoRascunho, tarefaId, projetos, presetProjeto, presetCliente, user?.id]);
 
-  // Carrega contatos quando o cliente muda
   useEffect(() => {
     const cliId = t?.cliente;
     if (cliId) listContatos(cliId).then(setContatos);
     else setContatos([]);
   }, [t?.cliente]);
 
-  // ---------- helpers ----------
-
-  /**
-   * Modo edição: atualiza estado local otimistamente e persiste via API.
-   * Modo rascunho: apenas merge local, sem chamada à API.
-   */
   async function salvarCampo(parcial: Partial<Tarefa>) {
     if (!t) return;
     if (modoRascunho) {
@@ -581,11 +173,9 @@ export function TarefaSheet({
     return c ? nomeExibicao(c) : id;
   }
 
-  // Projetos ordenados por nome do cliente, com label 'Projeto — Cliente'
   const projetosOrdenados = [...projetos].sort((a, b) =>
     nomeCliente(a.cliente).localeCompare(nomeCliente(b.cliente), 'pt-BR'),
   );
-  // ---------- handlers ----------
 
   function handleNomeBlur(e: React.FocusEvent<HTMLInputElement>) {
     const v = e.target.value.trim();
@@ -615,7 +205,6 @@ export function TarefaSheet({
     } else {
       const proj = projetos.find((p) => p.id === projetoId);
       const clienteId = proj?.cliente ?? '';
-      // Atualiza estado local (merge direto para preservar regras de cascata)
       setT((prev) => prev ? {
         ...prev,
         projeto: projetoId,
@@ -626,7 +215,6 @@ export function TarefaSheet({
         },
       } : prev);
       if (modoRascunho) return;
-      // Modo edição: persiste via API
       setErroSalvo('');
       try {
         const atualizado = await atualizarTarefa(t!.id, { projeto: projetoId, cliente: clienteId });
@@ -654,17 +242,13 @@ export function TarefaSheet({
 
   function toggleResponsavel(uid: string) {
     const atuais = t?.responsaveis ?? [];
-    // Membro não pode se remover: tem que ser responsável da própria tarefa.
     if (ehMembro && uid === user?.id && atuais.includes(uid)) return;
-    // R3.c: sem etapas → modo single (substitui em vez de acumular).
-    const semEtapas = (t?.etapas?.length ?? 0) === 0;
     const proximos = atuais.includes(uid)
       ? atuais.filter((x) => x !== uid)
-      : semEtapas ? [uid] : [...atuais, uid];
+      : [...atuais, uid];
     salvarCampo({ responsaveis: proximos });
   }
 
-  // Etiquetas
   function adicionarTag() {
     const v = novaTag.trim();
     if (!v) return;
@@ -690,7 +274,6 @@ export function TarefaSheet({
     onMudou();
   }
 
-  /** Confirma a criação da tarefa a partir do rascunho local. */
   async function confirmarCriacao() {
     if (!t || !t.nome.trim()) return;
     setSalvandoCriar(true);
@@ -699,7 +282,7 @@ export function TarefaSheet({
       const input: TarefaInput = {
         nome: t.nome.trim(),
         descricao: t.descricao ?? '',
-        tipo: t.tipo ?? '', // área da tarefa (F-006)
+        tipo: t.tipo ?? '',
         projeto: t.projeto ?? '',
         cliente: t.cliente ?? '',
         lado: t.lado ?? 'wenox',
@@ -709,7 +292,7 @@ export function TarefaSheet({
         prioridade: t.prioridade,
         recorrencia: t.recorrencia ?? '',
         etiquetas: t.etiquetas ?? [],
-        etapas: t.etapas ?? [],
+        etapas: [],
         ordem: 0,
       };
       await criarTarefa(input);
@@ -721,8 +304,6 @@ export function TarefaSheet({
       setSalvandoCriar(false);
     }
   }
-
-  // ---------- render ----------
 
   return (
     <Sheet open={aberto} onOpenChange={(abr) => { if (!abr) onClose(); }}>
@@ -788,7 +369,6 @@ export function TarefaSheet({
                 <input
                   key={`nome-${t.id || 'rascunho'}`}
                   defaultValue={t.nome}
-                  // Em rascunho captura cada tecla para habilitar o botão Criar
                   onChange={modoRascunho ? (e) => salvarCampo({ nome: e.target.value }) : undefined}
                   onBlur={handleNomeBlur}
                   onKeyDown={handleNomeKeyDown}
@@ -797,18 +377,16 @@ export function TarefaSheet({
                 />
               </div>
 
-              {/* 2. Status (manual — definido no quadro/kanban ou na visão da tarefa) */}
+              {/* 2. Status */}
               <div>
                 <RotuloCampo>Status</RotuloCampo>
-                <div className="flex items-center gap-2">
-                  <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />
-                </div>
+                <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  O status é definido manualmente — arraste no quadro (kanban) ou escolha na visão da tarefa. As etapas abaixo são um checklist informativo; o prazo fica em cada etapa.
+                  Defina o status arrastando no kanban ou abrindo a tarefa completa.
                 </p>
               </div>
 
-              {/* 2b. Prioridade */}
+              {/* 3. Prioridade */}
               <div>
                 <RotuloCampo>Prioridade</RotuloCampo>
                 <div className="flex gap-2">
@@ -843,7 +421,7 @@ export function TarefaSheet({
                 </div>
               </div>
 
-              {/* 2c. Repetir — oculto para tarefas Social Media (gerenciadas pelo quadro) */}
+              {/* 4. Repetir */}
               {t.tipo !== 'Social Media' && (
               <div>
                 <RotuloCampo>Repetir</RotuloCampo>
@@ -882,7 +460,7 @@ export function TarefaSheet({
               </div>
               )}
 
-              {/* 3. Projeto */}
+              {/* 5. Projeto */}
               <div>
                 <RotuloCampo>Projeto</RotuloCampo>
                 <select
@@ -891,22 +469,17 @@ export function TarefaSheet({
                   className={selectCls}
                 >
                   <option value="">Sem projeto</option>
-                  {projetosOrdenados
-                    // Área é dimensão da TAREFA, ortogonal ao tipo do projeto:
-                    // qualquer projeto pode receber tarefa de qualquer área (F-006).
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nome} — {nomeCliente(p.cliente)}
-                      </option>
-                    ))}
+                  {projetosOrdenados.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} — {nomeCliente(p.cliente)}
+                    </option>
+                  ))}
                 </select>
-                {/* Cliente derivado do projeto */}
                 {t.projeto && t.cliente && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     Cliente: {nomeCliente(t.cliente)}
                   </p>
                 )}
-                {/* Sem projeto: select opcional de cliente */}
                 {!t.projeto && (
                   <div className="mt-2">
                     <RotuloCampo>Cliente (opcional)</RotuloCampo>
@@ -924,7 +497,7 @@ export function TarefaSheet({
                 )}
               </div>
 
-              {/* 4. Executor (lado) — só quando tem cliente */}
+              {/* 6. Executor — só quando tem cliente */}
               {temCliente() && (
                 <div>
                   <RotuloCampo>Executor</RotuloCampo>
@@ -972,17 +545,15 @@ export function TarefaSheet({
                 </div>
               )}
 
-              {/* 5. Responsáveis — lado wenox (ou sem cliente) */}
+              {/* 7. Responsáveis */}
               {(!temCliente() || lado() === 'wenox') && (
                 <div>
-                  <RotuloCampo>
-                    {(t.etapas?.length ?? 0) === 0 ? 'Responsável' : 'Responsáveis'}
-                  </RotuloCampo>
+                  <RotuloCampo>Responsáveis</RotuloCampo>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        aria-label={(t.etapas?.length ?? 0) === 0 ? 'Selecionar responsável' : 'Selecionar responsáveis'}
+                        aria-label="Selecionar responsáveis"
                         className={cn(
                           selectCls,
                           'flex items-center justify-between text-left',
@@ -991,9 +562,7 @@ export function TarefaSheet({
                       >
                         {(t.responsaveis?.length ?? 0) > 0
                           ? `${t.responsaveis!.length} selecionado(s)`
-                          : (t.etapas?.length ?? 0) === 0
-                            ? 'Selecionar responsável'
-                            : 'Selecionar responsáveis'}
+                          : 'Selecionar responsáveis'}
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="max-h-64 w-64 overflow-y-auto">
@@ -1011,11 +580,6 @@ export function TarefaSheet({
                       })}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  {(t.etapas?.length ?? 0) === 0 && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Sem etapas: apenas 1 responsável. Adicione etapas para atribuir múltiplos.
-                    </p>
-                  )}
                   {(t.responsaveis?.length ?? 0) > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {(t.responsaveis ?? []).map((id) => (
@@ -1041,48 +605,7 @@ export function TarefaSheet({
                 </div>
               )}
 
-              {/* 5b. Progresso visual das etapas (R3.b) */}
-              {!modoRascunho && (t.etapas?.length ?? 0) > 0 && (
-                <div>
-                  <RotuloCampo>Progresso das etapas</RotuloCampo>
-                  <EtapasStepper
-                    etapas={t.etapas}
-                    responsaveis={
-                      (t.responsaveis ?? [])
-                        .map((id) => {
-                          const u = usuarios.find((u2) => u2.id === id);
-                          if (!u) return null;
-                          return {
-                            id: u.id,
-                            nome: u.nome ?? u.email ?? '',
-                            foto: u.foto,
-                            collectionId: u.collectionId,
-                            collectionName: u.collectionName,
-                          };
-                        })
-                        .filter((r): r is NonNullable<typeof r> => r !== null)
-                    }
-                    variant="full"
-                    prazo={t.prazo}
-                    status={t.status}
-                  />
-                </div>
-              )}
-
-              {/* 5b. Editor de etapas do fluxo */}
-              <EtapasFluxoEditor
-                tarefa={t}
-                setTarefa={setT}
-                modoRascunho={modoRascunho}
-                nomeUsuario={nomeUsuario}
-                // Modelo de etapas segue a ÁREA da tarefa primeiro (F-006):
-                // t.tipo → área da página → fallback tipo do projeto.
-                tipoTarefa={t.tipo || tipoProjeto || projetos.find((p) => p.id === t.projeto)?.tipo || ''}
-                onMudou={onMudou}
-                setErro={setErroSalvo}
-              />
-
-              {/* 6. Etiquetas */}
+              {/* 8. Etiquetas */}
               <div>
                 <RotuloCampo>Etiquetas</RotuloCampo>
                 {(t.etiquetas?.length ?? 0) > 0 && (
@@ -1120,7 +643,7 @@ export function TarefaSheet({
                 </div>
               </div>
 
-              {/* 7. Descrição */}
+              {/* 9. Descrição */}
               <div>
                 <RotuloCampo>Descrição</RotuloCampo>
                 <textarea
@@ -1133,16 +656,9 @@ export function TarefaSheet({
                 />
               </div>
 
-              {/* Aprovação e atividade — apenas no modo edição */}
+              {/* Atividade — apenas no modo edição */}
               {!modoRascunho && (
-                <>
-                  <AprovacaoTarefa
-                    t={t}
-                    souCliente={souCliente}
-                    onMudou={(nova) => { setT(nova as Tarefa); onMudou(); }}
-                  />
-                  <AtividadeFeed entidade="tarefa" refId={t.id} />
-                </>
+                <AtividadeFeed entidade="tarefa" refId={t.id} />
               )}
 
               {/* Rodapé do modo rascunho */}

@@ -1,21 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Check, CalendarDays, ImagePlus, X } from 'lucide-react';
-import {
-  getTarefa, atualizarTarefa, concluirEtapa, reabrirEtapa, reenviarAprovacao,
-} from './tarefasService';
-import type { Tarefa, EtapaTarefa } from './types';
+import { CalendarDays } from 'lucide-react';
+import { getTarefa, atualizarTarefa } from './tarefasService';
+import type { Tarefa } from './types';
 import { prazoVencido, prazoBR } from './format';
-import { temEtapas, etapaAtualIndex, progressoEtapas } from './etapas';
-import { EtapasStepper } from './EtapasStepper';
-import { progressoCardsDasTarefas, type ProgressoCardsTarefa } from '@/quadros/quadrosService';
-import { POS_PAPEL } from '@/quadros/types';
 import { StatusOpcaoSelect } from './StatusOpcaoSelect';
 import { StatusOpcaoChip } from './StatusOpcaoChip';
-import { addComentario } from '@/atividade/atividadeService';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { useAuth } from '@/auth/useAuth';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -46,35 +38,23 @@ export function TarefaViewSheet({
   somenteLeitura?: boolean;
 }) {
   const { user } = useAuth();
-  const uid = user?.id ?? '';
   const [t, setT] = useState<Tarefa | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
-
-  // Status editável localmente — só persiste ao clicar "Salvar".
   const [statusOpcaoEdit, setStatusOpcaoEdit] = useState('');
   const [salvandoStatus, setSalvandoStatus] = useState(false);
-
-  // Estado do formulário de conclusão de etapa
-  const [concluindoId, setConcluindoId] = useState<string | null>(null);
-  const [comentEtapa, setComentEtapa] = useState('');
-  const [imgEtapa, setImgEtapa] = useState<File | null>(null);
-  const [salvando, setSalvando] = useState(false);
-  // Progresso dos cards-post da lista vinculada (p/ travar conclusão manual da etapa).
-  const [progressoCards, setProgressoCards] = useState<ProgressoCardsTarefa | null>(null);
 
   useEffect(() => {
     if (!aberto || !tarefaId) { setT(null); return; }
     setCarregando(true);
     setErro('');
-    setConcluindoId(null);
-    setProgressoCards(null);
     getTarefa(tarefaId)
-      .then((rec) => { setT(rec as Tarefa); setStatusOpcaoEdit((rec as Tarefa).status_opcao ?? ''); setCarregando(false); })
+      .then((rec) => {
+        setT(rec as Tarefa);
+        setStatusOpcaoEdit((rec as Tarefa).status_opcao ?? '');
+        setCarregando(false);
+      })
       .catch(() => { setErro('Não foi possível carregar a tarefa.'); setCarregando(false); });
-    progressoCardsDasTarefas([tarefaId])
-      .then((res) => setProgressoCards(res[tarefaId] ?? null))
-      .catch(() => setProgressoCards(null));
   }, [aberto, tarefaId]);
 
   async function salvarStatus() {
@@ -93,70 +73,11 @@ export function TarefaViewSheet({
     }
   }
 
-  function nomeResp(id?: string): string {
-    if (!id) return '';
-    const r = (t?.expand?.responsaveis ?? []).find((u) => u.id === id);
-    return r?.nome ?? r?.email ?? 'alguém';
-  }
-
-  async function confirmarConcluir(etapaId: string) {
-    if (!t) return;
-    setSalvando(true);
-    setErro('');
-    try {
-      if (comentEtapa.trim() || imgEtapa) {
-        await addComentario('tarefa', t.id, comentEtapa, true, imgEtapa);
-      }
-      const at = await concluirEtapa(t, etapaId);
-      setT(at as Tarefa);
-      setConcluindoId(null);
-      setComentEtapa('');
-      setImgEtapa(null);
-      onMudou();
-    } catch {
-      setErro('Não foi possível concluir a etapa.');
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  async function handleReabrir(etapaId: string) {
-    if (!t) return;
-    setErro('');
-    try {
-      const at = await reabrirEtapa(t, etapaId);
-      setT(at as Tarefa);
-      onMudou();
-    } catch {
-      setErro('Não foi possível reabrir a etapa.');
-    }
-  }
-
-  async function handleReenviar() {
-    if (!t) return;
-    setErro('');
-    try {
-      const at = await reenviarAprovacao(t);
-      setT(at as Tarefa);
-      onMudou();
-    } catch {
-      setErro('Não foi possível reenviar.');
-    }
-  }
+  // Usado apenas para satisfazer o lint (user pode ser usado em futuras extensões)
+  void user;
 
   const contexto = t ? contextoTarefa(t) : '';
   const vencida = t ? prazoVencido(t.prazo, t.status) : false;
-  const comEtapas = t ? temEtapas(t) : false;
-  const etapas = t?.etapas ?? [];
-  const idxAtual = etapaAtualIndex(etapas);
-  const prog = progressoEtapas(etapas);
-
-  // Trava de cards: a etapa atual da tarefa só pode ser concluída quando todos os
-  // cards-post da lista vinculada já concluíram essa etapa.
-  const papelAtual = idxAtual >= 0 ? (POS_PAPEL[idxAtual] ?? '') : '';
-  const cardsTotal = progressoCards?.total ?? 0;
-  const cardsFeitos = papelAtual ? (progressoCards?.porPapel[papelAtual] ?? 0) : 0;
-  const cardsPendentesEtapa = cardsTotal > 0 && cardsFeitos < cardsTotal;
 
   return (
     <Sheet open={aberto} onOpenChange={(abr) => { if (!abr) onClose(); }}>
@@ -189,7 +110,6 @@ export function TarefaViewSheet({
               <div className="flex flex-wrap items-end gap-4">
                 <div className="min-w-40 flex-1">
                   <RotuloCampo>Status</RotuloCampo>
-                  {/* Status é manual (F2): editável mesmo com etapas — elas não o derivam mais. */}
                   {somenteLeitura ? (
                     <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />
                   ) : (
@@ -218,133 +138,6 @@ export function TarefaViewSheet({
                   </div>
                 )}
               </div>
-
-              {/* Etapas do fluxo */}
-              {comEtapas && (
-                <div>
-                  <RotuloCampo>
-                    Etapas do fluxo
-                    <span className="ml-1.5 font-normal text-muted-foreground/70">{prog.feitas}/{prog.total}</span>
-                  </RotuloCampo>
-                  <div aria-hidden="true">
-                    <EtapasStepper
-                      etapas={etapas}
-                      responsaveis={t.expand?.responsaveis ?? []}
-                      variant="full"
-                      prazo={t.prazo}
-                      status={t.status}
-                    />
-                  </div>
-                  <ul className="mt-4 flex flex-col gap-1.5" aria-label="Ações das etapas">
-                    {etapas.map((e: EtapaTarefa, idx: number) => {
-                      const ehAtual = idx === idxAtual;
-                      const ehFutura = idxAtual >= 0 && idx > idxAtual;
-                      const minhaVez = ehAtual && e.tipo === 'interna' && (!e.responsavel || e.responsavel === uid) && !somenteLeitura;
-                      const dono = e.tipo === 'aprovacao_cliente' ? 'Cliente' : nomeResp(e.responsavel);
-                      return (
-                        <li
-                          key={e.id}
-                          className={cn(
-                            'flex flex-col gap-2 rounded-md border px-3 py-2',
-                            ehAtual ? 'border-primary/50 bg-primary/5' : 'border-border',
-                            ehFutura && 'opacity-60',
-                          )}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className={cn(
-                              'grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold',
-                              e.feito ? 'bg-emerald-500 text-white' : 'bg-secondary text-muted-foreground',
-                            )}>
-                              {e.feito ? <Check className="size-3" /> : idx + 1}
-                            </span>
-                            <span className={cn('min-w-0 flex-1 truncate text-sm font-medium', e.feito && 'text-muted-foreground line-through')}>
-                              {e.texto}
-                            </span>
-                            <Badge className={cn(
-                              'shrink-0 border text-[10px]',
-                              e.tipo === 'aprovacao_cliente'
-                                ? 'border-amber-500/50 bg-amber-500/15 text-amber-400'
-                                : 'border-border bg-secondary text-muted-foreground',
-                            )}>
-                              {e.tipo === 'aprovacao_cliente' ? 'Cliente' : 'Interna'}
-                            </Badge>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2 pl-7 text-xs text-muted-foreground">
-                            {dono && <span>{dono}</span>}
-                            {e.feito ? (
-                              <span className="text-emerald-500">
-                                ✓ por {e.feito_por === 'cliente' ? 'Cliente' : nomeResp(e.feito_por)}
-                              </span>
-                            ) : ehAtual ? (
-                              <span className="font-medium text-primary">Etapa atual</span>
-                            ) : (
-                              <span>Aguardando</span>
-                            )}
-                          </div>
-
-                          {/* Ações na etapa atual */}
-                          {ehAtual && !somenteLeitura && (
-                            <div className="pl-7">
-                              {e.tipo === 'aprovacao_cliente' ? (
-                                t.aprovacao === 'alteracao' ? (
-                                  <Button size="sm" variant="outline" onClick={handleReenviar}>Reenviar para aprovação</Button>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">Aguardando aprovação do cliente</span>
-                                )
-                              ) : minhaVez ? (
-                                cardsPendentesEtapa ? (
-                                  <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-400">
-                                    ⏳ Aguardando todos os posts concluírem esta etapa ({cardsFeitos}/{cardsTotal})
-                                  </span>
-                                ) : concluindoId === e.id ? (
-                                  <div className="flex flex-col gap-2">
-                                    <textarea
-                                      value={comentEtapa}
-                                      onChange={(ev) => setComentEtapa(ev.target.value)}
-                                      rows={2}
-                                      placeholder="Comentário (opcional)…"
-                                      className="w-full rounded-md border border-input bg-background/40 p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                                    />
-                                    {imgEtapa && (
-                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        <ImagePlus className="size-3.5" />
-                                        <span className="min-w-0 flex-1 truncate">{imgEtapa.name}</span>
-                                        <button type="button" onClick={() => setImgEtapa(null)} className="hover:text-destructive"><X className="size-3.5" /></button>
-                                      </div>
-                                    )}
-                                    <div className="flex items-center justify-between gap-2">
-                                      <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                                        <ImagePlus className="size-4" /> Anexar imagem
-                                        <input type="file" accept="image/*" className="hidden" onChange={(ev) => setImgEtapa(ev.target.files?.[0] ?? null)} />
-                                      </label>
-                                      <div className="flex gap-2">
-                                        <Button size="sm" variant="ghost" onClick={() => { setConcluindoId(null); setComentEtapa(''); setImgEtapa(null); }} disabled={salvando}>Cancelar</Button>
-                                        <Button size="sm" onClick={() => confirmarConcluir(e.id)} disabled={salvando}>{salvando ? 'Concluindo…' : 'Concluir etapa'}</Button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <Button size="sm" onClick={() => setConcluindoId(e.id)}>Concluir etapa</Button>
-                                )
-                              ) : (
-                                <span className="text-xs text-muted-foreground">Aguardando {dono || 'responsável'}</span>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Reabrir etapa feita */}
-                          {e.feito && !somenteLeitura && (
-                            <div className="pl-7">
-                              <button type="button" onClick={() => handleReabrir(e.id)} className="text-[11px] text-muted-foreground hover:text-foreground">Reabrir</button>
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
 
               {/* Descrição */}
               <div>

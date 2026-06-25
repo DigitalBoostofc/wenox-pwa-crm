@@ -2,9 +2,6 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Plus, Search, ListChecks, List, Columns3, X } from 'lucide-react';
 import { listTarefas, moverTarefaOpcao } from './tarefasService';
-import { etapaAtualIndex } from './etapas';
-import { progressoCardsDasTarefas } from '@/quadros/quadrosService';
-import { POS_PAPEL } from '@/quadros/types';
 import type { Tarefa } from './types';
 import { TarefaCard } from './TarefaCard';
 import { tarefaConcluida } from './format';
@@ -89,7 +86,6 @@ export function TarefasListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
   const viewKey = tipoFixo ? `wenox-tarefas-${tipoFixo}-view-v1` : VIEW_KEY;
   const [view, setView] = useState<ViewMode>(() => carregarView(viewKey));
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
-  const [progressoCards, setProgressoCards] = useState<Record<string, { feitos: number; total: number; emAlteracaoInterna?: boolean }>>({});
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [recarrega, setRecarrega] = useState(0);
@@ -188,29 +184,6 @@ export function TarefasListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
     return arr;
   }, [tarefas, soAbertas, tipoAtivo]);
 
-  // Contador "x/N" da etapa atual de cada tarefa (cards-post da lista-mês vinculada).
-  useEffect(() => {
-    if (isCliente) return;
-    const ids = tarefasExibidas.filter((t) => (t.etapas?.length ?? 0) > 0).map((t) => t.id);
-    if (!ids.length) { setProgressoCards({}); return; }
-    let cancelado = false;
-    progressoCardsDasTarefas(ids)
-      .then((res) => {
-        if (cancelado) return;
-        const map: Record<string, { feitos: number; total: number; emAlteracaoInterna?: boolean }> = {};
-        for (const t of tarefasExibidas) {
-          const prog = res[t.id];
-          if (!prog) continue;
-          const idx = etapaAtualIndex(t.etapas);
-          if (idx < 0) continue; // todas as etapas feitas
-          const papel = POS_PAPEL[idx] ?? 'revisao';
-          map[t.id] = { feitos: prog.porPapel[papel] ?? 0, total: prog.total, emAlteracaoInterna: prog.emAlteracaoInterna };
-        }
-        setProgressoCards(map);
-      })
-      .catch(() => { if (!cancelado) setProgressoCards({}); });
-    return () => { cancelado = true; };
-  }, [tarefasExibidas, isCliente]);
 
   const trocarView = (v: ViewMode) => {
     setView(v);
@@ -383,8 +356,6 @@ export function TarefasListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
             onAbrir={abrir}
             persistPrefix={persistPrefix}
             onMudou={() => setRecarrega((n) => n + 1)}
-            etapaSemDots
-            progressoCards={progressoCards}
           />
         </div>
       )}

@@ -1,5 +1,4 @@
 import type { EtapaTarefa, Tarefa } from './types';
-import { statusInicial, statusConcluido, statusDoPapel } from './status';
 import { prazoVencido, tarefaConcluida } from './format';
 
 /* -------------------------------------------------------------------------- */
@@ -31,24 +30,6 @@ export function progressoEtapas(etapas?: EtapaTarefa[]): { feitas: number; total
   const total = etapas?.length ?? 0;
   const feitas = (etapas ?? []).filter((e) => e.feito).length;
   return { feitas, total };
-}
-
-/**
- * Status derivado das etapas (só quando a tarefa TEM etapas).
- * - todas feitas → Concluído
- * - aprovacao = 'alteracao' → Em alteração
- * - etapa atual é aprovacao_cliente → Aguardando aprovação
- * - alguma feita → Em andamento; senão → Não iniciado
- */
-export function statusDerivado(etapas: EtapaTarefa[], aprovacao?: string): string {
-  const i = etapaAtualIndex(etapas);
-  if (i === -1) return statusConcluido();
-  if (aprovacao === 'alteracao') return statusDoPapel('em_alteracao') ?? 'Em alteração';
-  const atual = etapas[i];
-  if (atual.tipo === 'aprovacao_cliente') return statusDoPapel('aguardando_aprovacao') ?? 'Aguardando aprovação';
-  return etapas.some((e) => e.feito)
-    ? (statusDoPapel('em_andamento') ?? 'Em andamento')
-    : statusInicial();
 }
 
 /** Tarefa em equipe = mais de um responsável (independe da qtd de etapas). */

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ListChecks, Repeat, UserRound } from 'lucide-react';
 import type { Tarefa } from './types';
-import { statusTarefaClass, tarefaConcluida, prazoBR } from './format';
+import { tarefaConcluida, prazoBR } from './format';
 import { temEtapas, prazoEfetivo, prazoVencidoEfetivo } from './etapas';
 import { EtapasStepper } from '@/tarefas/EtapasStepper';
+import { StatusOpcaoChip } from './StatusOpcaoChip';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -401,11 +401,7 @@ function LinhaTarefa({ t, onAbrir, onConcluir, onReabrir }: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {t.status && (
-          <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>
-            {t.status}
-          </Badge>
-        )}
+        <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />
         {temEtapas(t) && (
           <EtapasStepper
             etapas={t.etapas}

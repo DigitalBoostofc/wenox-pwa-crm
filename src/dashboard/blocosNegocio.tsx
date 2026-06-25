@@ -4,7 +4,8 @@ import {
   Users, ListChecks, FolderKanban, ArrowRight,
 } from 'lucide-react';
 import { useDadosAgencia } from './useDadosAgencia';
-import { tarefaConcluida, prazoVencido, prazoLimite, statusTarefaClass, prazoBR } from '@/tarefas/format';
+import { tarefaConcluida, prazoVencido, prazoLimite, prazoBR } from '@/tarefas/format';
+import { StatusOpcaoChip } from '@/tarefas/StatusOpcaoChip';
 import { temEtapas, aguardandoAprovacaoCliente, etapaAtual, prazoVencidoEfetivo, prazoEfetivo } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
 import { dataBR, inicial, corAvatar } from '@/clientes/format';
@@ -549,11 +550,7 @@ export function EstagioTarefasBloco() {
 
                 {/* Direita: status + prazo/atraso */}
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  {t.status && (
-                    <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>
-                      {t.status}
-                    </Badge>
-                  )}
+                  <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />
                   {vencida ? (
                     <Badge className="border border-destructive/50 bg-destructive/15 text-[10px] text-destructive">
                       Atrasada

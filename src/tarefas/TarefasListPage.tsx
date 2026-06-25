@@ -376,6 +376,7 @@ export function TarefasListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
         <div className="flex flex-col gap-3">
           <QuickAddTarefa
             onCriada={(id) => { setRecarrega((n) => n + 1); setSheetId(id); }}
+            area={tipoFixo || undefined}
           />
           <TarefasTabela
             tarefas={tarefasExibidas}

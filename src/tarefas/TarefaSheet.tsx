@@ -505,6 +505,9 @@ export function TarefaSheet({
       setT({
         id: '',
         nome: '',
+        // Área da página (tipoProjeto) nasce gravada na tarefa; na página geral
+        // tipoProjeto é undefined → tarefa nasce sem área (F-006).
+        tipo: tipoProjeto ?? '',
         prazo: hojeLocal(),
         projeto: presetProjeto ?? '',
         cliente: clienteId,
@@ -696,6 +699,7 @@ export function TarefaSheet({
       const input: TarefaInput = {
         nome: t.nome.trim(),
         descricao: t.descricao ?? '',
+        tipo: t.tipo ?? '', // área da tarefa (F-006)
         projeto: t.projeto ?? '',
         cliente: t.cliente ?? '',
         lado: t.lado ?? 'wenox',
@@ -888,7 +892,8 @@ export function TarefaSheet({
                 >
                   <option value="">Sem projeto</option>
                   {projetosOrdenados
-                    .filter((p) => p.id === t.projeto || !tipoProjeto || p.tipo === tipoProjeto)
+                    // Área é dimensão da TAREFA, ortogonal ao tipo do projeto:
+                    // qualquer projeto pode receber tarefa de qualquer área (F-006).
                     .map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.nome} — {nomeCliente(p.cliente)}
@@ -1070,7 +1075,9 @@ export function TarefaSheet({
                 setTarefa={setT}
                 modoRascunho={modoRascunho}
                 nomeUsuario={nomeUsuario}
-                tipoTarefa={projetos.find((p) => p.id === t.projeto)?.tipo ?? tipoProjeto ?? ''}
+                // Modelo de etapas segue a ÁREA da tarefa primeiro (F-006):
+                // t.tipo → área da página → fallback tipo do projeto.
+                tipoTarefa={t.tipo || tipoProjeto || projetos.find((p) => p.id === t.projeto)?.tipo || ''}
                 onMudou={onMudou}
                 setErro={setErroSalvo}
               />

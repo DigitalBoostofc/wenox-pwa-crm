@@ -7,11 +7,14 @@ export function QuickAddTarefa({
   onCriada,
   presetProjeto,
   presetCliente,
+  area,
 }: {
   /** Recebe o id da tarefa recém-criada (para abrir o painel dela). */
   onCriada: (id: string) => void;
   presetProjeto?: string;
   presetCliente?: string;
+  /** Área da página (dimensão da tarefa). Quando definida, nasce gravada (F-006). */
+  area?: string;
 }) {
   const { user } = useAuth();
   const [valor, setValor] = useState('');
@@ -32,6 +35,7 @@ export function QuickAddTarefa({
       const nova = await criarTarefa({
         nome,
         status: statusInicial(),
+        tipo: area ?? '',
         prazo: hoje,
         lado: 'wenox',
         responsaveis: user?.id ? [user.id] : [],

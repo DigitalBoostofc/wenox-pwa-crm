@@ -14,7 +14,7 @@ import { opcoesEmOrdemDeColuna, resolverOpcao, corOpcaoClass, useStatusGlobal, e
 import { useAuth } from '@/auth/useAuth';
 import { ehCliente, canGerirEquipe } from '@/auth/perms';
 import { listOpcoes } from '@/opcoes/opcoesService';
-import { BarraTipos, PillsTipos } from '@/components/BarraTipos';
+import { BarraTipos, PillsTipos, iconeTipo } from '@/components/BarraTipos';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,18 +31,12 @@ import { PortalClienteTarefas } from './PortalClienteTarefas';
 
 type ViewMode = 'lista' | 'kanban';
 const VIEW_KEY = 'wenox-tarefas-view-v1';
-function carregarView(): ViewMode {
+function carregarView(key = VIEW_KEY): ViewMode {
   try {
-    const s = localStorage.getItem(VIEW_KEY);
+    const s = localStorage.getItem(key);
     if (s === 'lista' || s === 'kanban') return s;
   } catch { /* */ }
   return 'lista';
-}
-
-/** Último tipo de projeto selecionado na barra (Owner/Admin/Gestor). */
-const TIPO_KEY = 'wenox-tarefas-tipo-v1';
-function carregarTipo(): string {
-  try { return localStorage.getItem(TIPO_KEY) ?? ''; } catch { return ''; }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -84,14 +78,16 @@ function ViewToggleBtn({ ativo, onClick, icon: Icon, label }: {
 /*  Página principal                                                           */
 /* -------------------------------------------------------------------------- */
 
-export function TarefasListPage() {
+export function TarefasListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
   const { user } = useAuth();
   useStatusGlobal(); // re-render quando grupos/opções mudam
   const history = useHistory();
   const location = useLocation();
   const [busca, setBusca] = useState('');
   const [escopo, setEscopo] = useState<Escopo>('minhas');
-  const [view, setView] = useState<ViewMode>(carregarView);
+  // Cada área tem sua própria preferência de visualização isolada.
+  const viewKey = tipoFixo ? `wenox-tarefas-${tipoFixo}-view-v1` : VIEW_KEY;
+  const [view, setView] = useState<ViewMode>(() => carregarView(viewKey));
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [progressoCards, setProgressoCards] = useState<Record<string, { feitos: number; total: number; emAlteracaoInterna?: boolean }>>({});
   const [carregando, setCarregando] = useState(true);
@@ -104,9 +100,16 @@ export function TarefasListPage() {
   // Filtro por responsável vindo do Dashboard (Pulso da Equipe) via querystring.
   const [respFiltro, setRespFiltro] = useState<{ id: string; nome: string } | null>(null);
   const [soAbertas, setSoAbertas] = useState(false);
-  // Barra de tipos (= tipo de projeto). Filtra a lista e prepara o dropdown ao criar.
+  // Lista de tipos para a barra de ícones lateral (navegação entre áreas).
   const [tipos, setTipos] = useState<string[]>([]);
-  const [tipoAtivo, setTipoAtivo] = useState<string>(carregarTipo);
+
+  // tipoAtivo: quando fixo (página de área), vem do prop; na página geral é '' (sem filtro).
+  const tipoAtivo = tipoFixo ?? '';
+
+  // Colunas/tamanhos de tabela isolados por área.
+  const persistPrefix = tipoFixo
+    ? `wenox-tarefas-${tipoFixo}-tabela`
+    : 'wenox-tarefas-tabela';
 
   const isCliente = ehCliente(user?.role);
   const gerencia = canGerirEquipe(user?.role);
@@ -120,16 +123,13 @@ export function TarefasListPage() {
       const todos = ts.map((t) => t.valor);
       const visiveis = gerencia ? todos : todos.filter((t) => t === user?.area);
       setTipos(visiveis);
-      // Default = "todas as áreas" (vazio): pré-filtrar por área escondia tarefas
-      // do próprio usuário (ex.: "Minhas" mostrava 2 de 8). Mantém a escolha salva
-      // se ainda for válida; senão não pré-filtra.
-      setTipoAtivo((cur) => (cur && visiveis.includes(cur) ? cur : ''));
     });
   }, [isCliente, gerencia, user?.area]);
 
+  // Ícones laterais sempre navegam para a página dedicada da área.
   function trocarTipo(t: string) {
-    setTipoAtivo(t);
-    try { localStorage.setItem(TIPO_KEY, t); } catch { /* */ }
+    if (t) history.push(`/tarefas/area/${encodeURIComponent(t)}`);
+    else history.push('/tarefas');
   }
 
   // Sincroniza o filtro de responsável a partir da URL (?responsavel=&nome=&abertas=1).
@@ -143,7 +143,7 @@ export function TarefasListPage() {
   function limparFiltroResp() {
     setRespFiltro(null);
     setSoAbertas(false);
-    history.replace('/tarefas');
+    history.replace(tipoFixo ? `/tarefas/area/${encodeURIComponent(tipoFixo)}` : '/tarefas');
   }
 
   function trocarEscopo(v: Escopo) {
@@ -211,7 +211,7 @@ export function TarefasListPage() {
 
   const trocarView = (v: ViewMode) => {
     setView(v);
-    try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ }
+    try { localStorage.setItem(viewKey, v); } catch { /* */ }
   };
 
   // Membro abre em modo visualização (status + concluir etapa); só edita os campos
@@ -257,6 +257,8 @@ export function TarefasListPage() {
     );
   }
 
+  const AreaIcon = tipoFixo ? iconeTipo(tipoFixo) : null;
+
   /* ---- Interface interna (equipe Wenox) ---- */
   return (
     <div className="flex gap-4">
@@ -283,6 +285,14 @@ export function TarefasListPage() {
           </Button>
         </div>
       </HeaderSlot>
+
+      {/* Título da área — visível apenas em páginas dedicadas por função */}
+      {tipoFixo && AreaIcon && (
+        <div className="flex items-center gap-2.5">
+          <AreaIcon className="size-5 text-primary" />
+          <h2 className="text-base font-semibold">{tipoFixo}</h2>
+        </div>
+      )}
 
       {/* Pills de tipo — mobile apenas (espelha a BarraTipos do desktop) */}
       <PillsTipos tipos={tipos} ativo={tipoAtivo} onChange={trocarTipo} />
@@ -317,21 +327,6 @@ export function TarefasListPage() {
             <X className="size-3.5" />
           </button>
         )}
-
-        {/* Filtro de ÁREA ativo: a barra de ícones é só ícone, sem rótulo —
-            torna visível qual área filtra e permite voltar a "todas". */}
-        {tipoAtivo && (
-          <button
-            type="button"
-            onClick={() => trocarTipo('')}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/50 bg-primary/15 px-3 py-1 text-sm text-primary transition-colors hover:bg-primary/25"
-            title="Ver tarefas de todas as áreas"
-          >
-            Área: {tipoAtivo}
-            <X className="size-3.5" />
-          </button>
-        )}
-
       </div>
 
       {erro && (
@@ -360,9 +355,11 @@ export function TarefasListPage() {
                   <p className="text-sm text-muted-foreground">
                     Nenhuma tarefa na área <strong>{tipoAtivo}</strong>.
                   </p>
-                  <Button variant="outline" size="sm" onClick={() => trocarTipo('')}>
-                    Ver todas as áreas
-                  </Button>
+                  {!tipoFixo && (
+                    <Button variant="outline" size="sm" onClick={() => trocarTipo('')}>
+                      Ver todas as áreas
+                    </Button>
+                  )}
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">Nenhuma tarefa neste filtro.</p>
@@ -380,7 +377,7 @@ export function TarefasListPage() {
           <TarefasTabela
             tarefas={tarefasExibidas}
             onAbrir={abrir}
-            persistPrefix="wenox-tarefas-tabela"
+            persistPrefix={persistPrefix}
             onMudou={() => setRecarrega((n) => n + 1)}
             etapaSemDots
             progressoCards={progressoCards}
@@ -398,7 +395,7 @@ export function TarefasListPage() {
         tarefaId={criando ? null : sheetId}
         aberto={criando || sheetId !== null}
         criar={criando}
-        tipoProjeto={tipoAtivo || undefined}
+        tipoProjeto={tipoFixo || undefined}
         onClose={() => { setCriando(false); setSheetId(null); }}
         onMudou={() => setRecarrega((n) => n + 1)}
       />

@@ -22,7 +22,9 @@ vi.mock('@/atividade/atividadeService', async (orig) => {
 import {
   criarTarefa, moverTarefaStatus, listTarefas,
   aprovarTarefa, pedirAlteracaoTarefa,
+  moverTarefaOpcao, concluirTarefa, reabrirTarefa, salvarEtapas, atualizarTarefa,
 } from '@/tarefas/tarefasService';
+import type { Tarefa, EtapaTarefa } from '@/tarefas/types';
 
 describe('tarefasService', () => {
   beforeEach(() => {
@@ -89,5 +91,73 @@ describe('tarefasService', () => {
     expect(api.update).toHaveBeenCalledWith('t1', {
       aprovacao: 'alteracao',
     });
+  });
+});
+
+describe('tarefasService — status manual (F2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hist.length = 0;
+  });
+
+  it('criarTarefa nasce na opção inicial + espelho legado', async () => {
+    api.create.mockResolvedValue({ id: 't1', nome: 'X' });
+    await criarTarefa({ nome: 'X', lado: 'wenox' } as never);
+    expect(api.create).toHaveBeenCalledWith(
+      expect.objectContaining({ status_opcao: 'op_nao_iniciado', status: 'Não iniciado' }),
+    );
+  });
+
+  it('salvarEtapas NÃO escreve status nem concluida_em (checklist informativo)', async () => {
+    api.update.mockResolvedValue({ id: 't1' });
+    const rec = { id: 't1', etapas: [{ id: 'e1', texto: 'a', tipo: 'interna', feito: false }] } as Tarefa;
+    const etapas: EtapaTarefa[] = [{ id: 'e1', texto: 'a', tipo: 'interna', feito: true }];
+    await salvarEtapas(rec, etapas);
+    const payload = api.update.mock.calls[0][1];
+    expect(payload).not.toHaveProperty('status');
+    expect(payload).not.toHaveProperty('concluida_em');
+    expect(payload).toHaveProperty('etapas');
+  });
+
+  it('moverTarefaOpcao grava opção + espelho; conclui quando opção é do último grupo', async () => {
+    api.getOne.mockResolvedValue({ id: 't1' });
+    api.update.mockResolvedValue({ id: 't1' });
+    await moverTarefaOpcao('t1', 'op_concluido');
+    const payload = api.update.mock.calls[0][1];
+    expect(payload).toMatchObject({ status_opcao: 'op_concluido', status: 'Concluído' });
+    expect(payload.concluida_em).toBeTruthy();
+  });
+
+  it('moverTarefaOpcao para opção não-conclusiva zera concluida_em', async () => {
+    api.update.mockResolvedValue({ id: 't1' });
+    await moverTarefaOpcao('t1', 'op_em_andamento');
+    const payload = api.update.mock.calls[0][1];
+    expect(payload).toMatchObject({ status_opcao: 'op_em_andamento', status: 'Em andamento', concluida_em: '' });
+  });
+
+  it('concluirTarefa grava a opção de conclusão', async () => {
+    api.getOne.mockResolvedValue({ id: 't1' });
+    api.update.mockResolvedValue({ id: 't1' });
+    await concluirTarefa('t1', 'Concluído');
+    const payload = api.update.mock.calls[0][1];
+    expect(payload).toMatchObject({ status: 'Concluído', status_opcao: 'op_concluido' });
+    expect(payload.concluida_em).toBeTruthy();
+  });
+
+  it('reabrirTarefa volta para a opção inicial e zera concluida_em', async () => {
+    api.update.mockResolvedValue({ id: 't1' });
+    await reabrirTarefa('t1', 'Não iniciado');
+    expect(api.update.mock.calls[0][1]).toMatchObject({
+      status: 'Não iniciado', status_opcao: 'op_nao_iniciado', concluida_em: '',
+    });
+  });
+
+  it('atualizarTarefa com status_opcao espelha o nome e marca concluida_em', async () => {
+    api.getOne.mockResolvedValue({ id: 't1', status: 'Em andamento', status_opcao: 'op_em_andamento' });
+    api.update.mockResolvedValue({ id: 't1' });
+    await atualizarTarefa('t1', { status_opcao: 'op_concluido' });
+    const payload = api.update.mock.calls[0][1];
+    expect(payload).toMatchObject({ status_opcao: 'op_concluido', status: 'Concluído' });
+    expect(payload.concluida_em).toBeTruthy();
   });
 });

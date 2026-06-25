@@ -213,6 +213,38 @@ export function opcoesEmOrdemDeColuna(): StatusOpcao[] {
   return getGrupos().flatMap((g) => opcoesDoGrupo(g.id));
 }
 
+/** Opção "inicial" (manual): primeira opção na ordem de coluna. */
+export function opcaoInicial(): StatusOpcao | undefined {
+  return opcoesEmOrdemDeColuna()[0];
+}
+/** Opção "de conclusão" (manual): 1ª opção do ÚLTIMO grupo (categoria "feito"). */
+export function opcaoConcluido(): StatusOpcao | undefined {
+  const grupos = getGrupos();
+  const ultimo = grupos[grupos.length - 1];
+  return ultimo ? opcoesDoGrupo(ultimo.id)[0] : undefined;
+}
+/** Uma opção é "conclusiva" quando pertence ao último grupo (categoria "feito"). */
+export function opcaoEhConclusiva(opcaoId?: string): boolean {
+  const op = opcaoPorId(opcaoId);
+  if (!op) return false;
+  const grupos = getGrupos();
+  return grupos.length > 0 && op.grupo === grupos[grupos.length - 1].id;
+}
+/** Acha o id de opção pelo NOME (case-insensitive) — usado no fallback pré-backfill. */
+export function opcaoIdPorNome(nome?: string): string | undefined {
+  if (!nome) return undefined;
+  const alvo = nome.trim().toLowerCase();
+  return _cfg.opcoes.find((o) => o.nome.trim().toLowerCase() === alvo)?.id;
+}
+/** Resolve a opção de uma tarefa/card: por id (status_opcao) ou, no legado, por nome. */
+export function resolverOpcao(opcaoId?: string, nomeLegado?: string): StatusOpcao | undefined {
+  return opcaoPorId(opcaoId) ?? opcaoPorId(opcaoIdPorNome(nomeLegado));
+}
+/** Campos a gravar ao escolher uma opção: o id + o espelho legado `status` (nome). */
+export function espelhoStatus(opcaoId: string): { status_opcao: string; status: string } {
+  return { status_opcao: opcaoId, status: opcaoPorId(opcaoId)?.nome ?? '' };
+}
+
 /* --------------------------- React hooks (novo) -------------------------- */
 
 export function useStatusGlobal(): StatusGlobalConfig {

@@ -1,8 +1,9 @@
 import { ArrowDown, ArrowUp, CalendarDays, FolderKanban, Repeat, UserRound } from 'lucide-react';
 import type { Tarefa } from './types';
-import { statusTarefaClass, prazoVencido, LADO_LABEL } from './format';
+import { prazoVencido, LADO_LABEL } from './format';
 import { dataBR } from '@/clientes/format';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
+import { StatusOpcaoChip } from './StatusOpcaoChip';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -122,11 +123,7 @@ export function TarefaCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        {t.status && (
-          <Badge className={cn('w-fit border text-[10px]', statusTarefaClass(t.status))}>
-            {t.status}
-          </Badge>
-        )}
+        <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />
         {t.aprovacao === 'aprovada' && (
           <Badge className="w-fit border border-emerald-500/50 bg-emerald-500/15 text-[10px] text-emerald-400">
             ✓ Aprovada

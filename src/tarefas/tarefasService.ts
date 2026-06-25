@@ -5,13 +5,21 @@ import {
 import { notificar, idsGestao } from '@/notificacoes/notificacoesService';
 import type { Tarefa, TarefaInput, EtapaTarefa } from './types';
 import { tarefaConcluida } from './format';
-import { statusInicial, statusDoPapel } from './status';
 import {
-  temEtapas, etapaAtual, etapaAtualIndex, aguardandoAprovacaoCliente, statusDerivado,
+  opcaoInicial, opcaoConcluido, opcaoEhConclusiva, espelhoStatus,
+} from './status';
+import {
+  temEtapas, etapaAtual, etapaAtualIndex, aguardandoAprovacaoCliente,
   indexEtapaInternaAnterior, novaEtapaId,
 } from './etapas';
 
 const col = () => pb.collection('tarefas');
+
+/** Conclusão no modelo manual: por opção (grupo "feito") ou, no legado, por nome. */
+function estaConcluida(opcaoId?: string, statusNome?: string): boolean {
+  if (opcaoId) return opcaoEhConclusiva(opcaoId);
+  return tarefaConcluida(statusNome);
+}
 
 function carimboConclusao(): string {
   const d = new Date();
@@ -29,7 +37,7 @@ function carimboConclusao(): string {
 const EXPAND = 'projeto,cliente,responsaveis,contato';
 const CAMPOS_LISTA = [
   'id', 'collectionId', 'collectionName', 'nome', 'descricao', 'tipo', 'projeto',
-  'cliente', 'lado', 'responsaveis', 'contato', 'status', 'aprovacao', 'prazo',
+  'cliente', 'lado', 'responsaveis', 'contato', 'status', 'status_opcao', 'aprovacao', 'prazo',
   'etiquetas', 'arquivada', 'ordem', 'created', 'updated', 'created_by', 'prioridade', 'checklist', 'recorrencia', 'concluida_em', 'etapas',
   'expand.projeto.id', 'expand.projeto.nome', 'expand.projeto.tipo',
   'expand.cliente.id', 'expand.cliente.collectionId', 'expand.cliente.collectionName',
@@ -83,7 +91,6 @@ async function criarProximaOcorrencia(t: Tarefa): Promise<void> {
       recorrencia: t.recorrencia,
       ordem: t.ordem ?? 0,
       checklist: (t.checklist ?? []).map((item) => ({ ...item, feito: false })),
-      status: statusInicial(),
       prazo: proximoPrazo(t.prazo, t.recorrencia),
     };
     await criarTarefa(input);
@@ -139,9 +146,12 @@ export async function criarTarefa(input: TarefaInput): Promise<Tarefa> {
   const etapas: EtapaTarefa[] = (input.etapas?.length ?? 0) > 0
     ? input.etapas!
     : [{ id: novaEtapaId(), texto: 'Tarefa', tipo: 'interna', responsavel: input.responsaveis?.[0], feito: false }];
-  // Status derivado do fluxo; prazo = etapa atual (fallback p/ o prazo informado).
+  // Status MANUAL (F2): nasce na opção inicial (salvo se o form já trouxe uma).
+  // As etapas viram checklist informativo — não derivam mais o status.
   const prazo = etapaAtual(etapas)?.prazo ?? input.prazo ?? '';
-  const dados = { ...input, etapas, status: statusDerivado(etapas, input.aprovacao), prazo, ...(uid ? { created_by: uid, updated_by: uid } : {}) };
+  const opcaoId = input.status_opcao || opcaoInicial()?.id || '';
+  const espelho = opcaoId ? espelhoStatus(opcaoId) : {};
+  const dados = { ...input, etapas, prazo, ...espelho, ...(uid ? { created_by: uid, updated_by: uid } : {}) };
   const rec = (await col().create(dados)) as unknown as Tarefa;
   await registrarHistorico('tarefa', rec.id, 'Tarefa criada');
   await notificar(input.responsaveis ?? [], {
@@ -180,10 +190,17 @@ export async function atualizarTarefa(
     }
   }
   const dados: Record<string, unknown> = { ...input, ...(uid ? { updated_by: uid } : {}) };
-  if (input.status !== undefined) {
-    if (tarefaConcluida(input.status) && !tarefaConcluida(antes?.status as string | undefined)) {
+  const antesConcluida = estaConcluida(antes?.status_opcao as string | undefined, antes?.status as string | undefined);
+  if (input.status_opcao !== undefined) {
+    // Modelo manual: a opção é a fonte de verdade; espelha o nome e ajusta a conclusão.
+    dados.status = espelhoStatus(input.status_opcao).status;
+    const agoraConcluida = opcaoEhConclusiva(input.status_opcao);
+    if (agoraConcluida && !antesConcluida) dados.concluida_em = carimboConclusao();
+    else if (!agoraConcluida && antesConcluida) dados.concluida_em = '';
+  } else if (input.status !== undefined) {
+    if (tarefaConcluida(input.status) && !antesConcluida) {
       dados.concluida_em = carimboConclusao();
-    } else if (!tarefaConcluida(input.status) && tarefaConcluida(antes?.status as string | undefined)) {
+    } else if (!tarefaConcluida(input.status) && antesConcluida) {
       dados.concluida_em = '';
     }
   }
@@ -203,11 +220,10 @@ export async function atualizarTarefa(
     });
   }
   // Dispara recorrência na transição não-concluída → concluída via edição de campo.
-  if (
-    input.status !== undefined &&
-    tarefaConcluida(input.status) &&
-    antes && !tarefaConcluida(antes.status as string | undefined)
-  ) {
+  const agoraConcluida = input.status_opcao !== undefined
+    ? opcaoEhConclusiva(input.status_opcao)
+    : (input.status !== undefined ? tarefaConcluida(input.status) : undefined);
+  if (agoraConcluida === true && antes && !antesConcluida) {
     await criarProximaOcorrencia(antes as unknown as Tarefa);
   }
   return rec;
@@ -241,17 +257,39 @@ export async function moverTarefaStatus(
   return rec;
 }
 
+/** Move a tarefa para uma OPÇÃO de status (Kanban manual) e registra histórico.
+ *  Fonte de verdade = status_opcao; grava o espelho legado `status` (nome). */
+export async function moverTarefaOpcao(id: string, opcaoId: string): Promise<Tarefa> {
+  const concl = opcaoEhConclusiva(opcaoId);
+  let antes: Tarefa | undefined;
+  if (concl) {
+    try { antes = (await col().getOne(id)) as unknown as Tarefa; } catch { /* */ }
+  }
+  const esp = espelhoStatus(opcaoId);
+  const rec = (await col().update(id, {
+    ...esp,
+    concluida_em: concl ? carimboConclusao() : '',
+    ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
+  })) as unknown as Tarefa;
+  await registrarHistorico('tarefa', id, `Moveu para "${esp.status}"`);
+  if (antes && !estaConcluida(antes.status_opcao, antes.status)) {
+    await criarProximaOcorrencia(antes);
+  }
+  return rec;
+}
+
 /** Marca a tarefa como concluída. */
 export async function concluirTarefa(id: string, statusConcluido: string): Promise<Tarefa> {
   let antes: Tarefa | undefined;
   try { antes = (await col().getOne(id)) as unknown as Tarefa; } catch { /* */ }
   const rec = (await col().update(id, {
     status: statusConcluido,
+    status_opcao: opcaoConcluido()?.id ?? '',
     concluida_em: carimboConclusao(),
     ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
   })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, 'Concluiu a tarefa');
-  if (antes && !tarefaConcluida(antes.status)) {
+  if (antes && !estaConcluida(antes.status_opcao, antes.status)) {
     await criarProximaOcorrencia(antes);
   }
   return rec;
@@ -261,6 +299,7 @@ export async function concluirTarefa(id: string, statusConcluido: string): Promi
 export async function reabrirTarefa(id: string, statusAberto: string): Promise<Tarefa> {
   const rec = (await col().update(id, {
     status: statusAberto,
+    status_opcao: opcaoInicial()?.id ?? '',
     concluida_em: '',
     ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
   })) as unknown as Tarefa;
@@ -292,9 +331,10 @@ async function notificarVezDaEtapa(rec: Tarefa): Promise<void> {
 }
 
 /**
- * Persiste as etapas derivando status + concluida_em, e faz o handoff
- * (notifica o novo responsável quando a etapa atual muda). `extra` permite
- * gravar campos adicionais (ex.: aprovacao) — usado no fluxo do cliente.
+ * Persiste as etapas (checklist informativo — F2) e faz o handoff (notifica o
+ * novo responsável quando a etapa atual muda). As etapas NÃO derivam mais o
+ * status nem a conclusão da tarefa (status é manual). `extra` permite gravar
+ * campos adicionais (ex.: aprovacao) — usado no fluxo do cliente.
  */
 export async function salvarEtapas(
   rec: Tarefa,
@@ -303,16 +343,12 @@ export async function salvarEtapas(
   notificarHandoff = true,
 ): Promise<Tarefa> {
   const antesAtual = etapaAtual(rec.etapas);
-  const aprovacao = ('aprovacao' in extra ? extra.aprovacao : rec.aprovacao) as string | undefined;
-  const tudoFeito = etapas.length > 0 && etapaAtualIndex(etapas) === -1;
   // Prazo da tarefa = prazo da etapa atual (com fallback p/ o prazo existente
   // quando a etapa não tem data — não zera tarefas sem deadline por etapa).
   const prazoAtual = etapaAtual(etapas)?.prazo ?? rec.prazo ?? '';
   const dados: Record<string, unknown> = {
     etapas,
-    status: statusDerivado(etapas, aprovacao),
     prazo: prazoAtual,
-    concluida_em: tudoFeito ? carimboConclusao() : '',
     ...extra,
     ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
   };
@@ -320,9 +356,6 @@ export async function salvarEtapas(
   const depoisAtual = etapaAtual(etapas);
   if (notificarHandoff && depoisAtual && depoisAtual.id !== antesAtual?.id) {
     await notificarVezDaEtapa(atualizado);
-  }
-  if (tudoFeito && !tarefaConcluida(rec.status)) {
-    await criarProximaOcorrencia(rec);
   }
   return atualizado;
 }
@@ -421,9 +454,10 @@ export async function pedirAlteracaoTarefa(
     return r;
   }
 
+  // Status é manual (F2): o pedido de alteração marca a flag de aprovação
+  // (informativa), sem forçar uma opção de status.
   const rec2 = (await col().update(id, {
     aprovacao: 'alteracao',
-    status: statusDoPapel('em_alteracao') ?? 'Em alteração',
   })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, 'Cliente pediu alteração');
   try { await addComentario('tarefa', id, `🔁 Alteração solicitada: ${t}`, false); } catch { /* */ }

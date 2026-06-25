@@ -4,11 +4,11 @@ import {
   listTarefas, aprovarTarefa, pedirAlteracaoTarefa,
 } from './tarefasService';
 import type { Tarefa } from './types';
-import { statusTarefaClass, tarefaConcluida, prazoVencido } from './format';
+import { tarefaConcluida, prazoVencido } from './format';
+import { StatusOpcaoChip } from './StatusOpcaoChip';
 import { temEtapas, etapaAtual, progressoEtapas, aguardandoAprovacaoCliente } from './etapas';
 import { dataBR } from '@/clientes/format';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -217,11 +217,7 @@ function LinhaTarefa({
         )}
 
         {/* Status (só nas tarefas "Em andamento") */}
-        {t.status && !riscado && (
-          <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>
-            {t.status}
-          </Badge>
-        )}
+        {!riscado && <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />}
 
         {/* Prazo */}
         {t.prazo && (

@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { SlidersHorizontal, GripVertical, UserRound, ChevronDown, Plus } from 'lucide-react';
 import type { Tarefa } from './types';
-import { statusTarefaClass, prazoBR, tarefaConcluida, prazoLimite } from './format';
+import { prazoBR, tarefaConcluida, prazoLimite } from './format';
+import { StatusOpcaoChip } from './StatusOpcaoChip';
 import { atualizarTarefa } from './tarefasService';
 import { addComentario } from '@/atividade/atividadeService';
 import { useStatuses } from './status';
@@ -346,8 +347,8 @@ export function TarefasTabela({
       if (progressoCards?.[t.id]?.emAlteracaoInterna && !tarefaConcluida(t.status)) {
         return <Badge className="border border-rose-500/50 bg-rose-500/15 text-[10px] text-rose-400">Em alteração interna</Badge>;
       }
-      return t.status
-        ? <Badge className={cn('border text-[10px]', statusTarefaClass(t.status))}>{t.status}</Badge>
+      return (t.status_opcao || t.status)
+        ? <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />
         : <span className="text-muted-foreground">—</span>;
     }
     if (key === 'prazo') {

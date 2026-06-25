@@ -5,11 +5,11 @@ import { prazoBR, tarefaConcluida, prazoLimite } from './format';
 import { StatusOpcaoChip } from './StatusOpcaoChip';
 import { atualizarTarefa } from './tarefasService';
 import { addComentario } from '@/atividade/atividadeService';
-import { useStatuses } from './status';
+import {
+  useStatusGlobal, opcoesEmOrdemDeColuna, resolverOpcao,
+  espelhoStatus, getGrupos, opcoesDoGrupo, opcaoIdPorNome,
+} from './status';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
-import { EtapasStepper } from './EtapasStepper';
-import { etapaAtual, temEtapas, ehVezDoUsuario, aguardandoAprovacaoCliente } from './etapas';
-import { pb } from '@/lib/pocketbase';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial } from '@/clientes/format';
 import {
@@ -27,11 +27,9 @@ const filtroCls =
 
 export type ColKey =
   | 'cliente' | 'projeto' | 'tarefa' | 'status' | 'prazo' | 'prioridade' | 'responsaveis'
-  | 'descricao' | 'comentario' | 'etapa_atual' | 'resp_etapa' | 'prazo_etapa' | 'status_etapa' | 'progresso';
-export interface ColDef { key: ColKey; label: string; visivel: boolean }
+  | 'descricao' | 'comentario';
 
-/** Colunas que se editam clicando na própria célula da linha. */
-const COLS_EDITAVEIS = new Set<ColKey>(['descricao', 'comentario']);
+export interface ColDef { key: ColKey; label: string; visivel: boolean }
 
 const COLS_PADRAO: ColDef[] = [
   { key: 'cliente', label: 'Cliente', visivel: true },
@@ -43,15 +41,12 @@ const COLS_PADRAO: ColDef[] = [
   { key: 'responsaveis', label: 'Responsáveis', visivel: true },
   { key: 'descricao', label: 'Descrição', visivel: false },
   { key: 'comentario', label: 'Comentário', visivel: false },
-  { key: 'etapa_atual', label: 'Etapa atual', visivel: false },
-  { key: 'status_etapa', label: 'Status da etapa', visivel: false },
-  { key: 'progresso', label: 'Progresso', visivel: false },
-  { key: 'resp_etapa', label: 'Resp. da etapa', visivel: false },
-  { key: 'prazo_etapa', label: 'Prazo da etapa', visivel: false },
 ];
 
-/** Default de colunas para um contexto: ordena `visiveis` primeiro (visíveis, nessa ordem),
- *  depois as demais conhecidas (ocultas) — assim o menu mostra todas as opções. */
+/** Colunas que abrem editor inline ao clicar (stopPropagation — não abre o sheet). */
+const EDITAVEIS = new Set<ColKey>(['status', 'prazo', 'prioridade', 'descricao', 'comentario']);
+
+/** Monta uma lista de ColDef com as `visiveis` em frente, demais ocultas atrás. */
 export function colunasComVisiveis(visiveis: ColKey[]): ColDef[] {
   const mapa = new Map(COLS_PADRAO.map((c) => [c.key, c]));
   const ord: ColDef[] = [];
@@ -111,20 +106,15 @@ function carregarOrdem(prefix: string): Ordem {
 
 const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-/** "YYYY-MM" do mês corrente (local). */
 function mesAtualStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
-/** "2026-07" → "Julho 2026". */
 function rotuloMes(ym: string): string {
   const [a, m] = ym.split('-').map(Number);
   return `${MESES_PT[(m || 1) - 1]} ${a}`;
 }
-/** Competência da tarefa = mês do prazo ("YYYY-MM", '' se sem prazo). */
-function competencia(t: Tarefa): string {
-  return (t.prazo ?? '').slice(0, 7);
-}
+function competencia(t: Tarefa): string { return (t.prazo ?? '').slice(0, 7); }
 function carregarMes(prefix: string): string {
   try { return localStorage.getItem(`${prefix}-mes-v1`) ?? ''; } catch { return ''; }
 }
@@ -133,7 +123,6 @@ function carregarMes(prefix: string): string {
 
 function pesoPrioridade(p?: string) { return p === 'alta' ? 0 : p === 'baixa' ? 2 : 1; }
 
-/** Categoria do prazo da tarefa: vencida / hoje / amanhã / futuro / '' (sem prazo). */
 export type CatPrazo = '' | 'vencida' | 'hoje' | 'amanha' | 'futuro';
 export function catPrazoData(prazo?: string, feito?: boolean): CatPrazo {
   if (!prazo) return '';
@@ -150,17 +139,17 @@ export function catPrazoData(prazo?: string, feito?: boolean): CatPrazo {
 function catPrazo(t: Tarefa): CatPrazo {
   return catPrazoData(t.prazo, tarefaConcluida(t.status));
 }
-/** Cor da data por categoria de prazo. */
 export function corPrazo(cat: CatPrazo): string {
   if (cat === 'vencida') return 'font-medium text-destructive';
   if (cat === 'hoje') return 'font-medium text-yellow-500';
   if (cat === 'amanha') return 'font-medium text-orange-500';
   return 'text-muted-foreground';
 }
-
 export function nomeCliente(t: Tarefa) {
   return t.expand?.cliente?.nome_fantasia ?? t.expand?.cliente?.nome ?? '—';
 }
+
+/* --------------------------------- Sub-componentes ------------------------ */
 
 function MenuColunas({ colDefs, onToggle, onMover }: {
   colDefs: ColDef[]; onToggle: (k: ColKey) => void; onMover: (de: number, para: number) => void;
@@ -203,8 +192,7 @@ function PrioridadeBadge({ p }: { p?: string }) {
   return <Badge className="border border-amber-500/50 bg-amber-500/15 text-[10px] text-amber-400">Média</Badge>;
 }
 
-/** Editor inline de célula (descrição = edita o campo; comentário = adiciona).
- *  Enter salva, Esc cancela, sair do campo (blur) salva. */
+/** Textarea inline para descrição ou comentário. */
 function CellEditor({ valorInicial, placeholder, onSalvar, onCancelar }: {
   valorInicial: string;
   placeholder: string;
@@ -232,54 +220,67 @@ function CellEditor({ valorInicial, placeholder, onSalvar, onCancelar }: {
   );
 }
 
-/* ------------------------------- Componente ------------------------------- */
+/* ------------------------------- Componente principal --------------------- */
 
 /**
- * Tabela de tarefas estilo "Negócios" (Projetos): colunas configuráveis,
- * redimensionáveis, filtros por status/prioridade/prazo, ordenação e
- * concluídas recolhidas no fim. Usada na página de Tarefas e na Minha Área.
- * `persistPrefix` separa as preferências (colunas/larguras/ordem) por contexto.
+ * Tabela de tarefas estilo Notion: clique direto nas células de Status, Prazo e
+ * Prioridade para editar inline sem abrir o sheet. Colunas configuráveis,
+ * redimensionáveis e persistidas por contexto (`persistPrefix`).
  */
 export function TarefasTabela({
-  tarefas, onAbrir, persistPrefix, onMudou, etapaSemDots = false, progressoCards, colunasPadrao,
+  tarefas, onAbrir, persistPrefix, onMudou, colunasPadrao, onNovaLinha,
 }: {
   tarefas: Tarefa[];
   onAbrir: (id: string) => void;
   persistPrefix: string;
-  /** Chamado após salvar uma edição inline (descrição/comentário) p/ recarregar. */
   onMudou?: () => void;
-  /** Oculta as bolinhas de progresso na coluna "Etapa atual" (só caption). */
-  etapaSemDots?: boolean;
-  /** Por tarefa: contador de cards que concluíram a etapa atual (ex.: 3/8) + flag de retrabalho. */
-  progressoCards?: Record<string, { feitos: number; total: number; emAlteracaoInterna?: boolean }>;
-  /** Colunas padrão deste contexto (usado só quando não há preferência salva). */
   colunasPadrao?: ColDef[];
+  /** Callback para abrir criação de tarefa; exibe linha "+ Nova tarefa" no rodapé. */
+  onNovaLinha?: () => void;
 }) {
-  const uid = pb.authStore?.record?.id ?? '';
-  const statuses = useStatuses();
+  useStatusGlobal();
+  const opcoesFiltro = opcoesEmOrdemDeColuna();
+
   const [colDefs, setColDefs] = useState<ColDef[]>(() => carregarColunas(persistPrefix, colunasPadrao));
   const [larguras, setLarguras] = useState<Larguras>(() => carregarLarguras(persistPrefix));
   const [ordem, setOrdem] = useState<Ordem>(() => carregarOrdem(persistPrefix));
   const [fStatus, setFStatus] = useState('');
   const [fPrioridade, setFPrioridade] = useState('');
   const [fPrazo, setFPrazo] = useState('');
-  const [fMes, setFMes] = useState(() => carregarMes(persistPrefix)); // '' = todos; 'atual'; ou 'YYYY-MM'
+  const [fMes, setFMes] = useState(() => carregarMes(persistPrefix));
   const [concluidasAbertas, setConcluidasAbertas] = useState(false);
   const [atrasadasAbertas, setAtrasadasAbertas] = useState(true);
-  // Edição inline de célula + overrides locais p/ refletir na hora.
-  const [edit, setEdit] = useState<{ id: string; campo: 'descricao' | 'comentario' } | null>(null);
+
+  // Célula em edição inline: { id da tarefa, campo }.
+  const [editCell, setEditCell] = useState<{ id: string; campo: ColKey } | null>(null);
+  // Atualizações otimistas mescladas na renderização até o reload do servidor confirmar.
+  const [localOverrides, setLocalOverrides] = useState<Record<string, Partial<Tarefa>>>({});
+  // Sobrescritas locais de descrição e flag de comentário enviado.
   const [descOverride, setDescOverride] = useState<Record<string, string>>({});
   const [comentado, setComentado] = useState<Record<string, boolean>>({});
 
-  function abrirEdicao(t: Tarefa, campo: 'descricao' | 'comentario') {
-    setEdit({ id: t.id, campo });
+  /** Salva qualquer campo inline com atualização otimista e reversa em erro. */
+  async function salvarInline(id: string, parcial: Partial<Tarefa>) {
+    setLocalOverrides((prev) => ({ ...prev, [id]: { ...(prev[id] ?? {}), ...parcial } }));
+    try {
+      await atualizarTarefa(id, parcial as never);
+      onMudou?.();
+    } catch {
+      setLocalOverrides((prev) => {
+        const entry = { ...(prev[id] ?? {}) };
+        for (const k of Object.keys(parcial)) delete entry[k as keyof typeof entry];
+        return { ...prev, [id]: entry };
+      });
+    }
   }
+
+  /** Salva descrição (patch) ou adiciona comentário. */
   async function salvarCelula(id: string, campo: 'descricao' | 'comentario', valor: string) {
-    setEdit(null);
+    setEditCell(null);
     const v = valor.trim();
     if (campo === 'descricao') {
       setDescOverride((m) => ({ ...m, [id]: v }));
-      try { await atualizarTarefa(id, { descricao: v }); onMudou?.(); } catch { /* */ }
+      try { await atualizarTarefa(id, { descricao: v } as never); onMudou?.(); } catch { /* */ }
     } else {
       if (!v) return;
       try { await addComentario('tarefa', id, v); setComentado((m) => ({ ...m, [id]: true })); onMudou?.(); } catch { /* */ }
@@ -298,9 +299,7 @@ export function TarefasTabela({
   function trocarOrdem(o: Ordem) { setOrdem(o); try { localStorage.setItem(`${persistPrefix}-ordem-v1`, o); } catch { /* */ } }
   function trocarMes(m: string) { setFMes(m); try { localStorage.setItem(`${persistPrefix}-mes-v1`, m); } catch { /* */ } }
 
-  // Mês selecionado resolvido ('' = todos; 'atual' vira o mês corrente real).
   const mesSel = fMes === 'atual' ? mesAtualStr() : fMes;
-  // Meses presentes nos dados (pra povoar o dropdown), do mais recente ao mais antigo.
   const mesesDisponiveis = useMemo(() => {
     const set = new Set<string>();
     for (const t of tarefas) { const c = competencia(t); if (c) set.add(c); }
@@ -309,8 +308,11 @@ export function TarefasTabela({
 
   const filtradas = useMemo(() => {
     let arr = tarefas;
-    if (fStatus) arr = arr.filter((t) => (t.status ?? '') === fStatus);
-    if (fPrioridade) arr = arr.filter((t) => (t.prioridade ?? 'media') === fPrioridade);
+    if (fStatus) arr = arr.filter((t) => {
+      const te = { ...t, ...(localOverrides[t.id] ?? {}) } as Tarefa;
+      return resolverOpcao(te.status_opcao, te.status)?.id === fStatus;
+    });
+    if (fPrioridade) arr = arr.filter((t) => (localOverrides[t.id]?.prioridade ?? t.prioridade ?? 'media') === fPrioridade);
     if (fPrazo) arr = arr.filter((t) => catPrazo(t) === fPrazo);
     return [...arr].sort((a, b) => {
       if (ordem === 'nome') return (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR', { sensitivity: 'base' });
@@ -322,7 +324,8 @@ export function TarefasTabela({
       const pb = prazoLimite(b.prazo)?.getTime() ?? Infinity;
       return pa - pb;
     });
-  }, [tarefas, fStatus, fPrioridade, fPrazo, ordem]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tarefas, fStatus, fPrioridade, fPrazo, ordem, localOverrides]);
 
   const colsVisiveis = useMemo(() => colDefs.filter((c) => c.visivel), [colDefs]);
 
@@ -331,47 +334,142 @@ export function TarefasTabela({
   }
 
   function celula(t: Tarefa, key: ColKey) {
-    if (key === 'tarefa') return <span className="font-medium">{t.nome}</span>;
-    if (key === 'projeto') return <span className="text-muted-foreground">{t.expand?.projeto?.nome ?? '—'}</span>;
+    const te = { ...t, ...(localOverrides[t.id] ?? {}) } as Tarefa;
+    const ativo = editCell?.id === t.id && editCell.campo === key;
+
+    if (key === 'tarefa') return <span className="font-medium text-foreground">{te.nome}</span>;
+
+    if (key === 'projeto') return <span className="text-sm text-muted-foreground">{te.expand?.projeto?.nome ?? '—'}</span>;
+
     if (key === 'cliente') {
-      const c = t.expand?.cliente;
+      const c = te.expand?.cliente;
       if (!c) return <span className="text-muted-foreground">—</span>;
-      const nome = nomeCliente(t);
+      const nome = nomeCliente(te);
       const logo = c.logo ? logoUrl(c as never, '100x100') : '';
       return logo
         ? <img src={logo} alt={nome} title={nome} loading="lazy" className="size-8 shrink-0 rounded-lg object-cover" />
         : <div title={nome} className={cn('grid size-8 shrink-0 place-items-center rounded-lg text-xs font-bold text-white', corAvatar(nome))}>{inicial(nome)}</div>;
     }
+
     if (key === 'status') {
-      // Retrabalho (time pediu revisão num post) sobrepõe o status exibido.
-      if (progressoCards?.[t.id]?.emAlteracaoInterna && !tarefaConcluida(t.status)) {
-        return <Badge className="border border-rose-500/50 bg-rose-500/15 text-[10px] text-rose-400">Em alteração interna</Badge>;
+      if (ativo) {
+        return (
+          <select
+            autoFocus
+            value={te.status_opcao ?? opcaoIdPorNome(te.status) ?? ''}
+            onChange={(e) => {
+              if (e.target.value) salvarInline(t.id, espelhoStatus(e.target.value));
+              setEditCell(null);
+            }}
+            onBlur={() => setEditCell(null)}
+            onClick={(e) => e.stopPropagation()}
+            className="h-7 w-full rounded border border-input bg-background px-1 text-xs focus-visible:outline-none"
+          >
+            {getGrupos().map((g) => {
+              const ops = opcoesDoGrupo(g.id);
+              if (!ops.length) return null;
+              return (
+                <optgroup key={g.id} label={g.nome}>
+                  {ops.map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                </optgroup>
+              );
+            })}
+          </select>
+        );
       }
-      return (t.status_opcao || t.status)
-        ? <StatusOpcaoChip opcaoId={t.status_opcao} statusLegado={t.status} />
-        : <span className="text-muted-foreground">—</span>;
+      return (te.status_opcao || te.status)
+        ? <StatusOpcaoChip opcaoId={te.status_opcao} statusLegado={te.status} />
+        : <span className="text-xs text-muted-foreground/50">—</span>;
     }
+
     if (key === 'prazo') {
-      if (!t.prazo) return <span className="text-muted-foreground">—</span>;
-      return <span className={cn('text-xs', corPrazo(catPrazo(t)))}>{prazoBR(t.prazo)}</span>;
+      if (ativo) {
+        return (
+          <input
+            type="date"
+            autoFocus
+            defaultValue={(te.prazo ?? '').slice(0, 10)}
+            onBlur={(e) => { salvarInline(t.id, { prazo: e.target.value }); setEditCell(null); }}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              if (e.key === 'Escape') { e.preventDefault(); setEditCell(null); }
+            }}
+            className="h-7 w-full rounded border border-input bg-background px-2 text-xs focus-visible:outline-none"
+          />
+        );
+      }
+      if (!te.prazo) return <span className="text-xs text-muted-foreground/40">—</span>;
+      return <span className={cn('text-xs', corPrazo(catPrazo(te)))}>{prazoBR(te.prazo)}</span>;
     }
-    if (key === 'prioridade') return <PrioridadeBadge p={t.prioridade} />;
+
+    if (key === 'prioridade') {
+      if (ativo) {
+        return (
+          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+            {(['alta', 'media', 'baixa'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => { salvarInline(t.id, { prioridade: p }); setEditCell(null); }}
+                className={cn(
+                  'rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors',
+                  p === 'alta' && 'bg-red-500/20 text-red-400 hover:bg-red-500/30',
+                  p === 'media' && 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30',
+                  p === 'baixa' && 'bg-sky-500/20 text-sky-400 hover:bg-sky-500/30',
+                )}
+              >
+                {p === 'alta' ? 'Alta' : p === 'media' ? 'Média' : 'Baixa'}
+              </button>
+            ))}
+          </div>
+        );
+      }
+      return <PrioridadeBadge p={te.prioridade} />;
+    }
+
     if (key === 'descricao') {
-      const v = descOverride[t.id] ?? t.descricao ?? '';
+      if (ativo) {
+        return (
+          <CellEditor
+            valorInicial={descOverride[t.id] ?? te.descricao ?? ''}
+            placeholder="Descrição da tarefa…"
+            onSalvar={(v) => salvarCelula(t.id, 'descricao', v)}
+            onCancelar={() => setEditCell(null)}
+          />
+        );
+      }
+      const v = descOverride[t.id] ?? te.descricao ?? '';
       return v
         ? <span className="line-clamp-2 whitespace-pre-wrap text-xs text-foreground">{v}</span>
-        : <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/60"><Plus className="size-3" /> adicionar</span>;
+        : <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/50"><Plus className="size-3" /> adicionar</span>;
     }
+
     if (key === 'comentario') {
+      if (ativo) {
+        return (
+          <CellEditor
+            valorInicial=""
+            placeholder="Escreva um comentário…"
+            onSalvar={(v) => salvarCelula(t.id, 'comentario', v)}
+            onCancelar={() => setEditCell(null)}
+          />
+        );
+      }
       return (
-        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/60">
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/50">
           <Plus className="size-3" /> {comentado[t.id] ? 'comentar de novo' : 'comentar'}
         </span>
       );
     }
+
     if (key === 'responsaveis') {
-      const rs = t.expand?.responsaveis ?? [];
-      if (rs.length === 0) return <span className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-muted-foreground"><UserRound className="size-3.5" /></span>;
+      const rs = te.expand?.responsaveis ?? [];
+      if (rs.length === 0) return (
+        <span className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-muted-foreground">
+          <UserRound className="size-3.5" />
+        </span>
+      );
       return (
         <div className="flex -space-x-2">
           {rs.slice(0, 3).map((r) => <AvatarMembro key={r.id} membro={r} className="size-7 border-2 border-card text-[10px]" />)}
@@ -379,85 +477,14 @@ export function TarefasTabela({
         </div>
       );
     }
-    if (key === 'etapa_atual') {
-      return (
-        <EtapasStepper
-          etapas={t.etapas}
-          responsaveis={t.expand?.responsaveis ?? []}
-          variant="compact"
-          prazo={t.prazo}
-          status={t.status}
-          mostrarPrazo={false}
-          mostrarDots={!etapaSemDots}
-          contador={colsVisiveis.some((c) => c.key === 'progresso') ? undefined : progressoCards?.[t.id]}
-        />
-      );
-    }
-    if (key === 'resp_etapa') {
-      const hasSteps = temEtapas(t);
-      if (!hasSteps) {
-        const rs = t.expand?.responsaveis ?? [];
-        if (rs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
-        return (
-          <div className="flex items-center gap-1.5">
-            <AvatarMembro membro={rs[0]} className="size-7 text-[10px]" />
-            <span className="truncate text-xs text-muted-foreground">{rs[0]?.nome?.split(' ')[0] ?? ''}</span>
-          </div>
-        );
-      }
-      const atual = etapaAtual(t.etapas);
-      if (!atual) return <span className="text-xs text-emerald-500">Concluído</span>;
-      if (atual.tipo === 'aprovacao_cliente') return <span className="text-xs text-amber-500/90">Aprovação do cliente</span>;
-      const resp = (t.expand?.responsaveis ?? []).find((r) => r.id === atual.responsavel);
-      if (!resp) return <span className="text-xs text-muted-foreground">—</span>;
-      return (
-        <div className="flex items-center gap-1.5">
-          <AvatarMembro membro={resp} className="size-7 text-[10px]" />
-          <span className="truncate text-xs text-muted-foreground">{resp.nome?.split(' ')[0] ?? ''}</span>
-        </div>
-      );
-    }
-    if (key === 'prazo_etapa') {
-      // Sem etapas: cai no prazo da própria tarefa (prazo efetivo).
-      if (!temEtapas(t)) {
-        if (!t.prazo) return <span className="text-xs text-muted-foreground">—</span>;
-        return <span className={cn('text-xs', corPrazo(catPrazo(t)))}>{prazoBR(t.prazo)}</span>;
-      }
-      const atual = etapaAtual(t.etapas);
-      if (!atual) return <span className="text-xs text-emerald-500">Concluído</span>;
-      if (!atual.prazo) return <span className="text-xs text-muted-foreground">—</span>;
-      const cat = catPrazoData(atual.prazo, tarefaConcluida(t.status));
-      return <span className={cn('text-xs', corPrazo(cat))}>{prazoBR(atual.prazo)}</span>;
-    }
-    if (key === 'status_etapa') {
-      if (tarefaConcluida(t.status)) return <Badge className="border border-emerald-500/50 bg-emerald-500/15 text-[10px] text-emerald-500">Concluído</Badge>;
-      if (progressoCards?.[t.id]?.emAlteracaoInterna) return <Badge className="border border-rose-500/50 bg-rose-500/15 text-[10px] text-rose-400">Em alteração interna</Badge>;
-      if (!temEtapas(t)) return <span className="text-xs text-muted-foreground">—</span>;
-      if (!etapaAtual(t.etapas)) return <Badge className="border border-emerald-500/50 bg-emerald-500/15 text-[10px] text-emerald-500">Concluído</Badge>;
-      if (ehVezDoUsuario(t, uid)) return <Badge className="border border-orange-500/50 bg-orange-500/15 text-[10px] text-orange-500">Concluir Etapa</Badge>;
-      if (aguardandoAprovacaoCliente(t)) return <Badge className="border border-yellow-500/50 bg-yellow-500/15 text-[10px] text-yellow-500">Aguardando Cliente</Badge>;
-      return <Badge className="border border-amber-700/50 bg-amber-700/15 text-[10px] text-amber-600">Aguardando Equipe</Badge>;
-    }
-    if (key === 'progresso') {
-      const pr = progressoCards?.[t.id];
-      if (!pr || pr.total === 0) return <span className="text-xs text-muted-foreground">—</span>;
-      return (
-        <span className={cn(
-          'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium tabular-nums',
-          pr.feitos >= pr.total
-            ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
-            : 'border-amber-500/40 bg-amber-500/10 text-amber-500',
-        )}>
-          {pr.feitos}/{pr.total} posts
-        </span>
-      );
-    }
+
     return null;
   }
 
-  let abertas = filtradas.filter((t) => !tarefaConcluida(t.status));
-  let concluidas = filtradas.filter((t) => tarefaConcluida(t.status));
-  // Atrasadas = abertas com competência ANTERIOR ao mês selecionado (ficam à vista, à parte).
+  // Divide em abertas/concluídas usando status com override local aplicado.
+  const statusEfetivo = (t: Tarefa) => localOverrides[t.id]?.status ?? t.status;
+  let abertas = filtradas.filter((t) => !tarefaConcluida(statusEfetivo(t)));
+  let concluidas = filtradas.filter((t) => tarefaConcluida(statusEfetivo(t)));
   let atrasadas: Tarefa[] = [];
   if (mesSel) {
     const noMes = (t: Tarefa) => competencia(t) === mesSel;
@@ -467,7 +494,7 @@ export function TarefasTabela({
     concluidas = concluidas.filter(noMes);
   }
 
-  function tabela(linhas: Tarefa[], vazio: string) {
+  function tabela(linhas: Tarefa[], vazio: string, comNova = false) {
     return (
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
@@ -489,33 +516,47 @@ export function TarefasTabela({
             </thead>
             <tbody>
               {linhas.length === 0 ? (
-                <tr><td colSpan={colsVisiveis.length || 1} className="px-5 py-12 text-center text-sm text-muted-foreground">{vazio}</td></tr>
+                <tr>
+                  <td colSpan={colsVisiveis.length || 1} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                    {vazio}
+                  </td>
+                </tr>
               ) : linhas.map((t) => (
-                <tr key={t.id} onClick={() => onAbrir(t.id)}
-                  className={cn('border-b border-border last:border-0 transition-colors hover:bg-secondary/50', tarefaConcluida(t.status) && 'opacity-60')}>
-                  {colsVisiveis.map((col) => {
-                    const editavel = COLS_EDITAVEIS.has(col.key);
-                    const emEdicao = editavel && edit?.id === t.id && edit.campo === col.key;
-                    return (
-                      <td key={col.key}
-                        onClick={editavel
-                          ? (e) => { e.stopPropagation(); if (!emEdicao) abrirEdicao(t, col.key as 'descricao' | 'comentario'); }
-                          : undefined}
-                        className={cn('overflow-hidden px-4 py-3 align-middle text-muted-foreground',
-                          editavel ? 'cursor-text' : 'cursor-pointer')}>
-                        {emEdicao ? (
-                          <CellEditor
-                            valorInicial={col.key === 'descricao' ? (descOverride[t.id] ?? t.descricao ?? '') : ''}
-                            placeholder={col.key === 'descricao' ? 'Descrição da tarefa…' : 'Escreva um comentário…'}
-                            onSalvar={(v) => salvarCelula(t.id, col.key as 'descricao' | 'comentario', v)}
-                            onCancelar={() => setEdit(null)}
-                          />
-                        ) : celula(t, col.key)}
-                      </td>
-                    );
-                  })}
+                <tr
+                  key={t.id}
+                  onClick={() => onAbrir(t.id)}
+                  className={cn('cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50', tarefaConcluida(statusEfetivo(t)) && 'opacity-60')}
+                >
+                  {colsVisiveis.map((col) => (
+                    <td
+                      key={col.key}
+                      onClick={EDITAVEIS.has(col.key) ? (e) => {
+                        e.stopPropagation();
+                        setEditCell({ id: t.id, campo: col.key });
+                      } : undefined}
+                      className={cn(
+                        'overflow-hidden px-4 py-3 align-middle text-muted-foreground',
+                        EDITAVEIS.has(col.key) && 'hover:bg-secondary/70',
+                      )}
+                    >
+                      {celula(t, col.key)}
+                    </td>
+                  ))}
                 </tr>
               ))}
+              {comNova && onNovaLinha && (
+                <tr className="border-t border-border">
+                  <td colSpan={colsVisiveis.length || 1} className="px-4 py-2.5">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onNovaLinha(); }}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+                    >
+                      <Plus className="size-3" /> Nova tarefa
+                    </button>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -525,12 +566,12 @@ export function TarefasTabela({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Controles: filtros (dropdown) + ordenar + colunas */}
+      {/* Filtros + ordenação + colunas */}
       <div className="flex flex-wrap items-center gap-2">
         <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label="Filtrar por status"
           className={cn(filtroCls, fStatus ? 'text-foreground' : 'text-muted-foreground')}>
           <option value="">Status</option>
-          {statuses.map((s) => <option key={s.id} value={s.nome}>{s.nome}</option>)}
+          {opcoesFiltro.map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
         </select>
         <select value={fPrioridade} onChange={(e) => setFPrioridade(e.target.value)} aria-label="Filtrar por prioridade"
           className={cn(filtroCls, fPrioridade ? 'text-foreground' : 'text-muted-foreground')}>
@@ -567,13 +608,12 @@ export function TarefasTabela({
         </p>
       )}
 
-      {tabela(abertas, mesSel ? `Nenhuma tarefa em ${rotuloMes(mesSel)}.` : 'Nenhuma tarefa neste filtro.')}
+      {tabela(abertas, mesSel ? `Nenhuma tarefa em ${rotuloMes(mesSel)}.` : 'Nenhuma tarefa neste filtro.', true)}
 
       <p className="pt-1 text-right text-xs text-muted-foreground">
         {abertas.length} {abertas.length === 1 ? 'tarefa em aberto' : 'tarefas em aberto'}
       </p>
 
-      {/* Atrasadas de meses anteriores — à vista, mas separadas */}
       {atrasadas.length > 0 && (
         <div>
           <button type="button" onClick={() => setAtrasadasAbertas((v) => !v)}
@@ -587,7 +627,6 @@ export function TarefasTabela({
         </div>
       )}
 
-      {/* Concluídas — recolhidas no final */}
       {concluidas.length > 0 && (
         <div>
           <button type="button" onClick={() => setConcluidasAbertas((v) => !v)}

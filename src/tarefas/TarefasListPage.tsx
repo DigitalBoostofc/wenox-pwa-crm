@@ -6,7 +6,6 @@ import type { Tarefa } from './types';
 import { TarefaCard } from './TarefaCard';
 import { tarefaConcluida } from './format';
 import { TarefasTabela } from './TarefasTabela';
-import { QuickAddTarefa } from './QuickAddTarefa';
 import { opcoesEmOrdemDeColuna, resolverOpcao, corOpcaoClass, useStatusGlobal, espelhoStatus, type StatusOpcao } from './status';
 import { useAuth } from '@/auth/useAuth';
 import { ehCliente, canGerirEquipe } from '@/auth/perms';
@@ -346,18 +345,13 @@ export function TarefasListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
           <KanbanTarefas tarefas={tarefasExibidas} opcoes={opcoesEmOrdemDeColuna()} onAbrir={abrir} onMover={mover} />
         )
       ) : (
-        <div className="flex flex-col gap-3">
-          <QuickAddTarefa
-            onCriada={(id) => { setRecarrega((n) => n + 1); setSheetId(id); }}
-            area={tipoFixo || undefined}
-          />
-          <TarefasTabela
-            tarefas={tarefasExibidas}
-            onAbrir={abrir}
-            persistPrefix={persistPrefix}
-            onMudou={() => setRecarrega((n) => n + 1)}
-          />
-        </div>
+        <TarefasTabela
+          tarefas={tarefasExibidas}
+          onAbrir={abrir}
+          persistPrefix={persistPrefix}
+          onMudou={() => setRecarrega((n) => n + 1)}
+          onNovaLinha={() => setCriando(true)}
+        />
       )}
 
       {!carregando && view === 'kanban' && tarefasExibidas.length > 0 && (

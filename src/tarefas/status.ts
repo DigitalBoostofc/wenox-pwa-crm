@@ -1,37 +1,39 @@
 import { useSyncExternalStore } from 'react';
 
 /* -------------------------------------------------------------------------- */
-/*  Status de tarefas — agora CONFIGURÁVEIS (Configurações › Status)           */
-/*  Guardados na coleção `configuracoes` (chave="status_tarefa"), legível por  */
-/*  todos os usuários e gravável por gestores. Cache local p/ render imediato. */
+/*  Status GLOBAL — modelo "Notion": GRUPOS (nível 1) + OPÇÕES (nível 2).      */
+/*  Conjunto único compartilhado por tarefas E posts. Definido manualmente.    */
+/*  Guardado na coleção `configuracoes` (chave="status_global"), legível por    */
+/*  todos e gravável por gestores. Cache local p/ render imediato.             */
+/*                                                                              */
+/*  F1 (aditivo): este módulo expõe o núcleo novo (grupos+opções) e mantém     */
+/*  SHIMS legados (useStatuses/corStatusClass/statusInicial/statusConcluido/    */
+/*  statusDoPapel) sobre as opções, para os ~25 consumidores seguirem          */
+/*  funcionando até F2–F4 migrarem. Ver docs/status-global-contract.md.        */
 /* -------------------------------------------------------------------------- */
-
-/** Papel automático que o motor de etapas usa pra derivar o status.
- *  '' = status manual (sem automação). Cada papel deve ficar em 1 status só. */
-export type PapelStatus =
-  | '' | 'inicial' | 'em_andamento' | 'aguardando_aprovacao' | 'em_alteracao' | 'concluido';
 
 export type CorStatus = 'cinza' | 'azul' | 'ambar' | 'vermelho' | 'verde' | 'roxo';
 
-export interface StatusDef {
+export interface StatusGrupo {
   id: string;
   nome: string;
-  papel: PapelStatus;
   cor: CorStatus;
+  ordem: number;
 }
 
-export const PAPEIS_STATUS: PapelStatus[] = [
-  '', 'inicial', 'em_andamento', 'aguardando_aprovacao', 'em_alteracao', 'concluido',
-];
+export interface StatusOpcao {
+  id: string;
+  grupo: string; // StatusGrupo.id
+  nome: string;
+  cor: CorStatus;
+  ordem: number;
+}
 
-export const ROTULO_PAPEL: Record<PapelStatus, string> = {
-  '': 'Manual (sem automação)',
-  inicial: 'Inicial — ao criar a tarefa',
-  em_andamento: 'Em andamento — 1ª etapa concluída',
-  aguardando_aprovacao: 'Aguardando aprovação do cliente',
-  em_alteracao: 'Em alteração — cliente pediu revisão',
-  concluido: 'Concluído — todas as etapas feitas',
-};
+export interface StatusGlobalConfig {
+  versao: number;
+  grupos: StatusGrupo[];
+  opcoes: StatusOpcao[];
+}
 
 /** Classes Tailwind de cada cor (pill/coluna). */
 export const CORES_STATUS: Record<CorStatus, string> = {
@@ -48,57 +50,120 @@ export const ROTULO_COR: Record<CorStatus, string> = {
   vermelho: 'Vermelho', verde: 'Verde', roxo: 'Roxo',
 };
 
-/** Configuração de fábrica — também é o fallback offline. */
-export const DEFAULT_STATUS: StatusDef[] = [
-  { id: 'inicial',   nome: 'Não iniciado',         papel: 'inicial',              cor: 'cinza'    },
-  { id: 'andamento', nome: 'Em andamento',         papel: 'em_andamento',         cor: 'azul'     },
-  { id: 'aprovacao', nome: 'Aguardando aprovação', papel: 'aguardando_aprovacao', cor: 'ambar'    },
-  { id: 'alteracao', nome: 'Em alteração',         papel: 'em_alteracao',         cor: 'vermelho' },
-  { id: 'concluido', nome: 'Concluído',            papel: 'concluido',            cor: 'verde'    },
-];
+/* ---------------------- seed: ids estáveis (well-known) -------------------- */
+/* Os shims legados resolvem por estes ids; o backfill (§5 do contrato) os fixa. */
+
+export const SEED_GRUPO = {
+  aFazer:    'g_a_fazer',
+  andamento: 'g_andamento',
+  concluido: 'g_concluido',
+} as const;
+
+export const SEED_OPCAO = {
+  naoIniciado: 'op_nao_iniciado',
+  emProducao:  'op_em_producao',
+  emAndamento: 'op_em_andamento',
+  aguardando:  'op_aguardando',
+  emAlteracao: 'op_em_alteracao',
+  agendar:     'op_agendar',
+  concluido:   'op_concluido',
+  agendado:    'op_agendado',
+  postado:     'op_postado',
+} as const;
+
+/** Configuração de fábrica (v1) — também é o fallback offline.
+ *  Mapeia DEFAULT_STATUS (tarefas) + STATUS_POST (posts) em 3 grupos. */
+export const DEFAULT_STATUS_GLOBAL: StatusGlobalConfig = {
+  versao: 1,
+  grupos: [
+    { id: SEED_GRUPO.aFazer,    nome: 'A fazer',      cor: 'cinza', ordem: 0 },
+    { id: SEED_GRUPO.andamento, nome: 'Em andamento', cor: 'azul',  ordem: 1 },
+    { id: SEED_GRUPO.concluido, nome: 'Concluído',    cor: 'verde', ordem: 2 },
+  ],
+  opcoes: [
+    { id: SEED_OPCAO.naoIniciado, grupo: SEED_GRUPO.aFazer,    nome: 'Não iniciado',         cor: 'cinza',    ordem: 0 },
+    { id: SEED_OPCAO.emProducao,  grupo: SEED_GRUPO.aFazer,    nome: 'Em produção',          cor: 'cinza',    ordem: 1 },
+    { id: SEED_OPCAO.emAndamento, grupo: SEED_GRUPO.andamento, nome: 'Em andamento',         cor: 'azul',     ordem: 0 },
+    { id: SEED_OPCAO.aguardando,  grupo: SEED_GRUPO.andamento, nome: 'Aguardando aprovação', cor: 'ambar',    ordem: 1 },
+    { id: SEED_OPCAO.emAlteracao, grupo: SEED_GRUPO.andamento, nome: 'Em alteração',         cor: 'vermelho', ordem: 2 },
+    { id: SEED_OPCAO.agendar,     grupo: SEED_GRUPO.andamento, nome: 'Agendar',              cor: 'azul',     ordem: 3 },
+    { id: SEED_OPCAO.concluido,   grupo: SEED_GRUPO.concluido, nome: 'Concluído',            cor: 'verde',    ordem: 0 },
+    { id: SEED_OPCAO.agendado,    grupo: SEED_GRUPO.concluido, nome: 'Agendado',             cor: 'verde',    ordem: 1 },
+    { id: SEED_OPCAO.postado,     grupo: SEED_GRUPO.concluido, nome: 'Postado',              cor: 'verde',    ordem: 2 },
+  ],
+};
 
 /* ----------------------------- id helper --------------------------------- */
 
 let _seq = 0;
-export function novoStatusId(): string {
+export function novoStatusId(prefixo = 'st'): string {
   try {
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   } catch { /* */ }
-  return `st_${Date.now().toString(36)}_${(_seq++).toString(36)}`;
+  return `${prefixo}_${Date.now().toString(36)}_${(_seq++).toString(36)}`;
 }
 
-function normalizar(x: Partial<StatusDef>): StatusDef {
-  const cor = (x.cor && x.cor in CORES_STATUS ? x.cor : 'cinza') as CorStatus;
-  const papel = (PAPEIS_STATUS.includes(x.papel as PapelStatus) ? x.papel : '') as PapelStatus;
+/* ----------------------------- normalização ------------------------------ */
+
+function corValida(c: unknown): CorStatus {
+  return (typeof c === 'string' && c in CORES_STATUS ? c : 'cinza') as CorStatus;
+}
+
+function normalizarGrupo(x: Partial<StatusGrupo>, i: number): StatusGrupo {
   return {
-    id: x.id || novoStatusId(),
+    id: x.id || novoStatusId('g'),
+    nome: String(x.nome ?? '').trim() || 'Grupo',
+    cor: corValida(x.cor),
+    ordem: Number.isFinite(x.ordem) ? Number(x.ordem) : i,
+  };
+}
+
+function normalizarOpcao(x: Partial<StatusOpcao>, i: number, grupoFallback: string): StatusOpcao {
+  return {
+    id: x.id || novoStatusId('op'),
+    grupo: x.grupo || grupoFallback,
     nome: String(x.nome ?? '').trim() || 'Status',
-    papel,
-    cor,
+    cor: corValida(x.cor),
+    ordem: Number.isFinite(x.ordem) ? Number(x.ordem) : i,
+  };
+}
+
+function normalizar(cfg: Partial<StatusGlobalConfig> | null | undefined): StatusGlobalConfig {
+  const grupos = Array.isArray(cfg?.grupos) && cfg!.grupos.length
+    ? cfg!.grupos.map(normalizarGrupo)
+    : DEFAULT_STATUS_GLOBAL.grupos.map((g) => ({ ...g }));
+  const fallback = grupos[0]?.id ?? SEED_GRUPO.aFazer;
+  const idsGrupo = new Set(grupos.map((g) => g.id));
+  const opcoes = (Array.isArray(cfg?.opcoes) && cfg!.opcoes.length
+    ? cfg!.opcoes.map((o, i) => normalizarOpcao(o, i, fallback))
+    : DEFAULT_STATUS_GLOBAL.opcoes.map((o) => ({ ...o })))
+    // opção órfã (grupo removido) cai no 1º grupo
+    .map((o) => (idsGrupo.has(o.grupo) ? o : { ...o, grupo: fallback }));
+  return {
+    versao: Number.isFinite(cfg?.versao) ? Number(cfg!.versao) : DEFAULT_STATUS_GLOBAL.versao,
+    grupos,
+    opcoes,
   };
 }
 
 /* ----------------------------- cache + store ----------------------------- */
 
-const KEY = 'wenox-status-tarefa-v1';
+const KEY = 'wenox-status-global-v1';
 
-function lerCache(): StatusDef[] {
+function lerCache(): StatusGlobalConfig {
   try {
     const s = localStorage.getItem(KEY);
-    if (s) {
-      const arr = JSON.parse(s);
-      if (Array.isArray(arr) && arr.length) return arr.map(normalizar);
-    }
+    if (s) return normalizar(JSON.parse(s));
   } catch { /* */ }
-  return DEFAULT_STATUS.map((s) => ({ ...s }));
+  return normalizar(null);
 }
 
-let _statuses: StatusDef[] = lerCache();
+let _cfg: StatusGlobalConfig = lerCache();
 const listeners = new Set<() => void>();
 
-function setStatuses(list: StatusDef[]): void {
-  _statuses = list.map(normalizar);
-  try { localStorage.setItem(KEY, JSON.stringify(_statuses)); } catch { /* */ }
+function setConfig(cfg: Partial<StatusGlobalConfig>): void {
+  _cfg = normalizar(cfg);
+  try { localStorage.setItem(KEY, JSON.stringify(_cfg)); } catch { /* */ }
   listeners.forEach((l) => l());
 }
 
@@ -106,93 +171,173 @@ export function subscribeStatus(cb: () => void): () => void {
   listeners.add(cb);
   return () => { listeners.delete(cb); };
 }
-export function getStatusesSnapshot(): StatusDef[] {
-  return _statuses;
+export function getStatusGlobalSnapshot(): StatusGlobalConfig {
+  return _cfg;
 }
 
-/* ----------------------------- acessores --------------------------------- */
+/* ----------------------- acessores (núcleo novo) ------------------------- */
 
+export function getStatusGlobal(): StatusGlobalConfig {
+  return _cfg;
+}
+export function getGrupos(): StatusGrupo[] {
+  return [..._cfg.grupos].sort((a, b) => a.ordem - b.ordem);
+}
+export function getOpcoes(): StatusOpcao[] {
+  return [..._cfg.opcoes].sort((a, b) => a.ordem - b.ordem);
+}
+/** Opções de um grupo, ordenadas. */
+export function opcoesDoGrupo(grupoId: string): StatusOpcao[] {
+  return _cfg.opcoes.filter((o) => o.grupo === grupoId).sort((a, b) => a.ordem - b.ordem);
+}
+export function opcaoPorId(id?: string): StatusOpcao | undefined {
+  return id ? _cfg.opcoes.find((o) => o.id === id) : undefined;
+}
+export function grupoPorId(id?: string): StatusGrupo | undefined {
+  return id ? _cfg.grupos.find((g) => g.id === id) : undefined;
+}
+/** Grupo dono de uma opção. */
+export function grupoDaOpcao(opcaoId?: string): StatusGrupo | undefined {
+  const op = opcaoPorId(opcaoId);
+  return op ? grupoPorId(op.grupo) : undefined;
+}
+/** Classes de cor da opção (cai no grupo, depois cinza). */
+export function corOpcaoClass(opcaoId?: string): string {
+  const op = opcaoPorId(opcaoId);
+  if (op) return CORES_STATUS[op.cor] ?? CORES_STATUS.cinza;
+  const g = grupoDaOpcao(opcaoId);
+  return g ? (CORES_STATUS[g.cor] ?? CORES_STATUS.cinza) : '';
+}
+/** Opções em ordem de kanban: por grupo (ordem) e dentro do grupo (ordem). */
+export function opcoesEmOrdemDeColuna(): StatusOpcao[] {
+  return getGrupos().flatMap((g) => opcoesDoGrupo(g.id));
+}
+
+/* --------------------------- React hooks (novo) -------------------------- */
+
+export function useStatusGlobal(): StatusGlobalConfig {
+  return useSyncExternalStore(subscribeStatus, getStatusGlobalSnapshot, getStatusGlobalSnapshot);
+}
+
+/* ========================================================================== */
+/*  SHIMS LEGADOS — mapeiam o modelo antigo (lista plana de StatusDef +       */
+/*  papéis) sobre as opções. Removidos em F4 quando todos migrarem.           */
+/* ========================================================================== */
+
+/** @deprecated Papel automático do motor de etapas — sai em F4. */
+export type PapelStatus =
+  | '' | 'inicial' | 'em_andamento' | 'aguardando_aprovacao' | 'em_alteracao' | 'concluido';
+
+/** @deprecated Modelo plano antigo. `useStatuses()` devolve opções nesta forma. */
+export interface StatusDef {
+  id: string;
+  nome: string;
+  papel: PapelStatus;
+  cor: CorStatus;
+}
+
+/** Papel legado → id de opção do seed (para os shims). */
+const PAPEL_OPCAO_ID: Record<Exclude<PapelStatus, ''>, string> = {
+  inicial:              SEED_OPCAO.naoIniciado,
+  em_andamento:         SEED_OPCAO.emAndamento,
+  aguardando_aprovacao: SEED_OPCAO.aguardando,
+  em_alteracao:         SEED_OPCAO.emAlteracao,
+  concluido:            SEED_OPCAO.concluido,
+};
+/** Nome legado de fallback (caso o seed tenha sido editado/removido). */
+const PAPEL_NOME_FALLBACK: Record<Exclude<PapelStatus, ''>, string> = {
+  inicial:              'Não iniciado',
+  em_andamento:         'Em andamento',
+  aguardando_aprovacao: 'Aguardando aprovação',
+  em_alteracao:         'Em alteração',
+  concluido:            'Concluído',
+};
+
+/** @deprecated Lista plana das opções (forma StatusDef). */
 export function getStatuses(): StatusDef[] {
-  return _statuses;
+  return opcoesEmOrdemDeColuna().map((o) => ({
+    id: o.id, nome: o.nome, papel: '' as PapelStatus, cor: o.cor,
+  }));
 }
+/** @deprecated */
 export function statusNomes(): string[] {
-  return _statuses.map((s) => s.nome);
+  return opcoesEmOrdemDeColuna().map((o) => o.nome);
 }
+/** @deprecated Nome do status de um papel legado. */
 export function statusDoPapel(papel: PapelStatus): string | undefined {
   if (!papel) return undefined;
-  return _statuses.find((s) => s.papel === papel)?.nome;
+  return opcaoPorId(PAPEL_OPCAO_ID[papel])?.nome ?? PAPEL_NOME_FALLBACK[papel];
 }
-/** Nome do status inicial (papel "inicial", senão o 1º da lista). */
+/** @deprecated Nome do status inicial. */
 export function statusInicial(): string {
-  return statusDoPapel('inicial') ?? _statuses[0]?.nome ?? 'Não iniciado';
+  return opcaoPorId(SEED_OPCAO.naoIniciado)?.nome ?? opcoesEmOrdemDeColuna()[0]?.nome ?? 'Não iniciado';
 }
-/** Nome do status de conclusão (papel "concluido"). */
+/** @deprecated Nome do status de conclusão. */
 export function statusConcluido(): string {
-  return statusDoPapel('concluido') ?? 'Concluído';
+  return opcaoPorId(SEED_OPCAO.concluido)?.nome ?? 'Concluído';
 }
-/** Classes de cor do status pelo nome ('' se desconhecido — caller faz fallback). */
+/** @deprecated Classes de cor pelo NOME do status ('' se desconhecido). */
 export function corStatusClass(nome?: string): string {
-  const def = _statuses.find((s) => s.nome === nome);
-  return def ? (CORES_STATUS[def.cor] ?? CORES_STATUS.cinza) : '';
+  const op = _cfg.opcoes.find((o) => o.nome === nome);
+  if (!op) return '';
+  return CORES_STATUS[op.cor] ?? CORES_STATUS.cinza;
 }
-
-/* --------------------------- React hook ---------------------------------- */
-
+/** @deprecated Hook que devolve as opções na forma StatusDef. */
 export function useStatuses(): StatusDef[] {
-  return useSyncExternalStore(subscribeStatus, getStatusesSnapshot, getStatusesSnapshot);
+  useStatusGlobal();
+  return getStatuses();
 }
 
 /* --------------------------- persistência (PB) --------------------------- */
 
-const CHAVE = 'status_tarefa';
-interface RegistroConfig { id: string; valor?: Partial<StatusDef>[] }
+const CHAVE = 'status_global';
+interface RegistroConfig { id: string; valor?: Partial<StatusGlobalConfig> }
 
 /** Lê a config do servidor; atualiza o cache. Cai no cache/padrão se falhar. */
-export async function carregarStatusRemoto(): Promise<StatusDef[]> {
+export async function carregarStatusRemoto(): Promise<StatusGlobalConfig> {
   const { pb } = await import('@/lib/pocketbase');
   try {
     const rec = (await pb
       .collection('configuracoes')
       .getFirstListItem(`chave="${CHAVE}"`)) as unknown as RegistroConfig;
-    if (rec?.valor && Array.isArray(rec.valor) && rec.valor.length) {
-      setStatuses(rec.valor.map(normalizar));
+    if (rec?.valor && typeof rec.valor === 'object') {
+      setConfig(rec.valor);
     }
   } catch { /* sem registro / offline → mantém cache */ }
-  return _statuses;
+  return _cfg;
 }
 
 /** Grava a config no servidor (cria o registro se não existir) + atualiza cache. */
-export async function salvarStatusRemoto(list: StatusDef[]): Promise<void> {
+export async function salvarStatusRemoto(cfg: StatusGlobalConfig): Promise<void> {
   const { pb } = await import('@/lib/pocketbase');
-  setStatuses(list); // cache + notify imediato
+  setConfig(cfg); // cache + notify imediato
   const col = pb.collection('configuracoes');
   const existente = (await col
     .getFirstListItem(`chave="${CHAVE}"`)
     .catch(() => null)) as unknown as RegistroConfig | null;
-  if (existente) await col.update(existente.id, { valor: _statuses });
-  else await col.create({ chave: CHAVE, valor: _statuses });
+  if (existente) await col.update(existente.id, { valor: _cfg });
+  else await col.create({ chave: CHAVE, valor: _cfg });
 }
 
 function escapar(v: string): string {
   return v.replace(/"/g, '\\"');
 }
 
-/** Quantas tarefas ainda usam este status (bloqueia remoção em uso). */
-export async function contarTarefasComStatus(nome: string): Promise<number> {
+/** Quantas tarefas ainda usam esta opção (bloqueia remoção em uso).
+ *  Opera por `status_opcao` (id), a fonte de verdade do modelo novo. */
+export async function contarTarefasComOpcao(opcaoId: string): Promise<number> {
   const { pb } = await import('@/lib/pocketbase');
   const res = await pb
     .collection('tarefas')
-    .getList(1, 1, { filter: `status="${escapar(nome)}"`, fields: 'id' });
+    .getList(1, 1, { filter: `status_opcao="${escapar(opcaoId)}"`, fields: 'id' });
   return res.totalItems;
 }
 
-/** Migra tarefas de um nome de status p/ outro (usado ao renomear). */
-export async function migrarStatusTarefas(de: string, para: string): Promise<number> {
-  if (de === para) return 0;
+/** Quantos cards ainda usam esta opção (bloqueia remoção em uso). */
+export async function contarCardsComOpcao(opcaoId: string): Promise<number> {
   const { pb } = await import('@/lib/pocketbase');
-  const itens = (await pb
-    .collection('tarefas')
-    .getFullList({ filter: `status="${escapar(de)}"`, fields: 'id' })) as unknown as { id: string }[];
-  for (const it of itens) await pb.collection('tarefas').update(it.id, { status: para });
-  return itens.length;
+  const res = await pb
+    .collection('cartoes')
+    .getList(1, 1, { filter: `status_opcao="${escapar(opcaoId)}"`, fields: 'id' });
+  return res.totalItems;
 }

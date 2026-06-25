@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { Quadro, Lista, Cartao, EtiquetaCartao, RecorrenciaMes } from './types';
 import { capaEhCor, capaCorClara, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, thumbUrl, ehCartaoPost } from './types';
-import { resolverOpcaoCard } from '@/tarefas/status';
+import { resolverOpcaoCard, statusPostDaOpcao } from '@/tarefas/status';
 import { StatusOpcaoChip } from '@/tarefas/StatusOpcaoChip';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
@@ -527,8 +527,14 @@ export function QuadroBoardPage({ id }: { id: string }) {
 
   async function salvarEdicaoMes() {
     if (!editMesLista) return;
-    const postsDoMes = cartoes.filter((c) => c.lista === editMesLista.id && !!c.status_post);
-    const temAgendadoOuPostado = postsDoMes.some((c) => c.status_post === 'agendado' || c.status_post === 'postado');
+    // Status efetivo = espelho da opção (status_opcao) com fallback ao legado status_post,
+    // para não perder posts cujo status veio só pela opção global (F3).
+    const statusEfetivo = (c: Cartao) => statusPostDaOpcao(c.status_opcao) || c.status_post || '';
+    const postsDoMes = cartoes.filter((c) => c.lista === editMesLista.id && (!!c.status_post || !!c.status_opcao));
+    const temAgendadoOuPostado = postsDoMes.some((c) => {
+      const s = statusEfetivo(c);
+      return s === 'agendado' || s === 'postado';
+    });
     let aviso = `Isso vai SUBSTITUIR os ${postsDoMes.length} posts atuais desta lista.`;
     if (temAgendadoOuPostado) aviso += '\n\nATENÇÃO: há posts agendados ou já postados que serão removidos!';
     aviso += '\n\nDeseja continuar?';

@@ -45,6 +45,10 @@ vi.mock('@/tarefas/tarefasService', () => ({
 vi.mock('@/tarefas/status', () => ({
   statusInicial: () => 'Não iniciado',
   statusDoPapel: () => undefined,
+  opcaoIdDoStatusPost: (sp: string) => (({
+    em_producao: 'op_em_producao', agendar: 'op_agendar', agendado: 'op_agendado',
+    postado: 'op_postado', em_alteracao: 'op_em_alteracao',
+  } as Record<string, string>)[sp]),
 }));
 
 vi.mock('@/clientes/clientesService', () => ({ logoUrl: vi.fn() }));

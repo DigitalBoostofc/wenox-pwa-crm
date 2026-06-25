@@ -15,10 +15,15 @@
   - Seed v1 (ids estáveis): grupos `g_a_fazer` / `g_andamento` / `g_concluido`;
     opções `op_nao_iniciado, op_em_producao, op_em_andamento, op_aguardando,
     op_em_alteracao, op_agendar, op_concluido, op_agendado, op_postado`.
-- Campo novo `cartoes.status_opcao` (id de opção) — **ainda não escrito** pelo frontend (é o F3).
+- Campo `status_opcao` (text) **já adicionado ao schema** de `tarefas` e `cartoes` em produção
+  (via `e2e/schema_add_status_opcao.mjs`). ⚠️ O PB descarta campos fora do schema — qualquer
+  ambiente novo precisa rodar isso antes de escrever `status_opcao`.
 - Espelho legado `cartoes.status_post` continua válido durante a transição (tabela §3.1 do contrato).
-- Script de backfill pronto: `e2e/seed_status_global.mjs` (idempotente, `--dry-run`) — cria
-  `status_global` v1 e preenche `status_opcao` em `tarefas` e `cartoes` a partir do legado.
+- **Backfill já rodado em produção** (`e2e/seed_status_global.mjs`, idempotente): criou
+  `status_global` v1, preencheu `status_opcao` em **4 tarefas** e nos **60 posts reais**
+  (cards com `status_post`). Os ~7111 cards sem `status_post` (não-posts) foram deixados vazios
+  de propósito — não recebem status global. O frontend ainda **não escreve** `status_opcao` em
+  cards (isso é o F3).
 
 ## Decisões a fechar nesta sessão
 
@@ -73,7 +78,7 @@ O status do post deixa de ser derivado das `etapas_card`. O backend aposenta:
 
 ## Depois da sessão (sequência de execução)
 
-1. **Backfill**: `PB_ADMIN_SENHA=… node e2e/seed_status_global.mjs --dry-run` e depois real.
+1. ~~**Backfill**~~ ✅ já feito (schema + `seed_status_global.mjs` rodados em produção).
 2. **F3** (frontend): `cartoes.status_opcao` no `CartaoSheet`/`QuadroBoardPage`/`CalendarioPage`
    (grava `status_opcao` + espelho `status_post`); chip de status vira opção global.
 3. **Backend**: passa a ler `status_opcao`; aposenta esteira conforme combinado.

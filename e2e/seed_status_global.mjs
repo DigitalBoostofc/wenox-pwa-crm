@@ -246,35 +246,37 @@ async function backfillCartoes() {
   console.log(`    → ${pendentes.length} com status_opcao vazio, ${jaPreenchidos} já preenchidos (pulados)`);
 
   let atualizados = 0;
-  let semMatch = 0;
+  let semStatusPost = 0; // sem status_post legado (não-posts) → NÃO força default; deixa vazio
+  let semMatch = 0;      // tem status_post, mas valor desconhecido → loga e pula
 
   for (const c of pendentes) {
     const statusPost = c.status_post ?? '';
+    if (!statusPost) { semStatusPost++; continue; } // card sem status_post (não é post) → pula
     const opcaoId = STATUS_POST_PARA_OPCAO[statusPost];
-
     if (!opcaoId) {
-      console.log(`    [sem-match] cartao id=${c.id} status_post="${statusPost}" → op_em_producao`);
+      console.log(`    [sem-match] cartao id=${c.id} status_post="${statusPost}" → pulado (deixa vazio)`);
       semMatch++;
+      continue;
     }
-
     if (!DRY_RUN) {
-      await pbPatch(`/api/collections/cartoes/records/${c.id}`, {
-        status_opcao: opcaoId ?? SEED_OPCAO.emProducao,
-      });
-      atualizados++;
+      await pbPatch(`/api/collections/cartoes/records/${c.id}`, { status_opcao: opcaoId });
     }
+    atualizados++;
   }
 
+  const aplicar = atualizados; // qtd que recebe status_opcao (posts reais)
   if (DRY_RUN) {
-    console.log(`    [dry-run] Atualizaria ${pendentes.length} cartões (${semMatch} sem match legado → op_em_producao)`);
+    console.log(`    [dry-run] Atualizaria ${aplicar} cartões (posts com status_post). ` +
+      `Pulados: ${semStatusPost} sem status_post (não-posts) + ${semMatch} valor desconhecido.`);
   } else {
-    console.log(`    → Atualizados: ${atualizados} | sem match legado: ${semMatch}`);
+    console.log(`    → Atualizados: ${aplicar} | pulados sem status_post: ${semStatusPost} | valor desconhecido: ${semMatch}`);
   }
 
   return {
     total: cartoes.length,
-    atualizados: DRY_RUN ? 0 : atualizados,
-    pulados: jaPreenchidos,
+    atualizados: aplicar,
+    puladosJaPreenchidos: jaPreenchidos,
+    puladosSemStatusPost: semStatusPost,
     semMatch,
   };
 }

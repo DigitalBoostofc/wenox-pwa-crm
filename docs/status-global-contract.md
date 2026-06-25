@@ -25,10 +25,17 @@ interface StatusGlobalConfig { versao: number; grupos: StatusGrupo[]; opcoes: St
 `src/tarefas/status.ts`). **Conjunto único** — a mesma lista de opções serve tarefas e
 posts. Quem edita: gestores (frontend). Quem lê: frontend **e** backend.
 
-### 1.2 Campos novos nas coleções (SEM migração de schema PB — campos JSON/string)
+### 1.2 Campos novos nas coleções (EXIGE migração de schema PB — campo text)
 
 - `tarefas.status_opcao: string` — id de uma `StatusOpcao`.
 - `cartoes.status_opcao: string` — id de uma `StatusOpcao`.
+
+> ⚠️ **Correção:** o PocketBase **descarta silenciosamente** qualquer campo fora
+> do schema da coleção. Logo, o campo `status_opcao` (type `text`, opcional)
+> **precisa ser adicionado ao schema** de `tarefas` e `cartoes` ANTES de qualquer
+> escrita — senão a UI e o backfill "salvam" sem persistir. Já aplicado em
+> produção via `e2e/schema_add_status_opcao.mjs` (idempotente). O backend deve
+> garantir o mesmo em qualquer ambiente novo.
 
 ### 1.3 Espelho legado (durante a transição — até §6)
 

@@ -1,19 +1,25 @@
-import { useMemo, useRef, useState } from 'react';
-import { SlidersHorizontal, GripVertical, UserRound, ChevronDown, Plus } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  SlidersHorizontal, GripVertical, UserRound, ChevronDown, Plus,
+  Check, X, Trash2, Maximize2, Layers,
+} from 'lucide-react';
 import type { Tarefa } from './types';
 import { prazoBR, tarefaConcluida, prazoLimite } from './format';
 import { StatusOpcaoChip } from './StatusOpcaoChip';
-import { atualizarTarefa } from './tarefasService';
+import { atualizarTarefa, removerTarefa } from './tarefasService';
 import { addComentario } from '@/atividade/atividadeService';
 import {
   useStatusGlobal, opcoesEmOrdemDeColuna, resolverOpcao,
   espelhoStatus, getGrupos, opcoesDoGrupo, opcaoIdPorNome,
 } from './status';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
+import { listUsuarios } from '@/usuarios/usuariosService';
+import type { Usuario } from '@/usuarios/types';
 import { logoUrl } from '@/clientes/clientesService';
 import { corAvatar, inicial } from '@/clientes/format';
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +33,7 @@ const filtroCls =
 
 export type ColKey =
   | 'cliente' | 'projeto' | 'tarefa' | 'status' | 'prazo' | 'prioridade' | 'responsaveis'
-  | 'descricao' | 'comentario';
+  | 'etiquetas' | 'descricao' | 'comentario';
 
 export interface ColDef { key: ColKey; label: string; visivel: boolean }
 
@@ -39,12 +45,13 @@ const COLS_PADRAO: ColDef[] = [
   { key: 'prazo', label: 'Prazo', visivel: true },
   { key: 'prioridade', label: 'Prioridade', visivel: true },
   { key: 'responsaveis', label: 'Responsáveis', visivel: true },
+  { key: 'etiquetas', label: 'Etiquetas', visivel: false },
   { key: 'descricao', label: 'Descrição', visivel: false },
   { key: 'comentario', label: 'Comentário', visivel: false },
 ];
 
-/** Colunas que abrem editor inline ao clicar (stopPropagation — não abre o sheet). */
-const EDITAVEIS = new Set<ColKey>(['status', 'prazo', 'prioridade', 'descricao', 'comentario']);
+/** Colunas que editam inline ao clicar na célula (stopPropagation — não abre o sheet). */
+const EDITAVEIS = new Set<ColKey>(['tarefa', 'status', 'prazo', 'prioridade', 'responsaveis', 'etiquetas', 'descricao', 'comentario']);
 
 /** Monta uma lista de ColDef com as `visiveis` em frente, demais ocultas atrás. */
 export function colunasComVisiveis(visiveis: ColKey[]): ColDef[] {
@@ -102,6 +109,25 @@ function carregarOrdem(prefix: string): Ordem {
   return 'prazo';
 }
 
+/* ------------------------------ Agrupamento ------------------------------- */
+
+type GroupBy = 'none' | 'status' | 'cliente' | 'responsavel' | 'prioridade' | 'projeto';
+const GROUPS: { v: GroupBy; label: string }[] = [
+  { v: 'none', label: 'Sem agrupar' },
+  { v: 'status', label: 'Status' },
+  { v: 'cliente', label: 'Cliente' },
+  { v: 'responsavel', label: 'Responsável' },
+  { v: 'prioridade', label: 'Prioridade' },
+  { v: 'projeto', label: 'Projeto' },
+];
+function carregarGroupBy(prefix: string): GroupBy {
+  try {
+    const s = localStorage.getItem(`${prefix}-group-v1`);
+    if (GROUPS.some((g) => g.v === s)) return s as GroupBy;
+  } catch { /* */ }
+  return 'none';
+}
+
 /* ------------------------------ Mês / competência ------------------------- */
 
 const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -122,6 +148,7 @@ function carregarMes(prefix: string): string {
 /* --------------------------------- Helpers -------------------------------- */
 
 function pesoPrioridade(p?: string) { return p === 'alta' ? 0 : p === 'baixa' ? 2 : 1; }
+function rotuloPrioridade(p?: string) { return p === 'alta' ? 'Alta' : p === 'baixa' ? 'Baixa' : 'Média'; }
 
 export type CatPrazo = '' | 'vencida' | 'hoje' | 'amanha' | 'futuro';
 export function catPrazoData(prazo?: string, feito?: boolean): CatPrazo {
@@ -220,12 +247,59 @@ function CellEditor({ valorInicial, placeholder, onSalvar, onCancelar }: {
   );
 }
 
+/** Editor inline de etiquetas: chips com remover + input para adicionar. */
+function EtiquetasEditor({ valorInicial, onSalvar, onFechar }: {
+  valorInicial: string[];
+  onSalvar: (tags: string[]) => void;
+  onFechar: () => void;
+}) {
+  const [tags, setTags] = useState<string[]>(valorInicial);
+  const [novo, setNovo] = useState('');
+  function add() {
+    const v = novo.trim();
+    if (!v || tags.includes(v)) { setNovo(''); return; }
+    const n = [...tags, v]; setTags(n); setNovo(''); onSalvar(n);
+  }
+  function remover(t: string) { const n = tags.filter((x) => x !== t); setTags(n); onSalvar(n); }
+  return (
+    <div className="flex flex-wrap items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      {tags.map((t) => (
+        <span key={t} className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px]">
+          {t}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => remover(t)}
+            aria-label={`Remover ${t}`}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <X className="size-3" />
+          </button>
+        </span>
+      ))}
+      <input
+        autoFocus
+        value={novo}
+        placeholder="tag…"
+        onChange={(e) => setNovo(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); add(); }
+          if (e.key === 'Escape') { e.preventDefault(); onFechar(); }
+        }}
+        onBlur={onFechar}
+        className="h-6 w-16 min-w-16 flex-1 rounded border border-input bg-background px-1.5 text-[11px] focus-visible:outline-none"
+      />
+    </div>
+  );
+}
+
 /* ------------------------------- Componente principal --------------------- */
 
 /**
- * Tabela de tarefas estilo Notion: clique direto nas células de Status, Prazo e
- * Prioridade para editar inline sem abrir o sheet. Colunas configuráveis,
- * redimensionáveis e persistidas por contexto (`persistPrefix`).
+ * Tabela de tarefas estilo Notion: edição inline (status, prazo, prioridade,
+ * responsáveis, etiquetas, nome, descrição), agrupamento por campo, ações em
+ * massa (seleção por checkbox) e cálculos de rodapé. Colunas configuráveis e
+ * redimensionáveis, persistidas por contexto (`persistPrefix`).
  */
 export function TarefasTabela({
   tarefas, onAbrir, persistPrefix, onMudou, colunasPadrao, onNovaLinha,
@@ -235,35 +309,43 @@ export function TarefasTabela({
   persistPrefix: string;
   onMudou?: () => void;
   colunasPadrao?: ColDef[];
-  /** Callback para abrir criação de tarefa; exibe linha "+ Nova tarefa" no rodapé. */
   onNovaLinha?: () => void;
 }) {
   useStatusGlobal();
   const opcoesFiltro = opcoesEmOrdemDeColuna();
 
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  useEffect(() => { listUsuarios().then(setUsuarios).catch(() => setUsuarios([])); }, []);
+
   const [colDefs, setColDefs] = useState<ColDef[]>(() => carregarColunas(persistPrefix, colunasPadrao));
   const [larguras, setLarguras] = useState<Larguras>(() => carregarLarguras(persistPrefix));
   const [ordem, setOrdem] = useState<Ordem>(() => carregarOrdem(persistPrefix));
+  const [groupBy, setGroupBy] = useState<GroupBy>(() => carregarGroupBy(persistPrefix));
   const [fStatus, setFStatus] = useState('');
   const [fPrioridade, setFPrioridade] = useState('');
   const [fPrazo, setFPrazo] = useState('');
   const [fMes, setFMes] = useState(() => carregarMes(persistPrefix));
   const [concluidasAbertas, setConcluidasAbertas] = useState(false);
   const [atrasadasAbertas, setAtrasadasAbertas] = useState(true);
+  const [gruposFechados, setGruposFechados] = useState<Set<string>>(new Set());
 
   // Célula em edição inline: { id da tarefa, campo }.
   const [editCell, setEditCell] = useState<{ id: string; campo: ColKey } | null>(null);
   // Atualizações otimistas mescladas na renderização até o reload do servidor confirmar.
   const [localOverrides, setLocalOverrides] = useState<Record<string, Partial<Tarefa>>>({});
-  // Sobrescritas locais de descrição e flag de comentário enviado.
   const [descOverride, setDescOverride] = useState<Record<string, string>>({});
   const [comentado, setComentado] = useState<Record<string, boolean>>({});
+  // Seleção para ações em massa.
+  const [selecao, setSelecao] = useState<Set<string>>(new Set());
 
   /** Salva qualquer campo inline com atualização otimista e reversa em erro. */
   async function salvarInline(id: string, parcial: Partial<Tarefa>) {
     setLocalOverrides((prev) => ({ ...prev, [id]: { ...(prev[id] ?? {}), ...parcial } }));
     try {
-      await atualizarTarefa(id, parcial as never);
+      // `expand` é só para exibição otimista — nunca vai pro backend.
+      const { expand, ...dados } = parcial as Partial<Tarefa> & { expand?: unknown };
+      void expand;
+      await atualizarTarefa(id, dados as never);
       onMudou?.();
     } catch {
       setLocalOverrides((prev) => {
@@ -287,6 +369,16 @@ export function TarefasTabela({
     }
   }
 
+  /** Atualiza responsáveis com expand otimista (avatares) montado a partir dos usuários carregados. */
+  function salvarResponsaveis(id: string, ids: string[]) {
+    const expandResp = ids
+      .map((uid) => usuarios.find((u) => u.id === uid))
+      .filter(Boolean)
+      .map((u) => ({ id: u!.id, nome: u!.nome, email: u!.email }));
+    const atual = localOverrides[id]?.expand ?? tarefas.find((t) => t.id === id)?.expand;
+    salvarInline(id, { responsaveis: ids, expand: { ...atual, responsaveis: expandResp } } as Partial<Tarefa>);
+  }
+
   function toggleCol(k: ColKey) {
     setColDefs((cs) => { const n = cs.map((c) => c.key === k ? { ...c, visivel: !c.visivel } : c); salvarColunas(persistPrefix, n); return n; });
   }
@@ -298,6 +390,7 @@ export function TarefasTabela({
   }
   function trocarOrdem(o: Ordem) { setOrdem(o); try { localStorage.setItem(`${persistPrefix}-ordem-v1`, o); } catch { /* */ } }
   function trocarMes(m: string) { setFMes(m); try { localStorage.setItem(`${persistPrefix}-mes-v1`, m); } catch { /* */ } }
+  function trocarGroupBy(g: GroupBy) { setGroupBy(g); try { localStorage.setItem(`${persistPrefix}-group-v1`, g); } catch { /* */ } }
 
   const mesSel = fMes === 'atual' ? mesAtualStr() : fMes;
   const mesesDisponiveis = useMemo(() => {
@@ -324,7 +417,6 @@ export function TarefasTabela({
       const pb = prazoLimite(b.prazo)?.getTime() ?? Infinity;
       return pa - pb;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tarefas, fStatus, fPrioridade, fPrazo, ordem, localOverrides]);
 
   const colsVisiveis = useMemo(() => colDefs.filter((c) => c.visivel), [colDefs]);
@@ -333,11 +425,80 @@ export function TarefasTabela({
     dragResize(thEl, e, (w) => setLarguras((prev) => { const n = { ...prev, [key]: w }; salvarLarguras(persistPrefix, n); return n; }));
   }
 
+  const tarefaMesclada = (t: Tarefa) => ({ ...t, ...(localOverrides[t.id] ?? {}) } as Tarefa);
+  const statusEfetivo = (t: Tarefa) => localOverrides[t.id]?.status ?? t.status;
+
+  /* ----------------------------- Seleção em massa ----------------------------- */
+
+  function toggleSel(id: string) {
+    setSelecao((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  function toggleSelTodas(ids: string[], marcar: boolean) {
+    setSelecao((s) => {
+      const n = new Set(s);
+      for (const id of ids) { if (marcar) n.add(id); else n.delete(id); }
+      return n;
+    });
+  }
+  function limparSelecao() { setSelecao(new Set()); }
+
+  async function aplicarEmMassa(parcial: Partial<Tarefa>) {
+    const ids = [...selecao];
+    if (!ids.length) return;
+    setLocalOverrides((prev) => {
+      const n = { ...prev };
+      for (const id of ids) n[id] = { ...(n[id] ?? {}), ...parcial };
+      return n;
+    });
+    limparSelecao();
+    try { await Promise.all(ids.map((id) => atualizarTarefa(id, parcial as never))); onMudou?.(); } catch { /* */ }
+  }
+
+  async function apagarEmMassa() {
+    const ids = [...selecao];
+    if (!ids.length) return;
+    if (!confirm(`Apagar ${ids.length} ${ids.length === 1 ? 'tarefa' : 'tarefas'}? Esta ação não pode ser desfeita.`)) return;
+    limparSelecao();
+    try { await Promise.all(ids.map((id) => removerTarefa(id))); onMudou?.(); } catch { /* */ }
+  }
+
+  /* ------------------------------- Célula ----------------------------------- */
+
   function celula(t: Tarefa, key: ColKey) {
-    const te = { ...t, ...(localOverrides[t.id] ?? {}) } as Tarefa;
+    const te = tarefaMesclada(t);
     const ativo = editCell?.id === t.id && editCell.campo === key;
 
-    if (key === 'tarefa') return <span className="font-medium text-foreground">{te.nome}</span>;
+    if (key === 'tarefa') {
+      if (ativo) {
+        return (
+          <input
+            autoFocus
+            defaultValue={te.nome}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== te.nome) salvarInline(t.id, { nome: v }); setEditCell(null); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              if (e.key === 'Escape') { e.preventDefault(); setEditCell(null); }
+            }}
+            className="h-7 w-full rounded border border-input bg-background px-2 text-sm font-medium focus-visible:outline-none"
+          />
+        );
+      }
+      return (
+        <span className="flex items-center justify-between gap-2">
+          <span className="truncate font-medium text-foreground">{te.nome}</span>
+          <button
+            type="button"
+            title="Abrir tarefa"
+            aria-label="Abrir tarefa"
+            onClick={(e) => { e.stopPropagation(); onAbrir(t.id); }}
+            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground group-hover:opacity-100"
+          >
+            <Maximize2 className="size-3.5" />
+          </button>
+        </span>
+      );
+    }
 
     if (key === 'projeto') return <span className="text-sm text-muted-foreground">{te.expand?.projeto?.nome ?? '—'}</span>;
 
@@ -357,10 +518,7 @@ export function TarefasTabela({
           <select
             autoFocus
             value={te.status_opcao ?? opcaoIdPorNome(te.status) ?? ''}
-            onChange={(e) => {
-              if (e.target.value) salvarInline(t.id, espelhoStatus(e.target.value));
-              setEditCell(null);
-            }}
+            onChange={(e) => { if (e.target.value) salvarInline(t.id, espelhoStatus(e.target.value)); setEditCell(null); }}
             onBlur={() => setEditCell(null)}
             onClick={(e) => e.stopPropagation()}
             className="h-7 w-full rounded border border-input bg-background px-1 text-xs focus-visible:outline-none"
@@ -419,13 +577,72 @@ export function TarefasTabela({
                   p === 'baixa' && 'bg-sky-500/20 text-sky-400 hover:bg-sky-500/30',
                 )}
               >
-                {p === 'alta' ? 'Alta' : p === 'media' ? 'Média' : 'Baixa'}
+                {rotuloPrioridade(p)}
               </button>
             ))}
           </div>
         );
       }
       return <PrioridadeBadge p={te.prioridade} />;
+    }
+
+    if (key === 'responsaveis') {
+      const rs = te.expand?.responsaveis ?? [];
+      const idsAtuais = te.responsaveis ?? [];
+      const conteudo = rs.length === 0
+        ? <span className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-muted-foreground"><UserRound className="size-3.5" /></span>
+        : (
+          <div className="flex -space-x-2">
+            {rs.slice(0, 3).map((r) => <AvatarMembro key={r.id} membro={r} className="size-7 border-2 border-card text-[10px]" />)}
+            {rs.length > 3 && <div className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-[10px] font-bold text-muted-foreground">+{rs.length - 3}</div>}
+          </div>
+        );
+      if (!ativo) return conteudo;
+      return (
+        <DropdownMenu open onOpenChange={(o) => { if (!o) setEditCell(null); }}>
+          <DropdownMenuTrigger asChild>
+            <button type="button" onClick={(e) => e.stopPropagation()}>{conteudo}</button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-64 w-60 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {usuarios.map((u) => {
+              const sel = idsAtuais.includes(u.id);
+              return (
+                <DropdownMenuItem
+                  key={u.id}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    const novos = sel ? idsAtuais.filter((x) => x !== u.id) : [...idsAtuais, u.id];
+                    salvarResponsaveis(t.id, novos);
+                  }}
+                >
+                  <Check className={cn('mr-2 size-3.5', sel ? 'opacity-100' : 'opacity-0')} />
+                  {u.nome || u.email}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+
+    if (key === 'etiquetas') {
+      if (ativo) {
+        return (
+          <EtiquetasEditor
+            valorInicial={te.etiquetas ?? []}
+            onSalvar={(tags) => salvarInline(t.id, { etiquetas: tags })}
+            onFechar={() => setEditCell(null)}
+          />
+        );
+      }
+      const tags = te.etiquetas ?? [];
+      if (tags.length === 0) return <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/50"><Plus className="size-3" /> tag</span>;
+      return (
+        <div className="flex flex-wrap gap-1">
+          {tags.slice(0, 3).map((t2) => <span key={t2} className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px]">{t2}</span>)}
+          {tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{tags.length - 3}</span>}
+        </div>
+      );
     }
 
     if (key === 'descricao') {
@@ -463,26 +680,51 @@ export function TarefasTabela({
       );
     }
 
-    if (key === 'responsaveis') {
-      const rs = te.expand?.responsaveis ?? [];
-      if (rs.length === 0) return (
-        <span className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-muted-foreground">
-          <UserRound className="size-3.5" />
-        </span>
-      );
-      return (
-        <div className="flex -space-x-2">
-          {rs.slice(0, 3).map((r) => <AvatarMembro key={r.id} membro={r} className="size-7 border-2 border-card text-[10px]" />)}
-          {rs.length > 3 && <div className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-[10px] font-bold text-muted-foreground">+{rs.length - 3}</div>}
-        </div>
-      );
-    }
-
     return null;
   }
 
-  // Divide em abertas/concluídas usando status com override local aplicado.
-  const statusEfetivo = (t: Tarefa) => localOverrides[t.id]?.status ?? t.status;
+  /* ------------------------------ Agrupamento ------------------------------- */
+
+  function chaveGrupo(t: Tarefa): { chave: string; label: string; ordem: number } {
+    const te = tarefaMesclada(t);
+    if (groupBy === 'status') {
+      const op = resolverOpcao(te.status_opcao, te.status);
+      const idx = op ? opcoesFiltro.findIndex((o) => o.id === op.id) : -1;
+      return { chave: op?.id ?? '__sem', label: op?.nome ?? 'Sem status', ordem: idx < 0 ? 9999 : idx };
+    }
+    if (groupBy === 'cliente') {
+      const nome = te.expand?.cliente ? nomeCliente(te) : '';
+      return { chave: te.cliente || '__sem', label: nome || 'Sem cliente', ordem: nome ? 0 : 9999 };
+    }
+    if (groupBy === 'projeto') {
+      const nome = te.expand?.projeto?.nome ?? '';
+      return { chave: te.projeto || '__sem', label: nome || 'Sem projeto', ordem: nome ? 0 : 9999 };
+    }
+    if (groupBy === 'responsavel') {
+      const r = te.expand?.responsaveis?.[0];
+      return { chave: r?.id ?? '__sem', label: r?.nome ?? 'Sem responsável', ordem: r ? 0 : 9999 };
+    }
+    // prioridade
+    const p = te.prioridade ?? 'media';
+    return { chave: p, label: rotuloPrioridade(p), ordem: pesoPrioridade(p) };
+  }
+
+  const grupos = useMemo(() => {
+    if (groupBy === 'none') return [];
+    const mapa = new Map<string, { label: string; ordem: number; linhas: Tarefa[] }>();
+    for (const t of filtradas) {
+      const { chave, label, ordem: ord } = chaveGrupo(t);
+      if (!mapa.has(chave)) mapa.set(chave, { label, ordem: ord, linhas: [] });
+      mapa.get(chave)!.linhas.push(t);
+    }
+    return [...mapa.entries()]
+      .map(([chave, g]) => ({ chave, ...g }))
+      .sort((a, b) => a.ordem - b.ordem || a.label.localeCompare(b.label, 'pt-BR'));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtradas, groupBy, localOverrides, opcoesFiltro]);
+
+  /* ------------------------- Modo "sem agrupar": seções --------------------- */
+
   let abertas = filtradas.filter((t) => !tarefaConcluida(statusEfetivo(t)));
   let concluidas = filtradas.filter((t) => tarefaConcluida(statusEfetivo(t)));
   let atrasadas: Tarefa[] = [];
@@ -494,16 +736,52 @@ export function TarefasTabela({
     concluidas = concluidas.filter(noMes);
   }
 
-  function tabela(linhas: Tarefa[], vazio: string, comNova = false) {
+  /* ------------------------------- Rodapé (S4) ------------------------------ */
+
+  function rodapeCelula(linhas: Tarefa[], key: ColKey): React.ReactNode {
+    if (key === 'tarefa') return <span className="font-medium text-foreground">{linhas.length} {linhas.length === 1 ? 'tarefa' : 'tarefas'}</span>;
+    if (key === 'status') {
+      const feitas = linhas.filter((t) => tarefaConcluida(statusEfetivo(t))).length;
+      const pct = linhas.length ? Math.round((feitas / linhas.length) * 100) : 0;
+      return <span>{feitas} concl. · {pct}%</span>;
+    }
+    if (key === 'prazo') {
+      const venc = linhas.filter((t) => catPrazo(tarefaMesclada(t)) === 'vencida').length;
+      return venc > 0 ? <span className="text-destructive">{venc} vencida{venc > 1 ? 's' : ''}</span> : <span className="text-muted-foreground/50">—</span>;
+    }
+    if (key === 'prioridade') {
+      const alta = linhas.filter((t) => (tarefaMesclada(t).prioridade ?? 'media') === 'alta').length;
+      return alta > 0 ? <span>{alta} alta{alta > 1 ? 's' : ''}</span> : <span className="text-muted-foreground/50">—</span>;
+    }
+    return null;
+  }
+
+  /* -------------------------------- Render tabela --------------------------- */
+
+  function tabela(linhas: Tarefa[], vazio: string, comNova = false, comRodape = true) {
+    const idsLinhas = linhas.map((l) => l.id);
+    const todasSel = idsLinhas.length > 0 && idsLinhas.every((id) => selecao.has(id));
     return (
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 40 }} />
+              {colsVisiveis.map((col) => <col key={col.key} style={larguras[col.key] ? { width: larguras[col.key] } : undefined} />)}
+            </colgroup>
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th className="px-3 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Selecionar todas"
+                    checked={todasSel}
+                    onChange={(e) => toggleSelTodas(idsLinhas, e.target.checked)}
+                    className="size-3.5 cursor-pointer accent-primary"
+                  />
+                </th>
                 {colsVisiveis.map((col) => (
-                  <th key={col.key} className="relative px-4 py-3 font-medium"
-                    style={larguras[col.key] ? { width: larguras[col.key] } : undefined}>
+                  <th key={col.key} className="relative px-4 py-3 font-medium">
                     {col.label}
                     <span role="separator" aria-orientation="vertical" aria-label="Redimensionar"
                       onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)}
@@ -517,36 +795,45 @@ export function TarefasTabela({
             <tbody>
               {linhas.length === 0 ? (
                 <tr>
-                  <td colSpan={colsVisiveis.length || 1} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={colsVisiveis.length + 1} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     {vazio}
                   </td>
                 </tr>
-              ) : linhas.map((t) => (
-                <tr
-                  key={t.id}
-                  onClick={() => onAbrir(t.id)}
-                  className={cn('cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50', tarefaConcluida(statusEfetivo(t)) && 'opacity-60')}
-                >
-                  {colsVisiveis.map((col) => (
-                    <td
-                      key={col.key}
-                      onClick={EDITAVEIS.has(col.key) ? (e) => {
-                        e.stopPropagation();
-                        setEditCell({ id: t.id, campo: col.key });
-                      } : undefined}
-                      className={cn(
-                        'overflow-hidden px-4 py-3 align-middle text-muted-foreground',
-                        EDITAVEIS.has(col.key) && 'hover:bg-secondary/70',
-                      )}
-                    >
-                      {celula(t, col.key)}
+              ) : linhas.map((t) => {
+                const sel = selecao.has(t.id);
+                return (
+                  <tr
+                    key={t.id}
+                    onClick={() => onAbrir(t.id)}
+                    className={cn('group cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50',
+                      tarefaConcluida(statusEfetivo(t)) && 'opacity-60', sel && 'bg-primary/5')}
+                  >
+                    <td className="px-3 py-3 align-middle" onClick={(e) => { e.stopPropagation(); toggleSel(t.id); }}>
+                      <input
+                        type="checkbox"
+                        aria-label="Selecionar tarefa"
+                        checked={sel}
+                        onChange={() => toggleSel(t.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn('size-3.5 cursor-pointer accent-primary transition-opacity', sel ? 'opacity-100' : 'opacity-30 group-hover:opacity-100')}
+                      />
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    {colsVisiveis.map((col) => (
+                      <td
+                        key={col.key}
+                        onClick={EDITAVEIS.has(col.key) ? (e) => { e.stopPropagation(); setEditCell({ id: t.id, campo: col.key }); } : undefined}
+                        className={cn('overflow-hidden px-4 py-3 align-middle text-muted-foreground',
+                          EDITAVEIS.has(col.key) && 'hover:bg-secondary/70')}
+                      >
+                        {celula(t, col.key)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
               {comNova && onNovaLinha && (
                 <tr className="border-t border-border">
-                  <td colSpan={colsVisiveis.length || 1} className="px-4 py-2.5">
+                  <td colSpan={colsVisiveis.length + 1} className="px-4 py-2.5">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onNovaLinha(); }}
@@ -558,15 +845,27 @@ export function TarefasTabela({
                 </tr>
               )}
             </tbody>
+            {comRodape && linhas.length > 0 && (
+              <tfoot>
+                <tr className="border-t border-border bg-secondary/30 text-xs text-muted-foreground">
+                  <td className="px-3 py-2" />
+                  {colsVisiveis.map((col) => (
+                    <td key={col.key} className="px-4 py-2 align-middle">{rodapeCelula(linhas, col.key)}</td>
+                  ))}
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </Card>
     );
   }
 
+  /* -------------------------------- JSX ------------------------------------- */
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Filtros + ordenação + colunas */}
+    <div className="flex flex-col gap-4 pb-16">
+      {/* Filtros + agrupamento + ordenação + colunas */}
       <div className="flex flex-wrap items-center gap-2">
         <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label="Filtrar por status"
           className={cn(filtroCls, fStatus ? 'text-foreground' : 'text-muted-foreground')}>
@@ -594,6 +893,13 @@ export function TarefasTabela({
           {mesesDisponiveis.map((m) => <option key={m} value={m}>{rotuloMes(m)}</option>)}
         </select>
         <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-md border border-input bg-background/40 pl-2.5 pr-1">
+            <Layers className="size-3.5 text-muted-foreground" />
+            <select value={groupBy} onChange={(e) => trocarGroupBy(e.target.value as GroupBy)} aria-label="Agrupar por"
+              className="h-9 bg-transparent pr-1 text-sm text-foreground focus-visible:outline-none">
+              {GROUPS.map((g) => <option key={g.v} value={g.v}>{g.label}</option>)}
+            </select>
+          </div>
           <select value={ordem} onChange={(e) => trocarOrdem(e.target.value as Ordem)} aria-label="Ordenar"
             className={cn(filtroCls, 'text-foreground')}>
             {ORDENS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
@@ -602,41 +908,129 @@ export function TarefasTabela({
         </div>
       </div>
 
-      {mesSel && (
-        <p className="-mb-1 text-xs text-muted-foreground">
-          Mostrando <span className="font-medium text-foreground">{rotuloMes(mesSel)}</span>
-        </p>
+      {/* --- Modo agrupado --- */}
+      {groupBy !== 'none' ? (
+        grupos.length === 0 ? (
+          tabela([], 'Nenhuma tarefa neste filtro.', false, false)
+        ) : (
+          grupos.map((g) => {
+            const fechado = gruposFechados.has(g.chave);
+            return (
+              <div key={g.chave}>
+                <button
+                  type="button"
+                  onClick={() => setGruposFechados((s) => { const n = new Set(s); if (n.has(g.chave)) n.delete(g.chave); else n.add(g.chave); return n; })}
+                  className="mb-2 flex w-full items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm transition-colors hover:bg-secondary/50"
+                >
+                  <ChevronDown className={cn('size-4 text-muted-foreground transition-transform', fechado && '-rotate-90')} />
+                  <span className="font-medium text-foreground">{g.label}</span>
+                  <Badge variant="muted" className="text-[10px]">{g.linhas.length}</Badge>
+                </button>
+                {!fechado && tabela(g.linhas, 'Vazio.', false)}
+              </div>
+            );
+          })
+        )
+      ) : (
+        /* --- Modo sem agrupar: abertas / atrasadas / concluídas --- */
+        <>
+          {mesSel && (
+            <p className="-mb-1 text-xs text-muted-foreground">
+              Mostrando <span className="font-medium text-foreground">{rotuloMes(mesSel)}</span>
+            </p>
+          )}
+
+          {tabela(abertas, mesSel ? `Nenhuma tarefa em ${rotuloMes(mesSel)}.` : 'Nenhuma tarefa neste filtro.', true)}
+
+          <p className="pt-1 text-right text-xs text-muted-foreground">
+            {abertas.length} {abertas.length === 1 ? 'tarefa em aberto' : 'tarefas em aberto'}
+          </p>
+
+          {atrasadas.length > 0 && (
+            <div>
+              <button type="button" onClick={() => setAtrasadasAbertas((v) => !v)}
+                className="flex w-full items-center justify-between rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm transition-colors hover:bg-destructive/15">
+                <span className="font-medium text-destructive">
+                  ⚠ Atrasadas de meses anteriores <span className="opacity-70">({atrasadas.length})</span>
+                </span>
+                <ChevronDown className={cn('size-4 text-destructive transition-transform', atrasadasAbertas && 'rotate-180')} />
+              </button>
+              {atrasadasAbertas && <div className="mt-2">{tabela(atrasadas, 'Nenhuma atrasada.', false)}</div>}
+            </div>
+          )}
+
+          {concluidas.length > 0 && (
+            <div>
+              <button type="button" onClick={() => setConcluidasAbertas((v) => !v)}
+                className="flex w-full items-center justify-between rounded-md border border-border bg-card px-4 py-2.5 text-sm transition-colors hover:bg-secondary/50">
+                <span className="font-medium text-muted-foreground">
+                  Tarefas concluídas <span className="text-muted-foreground/70">({concluidas.length})</span>
+                </span>
+                <ChevronDown className={cn('size-4 text-muted-foreground transition-transform', concluidasAbertas && 'rotate-180')} />
+              </button>
+              {concluidasAbertas && <div className="mt-2">{tabela(concluidas, 'Nenhuma tarefa concluída.', false)}</div>}
+            </div>
+          )}
+        </>
       )}
 
-      {tabela(abertas, mesSel ? `Nenhuma tarefa em ${rotuloMes(mesSel)}.` : 'Nenhuma tarefa neste filtro.', true)}
+      {/* --- Barra de ações em massa (S3) --- */}
+      {selecao.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card px-3 py-2 shadow-lg">
+          <span className="px-1.5 text-sm font-medium">{selecao.size} selecionada{selecao.size > 1 ? 's' : ''}</span>
+          <span className="h-5 w-px bg-border" />
 
-      <p className="pt-1 text-right text-xs text-muted-foreground">
-        {abertas.length} {abertas.length === 1 ? 'tarefa em aberto' : 'tarefas em aberto'}
-      </p>
+          {/* Status em massa */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-1 text-xs">Status <ChevronDown className="size-3" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="max-h-72 w-56 overflow-y-auto">
+              {getGrupos().map((g) => {
+                const ops = opcoesDoGrupo(g.id);
+                if (!ops.length) return null;
+                return (
+                  <div key={g.id}>
+                    <DropdownMenuLabel className="text-[10px] uppercase text-muted-foreground">{g.nome}</DropdownMenuLabel>
+                    {ops.map((o) => (
+                      <DropdownMenuItem key={o.id} onSelect={() => aplicarEmMassa(espelhoStatus(o.id))}>{o.nome}</DropdownMenuItem>
+                    ))}
+                  </div>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-      {atrasadas.length > 0 && (
-        <div>
-          <button type="button" onClick={() => setAtrasadasAbertas((v) => !v)}
-            className="flex w-full items-center justify-between rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm transition-colors hover:bg-destructive/15">
-            <span className="font-medium text-destructive">
-              ⚠ Atrasadas de meses anteriores <span className="opacity-70">({atrasadas.length})</span>
-            </span>
-            <ChevronDown className={cn('size-4 text-destructive transition-transform', atrasadasAbertas && 'rotate-180')} />
-          </button>
-          {atrasadasAbertas && <div className="mt-2">{tabela(atrasadas, 'Nenhuma atrasada.')}</div>}
-        </div>
-      )}
+          {/* Prioridade em massa */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-1 text-xs">Prioridade <ChevronDown className="size-3" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center">
+              {(['alta', 'media', 'baixa'] as const).map((p) => (
+                <DropdownMenuItem key={p} onSelect={() => aplicarEmMassa({ prioridade: p })}>{rotuloPrioridade(p)}</DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-      {concluidas.length > 0 && (
-        <div>
-          <button type="button" onClick={() => setConcluidasAbertas((v) => !v)}
-            className="flex w-full items-center justify-between rounded-md border border-border bg-card px-4 py-2.5 text-sm transition-colors hover:bg-secondary/50">
-            <span className="font-medium text-muted-foreground">
-              Tarefas concluídas <span className="text-muted-foreground/70">({concluidas.length})</span>
-            </span>
-            <ChevronDown className={cn('size-4 text-muted-foreground transition-transform', concluidasAbertas && 'rotate-180')} />
-          </button>
-          {concluidasAbertas && <div className="mt-2">{tabela(concluidas, 'Nenhuma tarefa concluída.')}</div>}
+          {/* Prazo em massa */}
+          <label className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            Prazo
+            <input
+              type="date"
+              aria-label="Definir prazo em massa"
+              onChange={(e) => { if (e.target.value) aplicarEmMassa({ prazo: e.target.value }); }}
+              className="h-7 rounded border border-input bg-background px-1.5 text-xs focus-visible:outline-none"
+            />
+          </label>
+
+          <span className="h-5 w-px bg-border" />
+          <Button variant="ghost" size="sm" className="gap-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={apagarEmMassa}>
+            <Trash2 className="size-3.5" /> Apagar
+          </Button>
+          <Button variant="ghost" size="icon" className="size-7" aria-label="Limpar seleção" onClick={limparSelecao}>
+            <X className="size-4" />
+          </Button>
         </div>
       )}
     </div>

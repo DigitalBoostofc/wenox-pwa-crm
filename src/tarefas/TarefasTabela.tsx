@@ -150,6 +150,18 @@ function carregarMes(prefix: string): string {
 function pesoPrioridade(p?: string) { return p === 'alta' ? 0 : p === 'baixa' ? 2 : 1; }
 function rotuloPrioridade(p?: string) { return p === 'alta' ? 'Alta' : p === 'baixa' ? 'Baixa' : 'Média'; }
 
+/**
+ * Valida uma data vinda de <input type="date"> antes de gravar. O input dispara
+ * onChange/onBlur com valores PARCIAIS enquanto o ano é digitado (ex.: 0002-08-20
+ * antes de completar 2026) — gravar isso corrompe o prazo. Aceita vazio (limpar)
+ * ou uma data ISO com ano de 4 dígitos plausível. (Corrige F-013.)
+ */
+function dataValida(v: string): boolean {
+  if (v === '') return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  return Number(v.slice(0, 4)) >= 1000;
+}
+
 export type CatPrazo = '' | 'vencida' | 'hoje' | 'amanha' | 'futuro';
 export function catPrazoData(prazo?: string, feito?: boolean): CatPrazo {
   if (!prazo) return '';
@@ -337,6 +349,7 @@ export function TarefasTabela({
   const [comentado, setComentado] = useState<Record<string, boolean>>({});
   // Seleção para ações em massa.
   const [selecao, setSelecao] = useState<Set<string>>(new Set());
+  const [confirmandoApagar, setConfirmandoApagar] = useState(false);
 
   /** Salva qualquer campo inline com atualização otimista e reversa em erro. */
   async function salvarInline(id: string, parcial: Partial<Tarefa>) {
@@ -440,7 +453,7 @@ export function TarefasTabela({
       return n;
     });
   }
-  function limparSelecao() { setSelecao(new Set()); }
+  function limparSelecao() { setSelecao(new Set()); setConfirmandoApagar(false); }
 
   async function aplicarEmMassa(parcial: Partial<Tarefa>) {
     const ids = [...selecao];
@@ -454,10 +467,10 @@ export function TarefasTabela({
     try { await Promise.all(ids.map((id) => atualizarTarefa(id, parcial as never))); onMudou?.(); } catch { /* */ }
   }
 
+  // Confirmação in-app (sem window.confirm nativo, que bloqueia o renderer — F-014).
   async function apagarEmMassa() {
     const ids = [...selecao];
     if (!ids.length) return;
-    if (!confirm(`Apagar ${ids.length} ${ids.length === 1 ? 'tarefa' : 'tarefas'}? Esta ação não pode ser desfeita.`)) return;
     limparSelecao();
     try { await Promise.all(ids.map((id) => removerTarefa(id))); onMudou?.(); } catch { /* */ }
   }
@@ -547,7 +560,7 @@ export function TarefasTabela({
             type="date"
             autoFocus
             defaultValue={(te.prazo ?? '').slice(0, 10)}
-            onBlur={(e) => { salvarInline(t.id, { prazo: e.target.value }); setEditCell(null); }}
+            onBlur={(e) => { const v = e.target.value; if (dataValida(v)) salvarInline(t.id, { prazo: v }); setEditCell(null); }}
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -977,60 +990,74 @@ export function TarefasTabela({
       {/* --- Barra de ações em massa (S3) --- */}
       {selecao.size > 0 && (
         <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card px-3 py-2 shadow-lg">
-          <span className="px-1.5 text-sm font-medium">{selecao.size} selecionada{selecao.size > 1 ? 's' : ''}</span>
-          <span className="h-5 w-px bg-border" />
+          {confirmandoApagar ? (
+            <>
+              <span className="px-1.5 text-sm">
+                Apagar <span className="font-medium">{selecao.size}</span> {selecao.size === 1 ? 'tarefa' : 'tarefas'}? Não dá pra desfazer.
+              </span>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={() => setConfirmandoApagar(false)}>Cancelar</Button>
+              <Button size="sm" className="gap-1 bg-destructive text-xs text-destructive-foreground hover:bg-destructive/90" onClick={apagarEmMassa}>
+                <Trash2 className="size-3.5" /> Apagar
+              </Button>
+            </>
+          ) : (
+            <>
+              <span className="px-1.5 text-sm font-medium">{selecao.size} selecionada{selecao.size > 1 ? 's' : ''}</span>
+              <span className="h-5 w-px bg-border" />
 
-          {/* Status em massa */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-1 text-xs">Status <ChevronDown className="size-3" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="max-h-72 w-56 overflow-y-auto">
-              {getGrupos().map((g) => {
-                const ops = opcoesDoGrupo(g.id);
-                if (!ops.length) return null;
-                return (
-                  <div key={g.id}>
-                    <DropdownMenuLabel className="text-[10px] uppercase text-muted-foreground">{g.nome}</DropdownMenuLabel>
-                    {ops.map((o) => (
-                      <DropdownMenuItem key={o.id} onSelect={() => aplicarEmMassa(espelhoStatus(o.id))}>{o.nome}</DropdownMenuItem>
-                    ))}
-                  </div>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              {/* Status em massa */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-1 text-xs">Status <ChevronDown className="size-3" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="max-h-72 w-56 overflow-y-auto">
+                  {getGrupos().map((g) => {
+                    const ops = opcoesDoGrupo(g.id);
+                    if (!ops.length) return null;
+                    return (
+                      <div key={g.id}>
+                        <DropdownMenuLabel className="text-[10px] uppercase text-muted-foreground">{g.nome}</DropdownMenuLabel>
+                        {ops.map((o) => (
+                          <DropdownMenuItem key={o.id} onSelect={() => aplicarEmMassa(espelhoStatus(o.id))}>{o.nome}</DropdownMenuItem>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-          {/* Prioridade em massa */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-1 text-xs">Prioridade <ChevronDown className="size-3" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center">
-              {(['alta', 'media', 'baixa'] as const).map((p) => (
-                <DropdownMenuItem key={p} onSelect={() => aplicarEmMassa({ prioridade: p })}>{rotuloPrioridade(p)}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              {/* Prioridade em massa */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-1 text-xs">Prioridade <ChevronDown className="size-3" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center">
+                  {(['alta', 'media', 'baixa'] as const).map((p) => (
+                    <DropdownMenuItem key={p} onSelect={() => aplicarEmMassa({ prioridade: p })}>{rotuloPrioridade(p)}</DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-          {/* Prazo em massa */}
-          <label className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-            Prazo
-            <input
-              type="date"
-              aria-label="Definir prazo em massa"
-              onChange={(e) => { if (e.target.value) aplicarEmMassa({ prazo: e.target.value }); }}
-              className="h-7 rounded border border-input bg-background px-1.5 text-xs focus-visible:outline-none"
-            />
-          </label>
+              {/* Prazo em massa */}
+              <label className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                Prazo
+                <input
+                  type="date"
+                  aria-label="Definir prazo em massa"
+                  onChange={(e) => { const v = e.target.value; if (v && dataValida(v)) aplicarEmMassa({ prazo: v }); }}
+                  className="h-7 rounded border border-input bg-background px-1.5 text-xs focus-visible:outline-none"
+                />
+              </label>
 
-          <span className="h-5 w-px bg-border" />
-          <Button variant="ghost" size="sm" className="gap-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={apagarEmMassa}>
-            <Trash2 className="size-3.5" /> Apagar
-          </Button>
-          <Button variant="ghost" size="icon" className="size-7" aria-label="Limpar seleção" onClick={limparSelecao}>
-            <X className="size-4" />
-          </Button>
+              <span className="h-5 w-px bg-border" />
+              <Button variant="ghost" size="sm" className="gap-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setConfirmandoApagar(true)}>
+                <Trash2 className="size-3.5" /> Apagar
+              </Button>
+              <Button variant="ghost" size="icon" className="size-7" aria-label="Limpar seleção" onClick={limparSelecao}>
+                <X className="size-4" />
+              </Button>
+            </>
+          )}
         </div>
       )}
     </div>

@@ -17,7 +17,7 @@ import {
   catPrazoData, corPrazo, pesoPrioridade, rotuloPrioridade, nomeClienteDe,
   type GroupBy, GROUPS,
   type FiltroCampo, type FiltroRegra, CAMPOS_FILTRO, CATS_PRAZO,
-  type OrdemRegra, ORDEM_CAMPOS, aplicarFiltros, aplicarOrdens,
+  type OrdemRegra, ORDEM_CAMPOS, aplicarFiltros, aplicarOrdens, modoManual,
   type ViewState, type ViewSalva, novoId, mesmoEstado,
   carregarViewState, salvarViewState, carregarViews, salvarViews,
   carregarViewAtiva, salvarViewAtiva,
@@ -348,6 +348,7 @@ export function TarefasTabela({
 
   const [selecao, setSelecao] = useState<Set<string>>(new Set());
   const [confirmandoApagar, setConfirmandoApagar] = useState(false);
+  const [arrastando, setArrastando] = useState<string | null>(null);
 
   /* ----------------------------- View state helpers ----------------------- */
 
@@ -515,6 +516,53 @@ export function TarefasTabela({
     if (!ids.length) return;
     limparSelecao();
     try { await Promise.all(ids.map((id) => removerTarefa(id))); onMudou?.(); } catch { /* */ }
+  }
+
+  /* ----------------------------- Reordenar por arrasto (S8) --------------- */
+
+  // Só faz sentido no modo manual (sem critérios de ordenação) e sem agrupar.
+  const reordenavel = modoManual(ordens) && groupBy === 'none';
+
+  /** Move `arrastadoId` para antes de `alvoId` na lista visível e regrava `ordem`. */
+  async function reordenar(linhas: Tarefa[], arrastadoId: string, alvoId: string) {
+    if (arrastadoId === alvoId) return;
+    const ids = linhas.map((l) => l.id);
+    const de = ids.indexOf(arrastadoId);
+    const para = ids.indexOf(alvoId);
+    if (de < 0 || para < 0) return;
+    const nova = [...linhas];
+    const [it] = nova.splice(de, 1);
+    nova.splice(para, 0, it);
+    // Regrava ordem sequencial (0,10,20…); persiste só o que mudou.
+    const mudancas: { id: string; ordem: number }[] = [];
+    nova.forEach((t, i) => {
+      const ordemNova = i * 10;
+      if ((tarefaMesclada(t).ordem ?? 0) !== ordemNova) mudancas.push({ id: t.id, ordem: ordemNova });
+    });
+    if (!mudancas.length) return;
+    setLocalOverrides((prev) => {
+      const n = { ...prev };
+      for (const m of mudancas) n[m.id] = { ...(n[m.id] ?? {}), ordem: m.ordem };
+      return n;
+    });
+    try { await Promise.all(mudancas.map((m) => atualizarTarefa(m.id, { ordem: m.ordem } as never))); onMudou?.(); } catch { /* */ }
+  }
+
+  /* ----------------------------- Navegação por teclado (S9) --------------- */
+
+  function onRowKey(e: React.KeyboardEvent<HTMLTableRowElement>, id: string) {
+    // Só age quando a própria linha está focada (não interfere nos editores inline).
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const rows = Array.from(e.currentTarget.closest('tbody')?.querySelectorAll<HTMLTableRowElement>('tr[data-row]') ?? []);
+      const i = rows.indexOf(e.currentTarget);
+      rows[i + (e.key === 'ArrowDown' ? 1 : -1)]?.focus();
+    } else if (e.key === 'Enter') {
+      e.preventDefault(); onAbrir(id);
+    } else if (e.key === ' ') {
+      e.preventDefault(); toggleSel(id);
+    }
   }
 
   /* ------------------------------- Rótulo de chip --------------------------- */
@@ -775,7 +823,7 @@ export function TarefasTabela({
 
   /* -------------------------------- Render tabela --------------------------- */
 
-  function tabela(linhas: Tarefa[], vazio: string, comNova = false, comRodape = true) {
+  function tabela(linhas: Tarefa[], vazio: string, comNova = false, comRodape = true, ordenavel = false) {
     const idsLinhas = linhas.map((l) => l.id);
     const todasSel = idsLinhas.length > 0 && idsLinhas.every((id) => selecao.has(id));
     return (
@@ -783,7 +831,7 @@ export function TarefasTabela({
         <div className="overflow-x-auto">
           <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: 40 }} />
+              <col style={{ width: ordenavel ? 64 : 44 }} />
               {colsVisiveis.map((col) => <col key={col.key} style={larguras[col.key] ? { width: larguras[col.key] } : undefined} />)}
             </colgroup>
             <thead>
@@ -811,13 +859,28 @@ export function TarefasTabela({
               ) : linhas.map((t) => {
                 const sel = selecao.has(t.id);
                 return (
-                  <tr key={t.id} onClick={() => onAbrir(t.id)}
-                    className={cn('group cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50',
-                      tarefaConcluida(statusEfetivo(t)) && 'opacity-60', sel && 'bg-primary/5')}>
-                    <td className="px-3 py-3 align-middle" onClick={(e) => { e.stopPropagation(); toggleSel(t.id); }}>
-                      <input type="checkbox" aria-label="Selecionar tarefa" checked={sel}
-                        onChange={() => toggleSel(t.id)} onClick={(e) => e.stopPropagation()}
-                        className={cn('size-3.5 cursor-pointer accent-primary transition-opacity', sel ? 'opacity-100' : 'opacity-30 group-hover:opacity-100')} />
+                  <tr key={t.id} data-row tabIndex={0} onClick={() => onAbrir(t.id)} onKeyDown={(e) => onRowKey(e, t.id)}
+                    onDragOver={ordenavel && arrastando ? (e) => e.preventDefault() : undefined}
+                    onDrop={ordenavel && arrastando ? (e) => { e.preventDefault(); reordenar(linhas, arrastando, t.id); setArrastando(null); } : undefined}
+                    className={cn('group cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
+                      tarefaConcluida(statusEfetivo(t)) && 'opacity-60', sel && 'bg-primary/5', arrastando === t.id && 'opacity-40')}>
+                    <td className="px-3 py-3 align-middle">
+                      <div className="flex items-center gap-1">
+                        {ordenavel && (
+                          <span
+                            draggable
+                            onDragStart={(e) => { e.stopPropagation(); setArrastando(t.id); e.dataTransfer.effectAllowed = 'move'; }}
+                            onDragEnd={() => setArrastando(null)}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Arraste para reordenar"
+                            className="cursor-grab text-muted-foreground/40 opacity-0 transition-opacity hover:text-muted-foreground group-hover:opacity-100 active:cursor-grabbing">
+                            <GripVertical className="size-4" />
+                          </span>
+                        )}
+                        <input type="checkbox" aria-label="Selecionar tarefa" checked={sel}
+                          onChange={() => toggleSel(t.id)} onClick={(e) => e.stopPropagation()}
+                          className={cn('size-3.5 cursor-pointer accent-primary transition-opacity', sel ? 'opacity-100' : 'opacity-30 group-hover:opacity-100')} />
+                      </div>
                     </td>
                     {colsVisiveis.map((col) => (
                       <td key={col.key}
@@ -1011,10 +1074,11 @@ export function TarefasTabela({
         <>
           {mesSel && <p className="-mb-1 text-xs text-muted-foreground">Mostrando <span className="font-medium text-foreground">{rotuloMes(mesSel)}</span></p>}
 
-          {tabela(abertas, mesSel ? `Nenhuma tarefa em ${rotuloMes(mesSel)}.` : 'Nenhuma tarefa neste filtro.', true)}
+          {tabela(abertas, mesSel ? `Nenhuma tarefa em ${rotuloMes(mesSel)}.` : 'Nenhuma tarefa neste filtro.', true, true, reordenavel)}
 
-          <p className="pt-1 text-right text-xs text-muted-foreground">
-            {abertas.length} {abertas.length === 1 ? 'tarefa em aberto' : 'tarefas em aberto'}
+          <p className="pt-1 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+            {reordenavel && <span className="text-muted-foreground/60">Arraste pelo ⠿ para reordenar · ↑/↓ navega · Enter abre</span>}
+            <span>{abertas.length} {abertas.length === 1 ? 'tarefa em aberto' : 'tarefas em aberto'}</span>
           </p>
 
           {atrasadas.length > 0 && (

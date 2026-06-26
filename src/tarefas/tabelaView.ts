@@ -160,12 +160,26 @@ function comparar(a: Tarefa, b: Tarefa, campo: OrdemCampo): number {
   }
 }
 
+/** Sem critérios de ordenação = modo MANUAL: respeita o campo `ordem` (arrasto),
+ *  com prazo como desempate. Retrocompatível: itens nunca arrastados têm ordem 0
+ *  e caem direto no prazo, igual ao comportamento anterior. */
+export function modoManual(ordens: OrdemRegra[]): boolean {
+  return ordens.length === 0;
+}
+
 /** Ordena por vários critérios em cascata; `mesclar` aplica overrides locais. */
 export function aplicarOrdens(tarefas: Tarefa[], ordens: OrdemRegra[], mesclar: (t: Tarefa) => Tarefa): Tarefa[] {
-  const regras = ordens.length ? ordens : [{ campo: 'prazo' as OrdemCampo, dir: 'asc' as Dir }];
+  if (modoManual(ordens)) {
+    return [...tarefas].sort((a, b) => {
+      const ma = mesclar(a); const mb = mesclar(b);
+      const oa = ma.ordem ?? 0; const ob = mb.ordem ?? 0;
+      if (oa !== ob) return oa - ob;
+      return comparar(ma, mb, 'prazo');
+    });
+  }
   return [...tarefas].sort((a, b) => {
     const ma = mesclar(a); const mb = mesclar(b);
-    for (const r of regras) {
+    for (const r of ordens) {
       const d = comparar(ma, mb, r.campo);
       if (d !== 0) return r.dir === 'desc' ? -d : d;
     }

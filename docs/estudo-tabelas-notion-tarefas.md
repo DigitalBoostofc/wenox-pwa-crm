@@ -134,8 +134,10 @@ Quebra de texto / altura de linha, congelar a coluna "Tarefa", exportar CSV. Pol
 
 1. **Sprint 1 (quick wins):** S1 + S2 + S3 + S4 — ✅ ENTREGUE (em produção). Edição inline ampla, agrupar por, ações em massa, rodapé.
 2. **Sprint 2 (poder):** S5 + S6 + S7 — ✅ ENTREGUE (em produção). Visões salvas/nomeadas, filtros compostos (chips) e ordenação multinível. Lógica pura em `src/tarefas/tabelaView.ts`.
-3. **Sprint 3 (produtividade):** S8 + S9 — arrasto de linhas e navegação por teclado. (pendente)
+3. **Sprint 3 (produtividade):** S8 + S9 — ✅ ENTREGUE (em produção). Arrasto de linhas para reordenar (modo manual) e navegação por teclado (↑/↓/Enter/Espaço).
 4. **Backlog estratégico:** S10–S13 conforme a necessidade do negócio aparecer.
+
+> **Notas da Sprint 3:** o arrasto (grip ⠿) só aparece no modo **manual** — sem critérios de ordenação ativos e sem agrupamento — porque reordenar à mão conflita com ordenar por campo. A ordem manual é gravada no campo `ordem` (já existente no schema) e vira a ordenação padrão (com prazo de desempate), retrocompatível. Teclado: com uma linha focada, ↑/↓ navega, Enter abre o painel, Espaço marca/desmarca. A edição célula-a-célula por teclado (estilo planilha) ficou para depois — os editores inline são acionados por clique.
 
 > **Notas da Sprint 2:** filtros são em **AND** (operador OU fica para depois). Visões salvas guardam filtros + ordenação + agrupamento; **colunas/larguras** seguem persistidas globalmente por área (não entram na visão ainda). O filtro de **Mês** continua separado por causa da lógica de "Atrasadas" (competência anterior ao mês selecionado).
 

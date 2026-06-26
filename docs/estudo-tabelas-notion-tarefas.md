@@ -142,3 +142,39 @@ Quebra de texto / altura de linha, congelar a coluna "Tarefa", exportar CSV. Pol
 > **Notas da Sprint 2:** filtros são em **AND** (operador OU fica para depois). Visões salvas guardam filtros + ordenação + agrupamento; **colunas/larguras** seguem persistidas globalmente por área (não entram na visão ainda). O filtro de **Mês** continua separado por causa da lógica de "Atrasadas" (competência anterior ao mês selecionado).
 
 > Nada aqui reintroduz etapas/fluxo — segue 100% manual, estilo Notion, como definido no MVP.
+
+---
+
+## 5. Pesquisa adicional — recursos do Notion ainda não mapeados (2026-06-26)
+
+Revisão das *databases* do Notion buscando o que **ainda falta** além de S1–S13. ⚡ = frontend puro (sem schema), dá pra fazer já; 🔒 = exige migração de schema/decisão de produto.
+
+**Novos — frontend, sem schema (⚡):**
+- **N1. Menu no cabeçalho da coluna** — clicar no título abre ações: ordenar ↑/↓ por ela, ocultar, filtrar por ela. Interação-assinatura do Notion; reusa ordens/colDefs/filtros.
+- **N2. Cabeçalho fixo (sticky)** — o cabeçalho gruda no topo ao rolar. ⏸️ ADIADO: o wrapper `overflow-x-auto` (rolagem horizontal) vira contêiner de scroll e quebra o `position: sticky` relativo à página; precisa de outra abordagem (ex.: caixa com altura máxima e scroll interno) antes de valer a pena.
+- **N3. Densidade / altura de linha** — alternar Compacto/Confortável.
+- **N4. Colunas de auditoria** — "Criado em" / "Atualizado em" como colunas somente-leitura (dados já em `created`/`updated`).
+- **N5. Exportar CSV** — baixa a visão atual (filtrada+ordenada+colunas visíveis). [= parte do S13]
+- **N6. Calc por coluna no rodapé** — escolher a agregação de cada coluna em vez de fixa. [evolui S4]
+- **N7. Grupos coloridos + recolher todos** — cabeçalho do grupo de status com a cor da opção.
+- **N8. Filtros OU / grupos aninhados** — hoje só AND. [evolui S6]
+- **N9. Formatação condicional** — pintar linha/célula por regra (ex.: vencida, prioridade alta).
+- **N10. Duplicar tarefa** — ação de linha/massa que cria cópia (usa `criarTarefa`).
+- **N11. Congelar 1ª coluna** — coluna "Tarefa" fixa ao rolar na horizontal. [parte do S13]
+- **N12. Busca na tabela** — campo de busca textual escopado à tabela.
+
+**Novos — exigem schema/decisão (🔒):**
+- **N13. Tipos de coluna ricos** — Número, Checkbox, URL, Arquivos, Data com hora/intervalo → **migração de schema** em `tarefas` (campo fora do schema é descartado — ver [[reference-infra-prod]]).
+- **N14. Rollup** — agregar dados relacionados (ex.: nº de posts do projeto na linha) → leitura cross-coleção.
+- **N15. Sub-itens (hierarquia pai-filho)** — campo `parent` + UI de indentação.
+- **N16. Fórmulas** — coluna calculada por expressão.
+- **N17. Visões Calendário e Timeline/Gantt** (grande) — telas novas; Timeline precisa de data de início.
+
+### Sprint 4 (entregue) — leva segura sem schema
+**N1 + N3 + N4 + N5** (N2 adiado — ver acima). Tudo frontend reusando o existente:
+- N1 menu no cabeçalho da coluna (ordenar ↑/↓, filtrar por, ocultar);
+- N3 alternância de densidade (Compacto/Confortável), persistida;
+- N4 colunas "Criado em"/"Atualizado em" (somente leitura);
+- N5 export CSV da visão atual (linhas filtradas/ordenadas + colunas visíveis, com BOM p/ Excel).
+
+Os ⚡ restantes (N2, N6–N12) e os 🔒 (N13–N17) seguem no backlog; os 🔒 dependem de decisão de produto + migração de schema antes de qualquer escrita.

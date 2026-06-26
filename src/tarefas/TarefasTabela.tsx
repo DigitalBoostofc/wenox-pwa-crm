@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   SlidersHorizontal, GripVertical, UserRound, ChevronDown, Plus,
   Check, X, Trash2, Maximize2, Layers, ArrowUpDown, ArrowUp, ArrowDown,
-  Filter, Bookmark, Save,
+  Filter, Bookmark, Save, Download, EyeOff, Rows3, Rows4,
 } from 'lucide-react';
 import type { Tarefa } from './types';
 import { prazoBR, tarefaConcluida } from './format';
@@ -43,7 +43,7 @@ const filtroCls =
 
 export type ColKey =
   | 'cliente' | 'projeto' | 'tarefa' | 'status' | 'prazo' | 'prioridade' | 'responsaveis'
-  | 'etiquetas' | 'descricao' | 'comentario';
+  | 'etiquetas' | 'descricao' | 'comentario' | 'criado' | 'atualizado';
 
 export interface ColDef { key: ColKey; label: string; visivel: boolean }
 
@@ -58,7 +58,26 @@ const COLS_PADRAO: ColDef[] = [
   { key: 'etiquetas', label: 'Etiquetas', visivel: false },
   { key: 'descricao', label: 'Descrição', visivel: false },
   { key: 'comentario', label: 'Comentário', visivel: false },
+  { key: 'criado', label: 'Criado em', visivel: false },
+  { key: 'atualizado', label: 'Atualizado em', visivel: false },
 ];
+
+/** Mapa coluna → campo de ordenação (quando aplicável), p/ o menu do cabeçalho (N1). */
+const COL_ORDEM: Partial<Record<ColKey, OrdemRegra['campo']>> = {
+  tarefa: 'nome', status: 'status', prazo: 'prazo', prioridade: 'prioridade', cliente: 'cliente', criado: 'criado',
+};
+/** Mapa coluna → campo de filtro (quando aplicável), p/ o menu do cabeçalho (N1). */
+const COL_FILTRO: Partial<Record<ColKey, FiltroCampo>> = {
+  tarefa: 'nome', status: 'status', prazo: 'prazo', prioridade: 'prioridade', cliente: 'cliente', responsaveis: 'responsavel', etiquetas: 'etiqueta',
+};
+
+/** dd/mm/aaaa a partir de um ISO datetime do PocketBase. */
+function fmtDataHora(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
 
 const EDITAVEIS = new Set<ColKey>(['tarefa', 'status', 'prazo', 'prioridade', 'responsaveis', 'etiquetas', 'descricao', 'comentario']);
 
@@ -330,6 +349,9 @@ export function TarefasTabela({
   const [colDefs, setColDefs] = useState<ColDef[]>(() => carregarColunas(persistPrefix, colunasPadrao));
   const [larguras, setLarguras] = useState<Larguras>(() => carregarLarguras(persistPrefix));
   const [fMes, setFMes] = useState(() => carregarMes(persistPrefix));
+  const [compacto, setCompacto] = useState(() => {
+    try { return localStorage.getItem(`${persistPrefix}-densidade-v1`) === 'compacto'; } catch { return false; }
+  });
 
   // Estado de visão (filtros + ordens + agrupamento) + visões salvas (S5/S6/S7).
   const [viewState, setViewState] = useState<ViewState>(() => carregarViewState(persistPrefix));
@@ -428,6 +450,45 @@ export function TarefasTabela({
     });
   }
   function trocarMes(m: string) { setFMes(m); try { localStorage.setItem(`${persistPrefix}-mes-v1`, m); } catch { /* */ } }
+  function trocarDensidade(v: boolean) { setCompacto(v); try { localStorage.setItem(`${persistPrefix}-densidade-v1`, v ? 'compacto' : 'confortavel'); } catch { /* */ } }
+
+  // N1 — menu do cabeçalho: ordenar por uma coluna (substitui a ordenação atual por 1 critério).
+  function ordenarPorColuna(key: ColKey, dir: 'asc' | 'desc') {
+    const campo = COL_ORDEM[key];
+    if (campo) aplicarEstado({ ordens: [{ campo, dir }] });
+  }
+
+  // N5 — exporta a visão atual (linhas filtradas+ordenadas, colunas visíveis) em CSV.
+  function exportarCSV() {
+    const aspas = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const cabecalho = colsVisiveis.map((c) => aspas(c.label)).join(',');
+    const linhas = filtradas.map((t) => colsVisiveis.map((c) => aspas(valorCSV(t, c.key))).join(','));
+    const csv = '﻿' + [cabecalho, ...linhas].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tarefas-${persistPrefix.replace(/[^a-z0-9]+/gi, '-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function valorCSV(t: Tarefa, key: ColKey): string {
+    const te = tarefaMesclada(t);
+    switch (key) {
+      case 'tarefa': return te.nome ?? '';
+      case 'cliente': return te.expand?.cliente ? nomeClienteDe(te) : '';
+      case 'projeto': return te.expand?.projeto?.nome ?? '';
+      case 'status': return resolverOpcao(te.status_opcao, te.status)?.nome ?? te.status ?? '';
+      case 'prazo': return te.prazo ? prazoBR(te.prazo) : '';
+      case 'prioridade': return rotuloPrioridade(te.prioridade);
+      case 'responsaveis': return (te.expand?.responsaveis ?? []).map((r) => r.nome ?? '').filter(Boolean).join('; ');
+      case 'etiquetas': return (te.etiquetas ?? []).join('; ');
+      case 'descricao': return te.descricao ?? '';
+      case 'criado': return fmtDataHora(te.created);
+      case 'atualizado': return fmtDataHora(te.updated);
+      default: return '';
+    }
+  }
 
   const mesSel = fMes === 'atual' ? mesAtualStr() : fMes;
   const mesesDisponiveis = (() => {
@@ -748,6 +809,9 @@ export function TarefasTabela({
       return <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/50"><Plus className="size-3" /> {comentado[t.id] ? 'comentar de novo' : 'comentar'}</span>;
     }
 
+    if (key === 'criado') return <span className="text-xs text-muted-foreground">{fmtDataHora(te.created) || '—'}</span>;
+    if (key === 'atualizado') return <span className="text-xs text-muted-foreground">{fmtDataHora(te.updated) || '—'}</span>;
+
     return null;
   }
 
@@ -841,16 +905,37 @@ export function TarefasTabela({
                     onChange={(e) => toggleSelTodas(idsLinhas, e.target.checked)}
                     className="size-3.5 cursor-pointer accent-primary" />
                 </th>
-                {colsVisiveis.map((col) => (
-                  <th key={col.key} className="relative px-4 py-3 font-medium">
-                    {col.label}
-                    <span role="separator" aria-orientation="vertical" aria-label="Redimensionar"
-                      onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)}
-                      className="group absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center">
-                      <span aria-hidden className="h-2/3 w-px bg-border transition-colors group-hover:w-0.5 group-hover:bg-primary" />
-                    </span>
-                  </th>
-                ))}
+                {colsVisiveis.map((col) => {
+                  const podeOrdenar = !!COL_ORDEM[col.key];
+                  const podeFiltrar = !!COL_FILTRO[col.key];
+                  return (
+                    <th key={col.key} className="relative px-4 py-3 font-medium">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button type="button" className="flex max-w-full items-center gap-1 truncate uppercase hover:text-foreground">{col.label}</button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-44">
+                          {podeOrdenar && (
+                            <>
+                              <DropdownMenuItem onSelect={() => ordenarPorColuna(col.key, 'asc')}><ArrowUp className="mr-2 size-3.5" /> Ordenar ↑</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => ordenarPorColuna(col.key, 'desc')}><ArrowDown className="mr-2 size-3.5" /> Ordenar ↓</DropdownMenuItem>
+                            </>
+                          )}
+                          {podeFiltrar && (
+                            <DropdownMenuItem onSelect={() => addFiltro(COL_FILTRO[col.key]!)}><Filter className="mr-2 size-3.5" /> Filtrar por…</DropdownMenuItem>
+                          )}
+                          {(podeOrdenar || podeFiltrar) && <DropdownMenuSeparator />}
+                          <DropdownMenuItem onSelect={() => toggleCol(col.key)}><EyeOff className="mr-2 size-3.5" /> Ocultar coluna</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <span role="separator" aria-orientation="vertical" aria-label="Redimensionar"
+                        onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)}
+                        className="group absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center">
+                        <span aria-hidden className="h-2/3 w-px bg-border transition-colors group-hover:w-0.5 group-hover:bg-primary" />
+                      </span>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -864,7 +949,7 @@ export function TarefasTabela({
                     onDrop={ordenavel && arrastando ? (e) => { e.preventDefault(); reordenar(linhas, arrastando, t.id); setArrastando(null); } : undefined}
                     className={cn('group cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
                       tarefaConcluida(statusEfetivo(t)) && 'opacity-60', sel && 'bg-primary/5', arrastando === t.id && 'opacity-40')}>
-                    <td className="px-3 py-3 align-middle">
+                    <td className={cn('px-3 align-middle', compacto ? 'py-1.5' : 'py-3')}>
                       <div className="flex items-center gap-1">
                         {ordenavel && (
                           <span
@@ -885,7 +970,7 @@ export function TarefasTabela({
                     {colsVisiveis.map((col) => (
                       <td key={col.key}
                         onClick={EDITAVEIS.has(col.key) ? (e) => { e.stopPropagation(); setEditCell({ id: t.id, campo: col.key }); } : undefined}
-                        className={cn('overflow-hidden px-4 py-3 align-middle text-muted-foreground', EDITAVEIS.has(col.key) && 'hover:bg-secondary/70')}>
+                        className={cn('overflow-hidden px-4 align-middle text-muted-foreground', compacto ? 'py-1.5' : 'py-3', EDITAVEIS.has(col.key) && 'hover:bg-secondary/70')}>
                         {celula(t, col.key)}
                       </td>
                     ))}
@@ -1019,6 +1104,13 @@ export function TarefasTabela({
           </div>
 
           <MenuColunas colDefs={colDefs} onToggle={toggleCol} onMover={moverCol} />
+          <Button variant="outline" size="sm" aria-label={compacto ? 'Linhas confortáveis' : 'Linhas compactas'}
+            title={compacto ? 'Linhas confortáveis' : 'Linhas compactas'} onClick={() => trocarDensidade(!compacto)}>
+            {compacto ? <Rows4 className="size-4" /> : <Rows3 className="size-4" />}
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={exportarCSV} title="Exportar CSV da visão atual">
+            <Download className="size-3.5" /> CSV
+          </Button>
         </div>
       </div>
 

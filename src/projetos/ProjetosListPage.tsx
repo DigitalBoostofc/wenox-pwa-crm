@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Plus, Search, FolderKanban, LayoutGrid, List, Columns3, MoreHorizontal,
-  SlidersHorizontal, GripVertical, Repeat2, Check, ChevronDown, X,
+  SlidersHorizontal, GripVertical, Repeat2, Check, ChevronDown,
 } from 'lucide-react';
 import { listProjetos, atualizarProjeto } from './projetosService';
 import { listEtapas } from './etapasService';
@@ -22,7 +22,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { BarraTipos } from '@/components/BarraTipos';
+import { BarraTipos, PillsTipos, iconeTipo } from '@/components/BarraTipos';
 import { ProjetoSheet } from './ProjetoSheet';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,17 +34,12 @@ import { ehCliente } from '@/auth/perms';
 
 type ViewMode = 'cards' | 'kanban' | 'lista';
 const VIEW_KEY = 'wenox-projetos-view-v1';
-function carregarView(): ViewMode {
+function carregarView(key: string): ViewMode {
+  try { const s = localStorage.getItem(key); if (s === 'lista' || s === 'kanban' || s === 'cards') return s; } catch { /* */ }
   return 'lista';
 }
-function salvarView(v: ViewMode) {
-  try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ }
-}
-
-/** Último tipo de projeto selecionado na barra — persiste entre visitas. */
-const TIPO_KEY = 'wenox-projetos-tipo-v1';
-function carregarTipoProj(): string {
-  try { return localStorage.getItem(TIPO_KEY) || 'Todos'; } catch { return 'Todos'; }
+function salvarView(key: string, v: ViewMode) {
+  try { localStorage.setItem(key, v); } catch { /* */ }
 }
 
 /** Pill clicável que abre um dropdown (Radix) — o botão inteiro abre,
@@ -353,20 +348,40 @@ function ViewToggleBtn({
   );
 }
 
-export function ProjetosListPage() {
+/** Cabeçalho da página de área (ícone + nome do tipo). */
+function TituloArea({ nome }: { nome: string }) {
+  const Icon = iconeTipo(nome);
+  return (
+    <div className="flex items-center gap-2.5">
+      <Icon className="size-5 text-primary" />
+      <h2 className="text-base font-semibold">{nome}</h2>
+    </div>
+  );
+}
+
+export function ProjetosListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
   const history = useHistory();
   const { user } = useAuth();
   const souCliente = ehCliente(user?.role);
+
+  // Área ativa: quando fixa (página de área), vem do prop; na geral é 'Todos'.
+  const tipoAtivo = tipoFixo ?? 'Todos';
+  // Chaves de persistência isoladas por área (geral mantém as chaves legadas).
+  const base = tipoFixo ? `wenox-projetos-area-${tipoFixo}` : '';
+  const COL_KEY = tipoFixo ? `${base}-colunas-v1` : COL_PROJ_KEY;
+  const ORDEM_KEY = tipoFixo ? `${base}-ordem-v1` : ORDEM_PROJ_KEY;
+  const LARG_KEY = tipoFixo ? `${base}-larguras-v1` : LARGURA_PROJ_KEY;
+  const VIEWKEY = tipoFixo ? `${base}-view-v1` : VIEW_KEY;
+
   const [busca, setBusca] = useState('');
-  const [tipoFiltro, setTipoFiltro] = useState(carregarTipoProj);
   const [criandoProjeto, setCriandoProjeto] = useState(false);
-  /** Pill de status — default "Desenvolvimento" (pedido do Leonardo). */
+  /** Pill de status — default "Ativo". */
   const [statusFiltro, setStatusFiltro] = useState<string>('Ativo');
   /** Filtro extra (dropdown) — independente do pill de status. */
   const [filtroExtra, setFiltroExtra] = useState<
     'nenhum' | 'execucao' | 'todos' | 'concluidos'
   >('nenhum');
-  const [view, setView] = useState<ViewMode>(carregarView);
+  const [view, setView] = useState<ViewMode>(() => carregarView(VIEWKEY));
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [tipos, setTipos] = useState<Opcao[]>([]);
   const [todasEtapas, setTodasEtapas] = useState<EtapaProjeto[]>([]);
@@ -377,15 +392,15 @@ export function ProjetosListPage() {
   const [erro, setErro] = useState('');
   const [recarregaTrigger, setRecarregaTrigger] = useState(0);
   // Estado da tabela Lista (vive aqui pra os controles ficarem no topo da página).
-  const [colDefsProj, setColDefsProj] = useState<ColProjDef[]>(carregarColunasProj);
-  const [ordemProj, setOrdemProj] = useState<OrdemProj>(carregarOrdemProj);
-  const [largurasProj, setLargurasProj] = useState<LargurasProj>(carregarLargurasProj);
+  const [colDefsProj, setColDefsProj] = useState<ColProjDef[]>(() => carregarColunasProj(COL_KEY));
+  const [ordemProj, setOrdemProj] = useState<OrdemProj>(() => carregarOrdemProj(ORDEM_KEY));
+  const [largurasProj, setLargurasProj] = useState<LargurasProj>(() => carregarLargurasProj(LARG_KEY));
   const seqRef = useRef(0);
 
   function toggleColProj(k: ColProjKey) {
     setColDefsProj((cs) => {
       const next = cs.map((c) => (c.key === k ? { ...c, visivel: !c.visivel } : c));
-      salvarColunasProj(next);
+      salvarColunasProj(COL_KEY, next);
       return next;
     });
   }
@@ -395,22 +410,22 @@ export function ProjetosListPage() {
       const next = [...cs];
       const [item] = next.splice(de, 1);
       next.splice(para, 0, item);
-      salvarColunasProj(next);
+      salvarColunasProj(COL_KEY, next);
       return next;
     });
   }
 
+  // Ícones laterais navegam para a página dedicada da área.
+  function trocarTipo(t: string) {
+    if (t === tipoFixo) return; // clicar na área já ativa é no-op
+    if (t && t !== 'Todos') history.push(`/projetos/area/${encodeURIComponent(t)}`);
+    else history.push('/projetos');
+  }
+  /** Volta para a visão de todas as áreas. */
+  const verTodasAreas = () => history.push('/projetos');
+
   useEffect(() => {
-    listOpcoes('tipo_projeto').then((ts) => {
-      setTipos(ts);
-      // Sem "Todos": começa no 1º tipo (cai em 'Todos' só se não houver tipos).
-      setTipoFiltro((cur) => {
-        const validos = ts.map((t) => t.valor);
-        // Mantém o último salvo se ainda existir; senão cai no 1º tipo.
-        if (cur !== 'Todos' && validos.includes(cur)) return cur;
-        return validos[0] ?? 'Todos';
-      });
-    });
+    listOpcoes('tipo_projeto').then(setTipos);
     listEtapas().then(setTodasEtapas);
     listUsuarios()
       .then((us) => setMembros(us.filter((u) => u.role !== 'Cliente')))
@@ -424,7 +439,7 @@ export function ProjetosListPage() {
     const timer = setTimeout(() => {
       const opts = {
         busca: q || undefined,
-        tipo: tipoFiltro === 'Todos' ? undefined : tipoFiltro,
+        tipo: tipoAtivo === 'Todos' ? undefined : tipoAtivo,
       };
       listProjetos(opts)
         .then((res) => {
@@ -441,7 +456,7 @@ export function ProjetosListPage() {
         });
     }, q ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [busca, tipoFiltro, recarregaTrigger]);
+  }, [busca, tipoAtivo, recarregaTrigger]);
 
   const etapasPorTipo = useMemo(() => {
     const m: Record<string, EtapaProjeto[]> = {};
@@ -469,14 +484,7 @@ export function ProjetosListPage() {
 
   // Reseta statusFiltro ao trocar tipo para evitar filtros inconsistentes.
   // "Ativo" existe em todos os tipos (inclusive Social Media).
-  useEffect(() => { setStatusFiltro('Ativo'); }, [tipoFiltro]);
-
-  // Persiste o tipo selecionado (cobre barra, pills e kanban).
-  useEffect(() => {
-    if (tipoFiltro && tipoFiltro !== 'Todos') {
-      try { localStorage.setItem(TIPO_KEY, tipoFiltro); } catch { /* */ }
-    }
-  }, [tipoFiltro]);
+  useEffect(() => { setStatusFiltro('Ativo'); }, [tipoAtivo]);
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 1023px)');
@@ -489,10 +497,8 @@ export function ProjetosListPage() {
   const viewEfetiva: ViewMode = isMobile ? 'cards' : view;
 
   const filtros = useMemo(() => tipos.map((t) => t.valor), [tipos]);
-  const trocarView = (v: ViewMode) => { setView(v); salvarView(v); };
+  const trocarView = (v: ViewMode) => { setView(v); salvarView(VIEWKEY, v); };
   const recarregar = () => setRecarregaTrigger((n) => n + 1);
-  /** Limpa o filtro de área (barra de ícones) → mostra projetos de todas as áreas. */
-  const verTodasAreas = () => setTipoFiltro('Todos');
   const abrirProjeto = (id: string) => history.push(`/projetos/${id}`);
 
   /** Move um projeto para outra etapa com update otimista (recarrega no fim). */
@@ -545,8 +551,8 @@ export function ProjetosListPage() {
     <div className="flex gap-4">
       <BarraTipos
         tipos={tipos.map((t) => t.valor)}
-        ativo={tipoFiltro}
-        onChange={setTipoFiltro}
+        ativo={tipoAtivo}
+        onChange={trocarTipo}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-5">
 
@@ -567,7 +573,7 @@ export function ProjetosListPage() {
               <select
                 aria-label="Ordenar"
                 value={ordemProj}
-                onChange={(e) => { const v = e.target.value as OrdemProj; setOrdemProj(v); salvarOrdemProj(v); }}
+                onChange={(e) => { const v = e.target.value as OrdemProj; setOrdemProj(v); salvarOrdemProj(ORDEM_KEY, v); }}
                 className="h-9 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               >
                 {ORDENS_PROJ.map((o) => (
@@ -594,27 +600,15 @@ export function ProjetosListPage() {
         </div>
       </HeaderSlot>
 
-      {/* Pills de tipo — mobile apenas, scroll horizontal */}
-      <div className="flex gap-2 overflow-x-auto pb-0.5 lg:hidden [&::-webkit-scrollbar]:hidden">
-        {filtros.map((f) => (
-          <button
-            key={f}
-            onClick={() => setTipoFiltro(f)}
-            className={cn(
-              'shrink-0 rounded-full border px-3.5 py-1 text-sm transition-colors',
-              tipoFiltro === f
-                ? 'border-primary/50 bg-primary/15 text-primary'
-                : 'border-border text-muted-foreground hover:bg-secondary',
-            )}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
+      {/* Título da área — visível apenas em páginas dedicadas por função */}
+      {tipoFixo && <TituloArea nome={tipoFixo} />}
+
+      {/* Pills de tipo — mobile apenas (espelha a BarraTipos do desktop, navegam) */}
+      <PillsTipos tipos={filtros} ativo={tipoAtivo} onChange={trocarTipo} />
 
       {/* Pills de status — scroll horizontal no mobile, wrap no desktop */}
       <div className="flex gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-visible lg:pb-0">
-        {[...statusesParaTipo(tipoFiltro === 'Todos' ? undefined : tipoFiltro), 'Todos'].map((s) => {
+        {[...statusesParaTipo(tipoAtivo === 'Todos' ? undefined : tipoAtivo), 'Todos'].map((s) => {
           const ativo = statusFiltro === s;
           return (
             <button
@@ -625,7 +619,7 @@ export function ProjetosListPage() {
                 ativo
                   ? s === 'Todos'
                     ? 'border-primary/50 bg-primary/15 text-primary'
-                    : pillStatusParaTipoClass(tipoFiltro === 'Todos' ? undefined : tipoFiltro, s)
+                    : pillStatusParaTipoClass(tipoAtivo === 'Todos' ? undefined : tipoAtivo, s)
                   : 'border-border text-muted-foreground hover:bg-secondary',
               )}
             >
@@ -633,7 +627,7 @@ export function ProjetosListPage() {
             </button>
           );
         })}
-        {tipoFiltro !== TIPO_SOCIAL_MEDIA && (
+        {tipoAtivo !== TIPO_SOCIAL_MEDIA && (
           <select
             aria-label="Filtro extra"
             value={filtroExtra}
@@ -647,23 +641,6 @@ export function ProjetosListPage() {
           </select>
         )}
       </div>
-
-      {/* Indicador do filtro de ÁREA ativo (a barra de ícones é só ícone, sem
-          rótulo) — torna visível o filtro e dá um caminho pra limpá-lo. */}
-      {tipoFiltro !== 'Todos' && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Área:</span>
-          <button
-            type="button"
-            onClick={verTodasAreas}
-            title="Ver todas as áreas"
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/50 bg-primary/15 px-3 py-1 text-sm text-primary transition-colors hover:bg-primary/25"
-          >
-            {tipoFiltro}
-            <X className="size-3.5" />
-          </button>
-        </div>
-      )}
 
       {erro && (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
@@ -688,14 +665,14 @@ export function ProjetosListPage() {
           projetos={projetosFiltrados}
           etapasPorTipo={etapasPorTipo}
           onAbrir={abrirProjeto}
-          mostrarColTipo={tipoFiltro === 'Todos'}
-          mostrarColEtapa={tipoFiltro !== TIPO_SOCIAL_MEDIA}
+          mostrarColTipo={tipoAtivo === 'Todos'}
+          mostrarColEtapa={tipoAtivo !== TIPO_SOCIAL_MEDIA}
           onStatusChange={souCliente ? undefined : atualizarStatus}
-          onEtapaChange={!souCliente && tipoFiltro !== TIPO_SOCIAL_MEDIA ? moverProjeto : undefined}
+          onEtapaChange={!souCliente && tipoAtivo !== TIPO_SOCIAL_MEDIA ? moverProjeto : undefined}
           onCampoChange={souCliente ? undefined : atualizarCampo}
           membros={membros}
           totalBruto={projetos.length}
-          areaAtiva={tipoFiltro !== 'Todos' ? tipoFiltro : undefined}
+          areaAtiva={tipoAtivo !== 'Todos' ? tipoAtivo : undefined}
           onVerTodasAreas={verTodasAreas}
           colDefs={colDefsProj}
           ordem={ordemProj}
@@ -703,7 +680,7 @@ export function ProjetosListPage() {
           onResize={(key, largura) => {
             setLargurasProj((prev) => {
               const next = { ...prev, [key]: largura };
-              salvarLargurasProj(next);
+              salvarLargurasProj(LARG_KEY, next);
               return next;
             });
           }}
@@ -712,14 +689,16 @@ export function ProjetosListPage() {
         <Card>
           <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
             <FolderKanban className="size-10 text-muted-foreground" />
-            {projetos.length === 0 && tipoFiltro !== 'Todos' ? (
+            {projetos.length === 0 && tipoAtivo !== 'Todos' ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Nenhum projeto na área <strong>{tipoFiltro}</strong>.
+                  Nenhum projeto na área <strong>{tipoAtivo}</strong>.
                 </p>
-                <Button variant="outline" size="sm" onClick={verTodasAreas}>
-                  Ver todas as áreas
-                </Button>
+                {!tipoFixo && (
+                  <Button variant="outline" size="sm" onClick={verTodasAreas}>
+                    Ver todas as áreas
+                  </Button>
+                )}
               </>
             ) : projetos.length === 0 ? (
               <p className="text-sm text-muted-foreground">
@@ -739,17 +718,17 @@ export function ProjetosListPage() {
               etapasDoTipo={etapasPorTipo[p.tipo ?? ''] ?? []}
               onClick={() => abrirProjeto(p.id)}
               onChanged={recarregar}
-              mostrarTipo={tipoFiltro === 'Todos'}
+              mostrarTipo={tipoAtivo === 'Todos'}
             />
           ))}
         </div>
       ) : (
         <KanbanProjetos
           projetos={projetosFiltrados}
-          tipoFiltro={tipoFiltro}
+          tipoFiltro={tipoAtivo}
           etapasPorTipo={etapasPorTipo}
           onAbrir={abrirProjeto}
-          onTrocarTipo={setTipoFiltro}
+          onTrocarTipo={trocarTipo}
           tiposDisponiveis={tipos.map((t) => t.valor)}
           onChanged={recarregar}
           onMover={moverProjeto}
@@ -766,7 +745,7 @@ export function ProjetosListPage() {
         aberto={criandoProjeto}
         onClose={() => setCriandoProjeto(false)}
         onCriado={(id) => { recarregar(); abrirProjeto(id); }}
-        tipoPreset={tipoFiltro !== 'Todos' ? tipoFiltro : undefined}
+        tipoPreset={tipoAtivo !== 'Todos' ? tipoAtivo : undefined}
       />
       </div>
     </div>
@@ -980,9 +959,9 @@ const COLS_PROJ_PADRAO: ColProjDef[] = [
 ];
 const COL_PROJ_KEY = 'wenox-colunas-projetos-v1';
 
-function carregarColunasProj(): ColProjDef[] {
+function carregarColunasProj(key: string): ColProjDef[] {
   try {
-    const s = localStorage.getItem(COL_PROJ_KEY);
+    const s = localStorage.getItem(key);
     if (!s) return COLS_PROJ_PADRAO;
     const salvo = JSON.parse(s) as ColProjDef[];
     const conhecidas = new Map(COLS_PROJ_PADRAO.map((c) => [c.key, c]));
@@ -995,8 +974,8 @@ function carregarColunasProj(): ColProjDef[] {
     return COLS_PROJ_PADRAO;
   }
 }
-function salvarColunasProj(cols: ColProjDef[]) {
-  try { localStorage.setItem(COL_PROJ_KEY, JSON.stringify(cols)); } catch { /* */ }
+function salvarColunasProj(key: string, cols: ColProjDef[]) {
+  try { localStorage.setItem(key, JSON.stringify(cols)); } catch { /* */ }
 }
 
 type OrdemProj = 'prazo' | 'cliente' | 'etapa' | 'status';
@@ -1007,15 +986,15 @@ const ORDENS_PROJ: { v: OrdemProj; label: string }[] = [
   { v: 'etapa',   label: 'Etapa (1ª → última)' },
   { v: 'status',  label: 'Status (Desenv. → Inativo)' },
 ];
-function carregarOrdemProj(): OrdemProj {
+function carregarOrdemProj(key: string): OrdemProj {
   try {
-    const s = localStorage.getItem(ORDEM_PROJ_KEY);
+    const s = localStorage.getItem(key);
     if (s === 'prazo' || s === 'cliente' || s === 'etapa' || s === 'status') return s;
   } catch { /* */ }
   return 'prazo';
 }
-function salvarOrdemProj(o: OrdemProj) {
-  try { localStorage.setItem(ORDEM_PROJ_KEY, o); } catch { /* */ }
+function salvarOrdemProj(key: string, o: OrdemProj) {
+  try { localStorage.setItem(key, o); } catch { /* */ }
 }
 const ORDEM_STATUS_PROJETO = ['Desenvolvimento', 'Manutenção', 'Ativo', 'Inativo'];
 function posicaoStatusProj(s?: string): number {
@@ -1026,16 +1005,16 @@ function posicaoStatusProj(s?: string): number {
 /** Larguras (px) por coluna da tabela de projetos — persistidas. */
 type LargurasProj = Partial<Record<ColProjKey, number>>;
 const LARGURA_PROJ_KEY = 'wenox-larguras-projetos-v1';
-function carregarLargurasProj(): LargurasProj {
+function carregarLargurasProj(key: string): LargurasProj {
   try {
-    const s = localStorage.getItem(LARGURA_PROJ_KEY);
+    const s = localStorage.getItem(key);
     return s ? (JSON.parse(s) as LargurasProj) : {};
   } catch {
     return {};
   }
 }
-function salvarLargurasProj(l: LargurasProj) {
-  try { localStorage.setItem(LARGURA_PROJ_KEY, JSON.stringify(l)); } catch { /* */ }
+function salvarLargurasProj(key: string, l: LargurasProj) {
+  try { localStorage.setItem(key, JSON.stringify(l)); } catch { /* */ }
 }
 
 /** Dropdown "Colunas" da Lista — toggle de visibilidade + reordenar arrastando. */

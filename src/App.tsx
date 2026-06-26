@@ -38,6 +38,8 @@ const ProjetoFormPage = lazy(() =>
   import('@/projetos/ProjetoFormPage').then((m) => ({ default: m.ProjetoFormPage })));
 const ProjetoDetailPage = lazy(() =>
   import('@/projetos/ProjetoDetailPage').then((m) => ({ default: m.ProjetoDetailPage })));
+const ProjetosAreaPage = lazy(() =>
+  import('@/projetos/ProjetosAreaPage').then((m) => ({ default: m.ProjetosAreaPage })));
 const EtapasProjetoPage = lazy(() =>
   import('@/projetos/EtapasProjetoPage').then((m) => ({ default: m.EtapasProjetoPage })));
 const DashboardPage = lazy(() =>
@@ -179,6 +181,12 @@ function AuthedApp() {
           <Route exact path="/projetos/novo">
             <Protegido modulo="projetos"><ProjetoFormPage /></Protegido>
           </Route>
+          <Route
+            path="/projetos/area/:tipo"
+            render={() => (
+              <Protegido modulo="projetos"><ProjetosAreaPage /></Protegido>
+            )}
+          />
           <Route
             exact
             path="/projetos/:id/editar"

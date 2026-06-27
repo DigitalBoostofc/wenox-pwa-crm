@@ -392,7 +392,7 @@ export function ProjetosListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
   const [erro, setErro] = useState('');
   const [recarregaTrigger, setRecarregaTrigger] = useState(0);
   // Estado da tabela Lista (vive aqui pra os controles ficarem no topo da página).
-  const [colDefsProj, setColDefsProj] = useState<ColProjDef[]>(() => carregarColunasProj(COL_KEY));
+  const [colDefsProj, setColDefsProj] = useState<ColProjDef[]>(() => carregarColunasProj(COL_KEY, !tipoFixo));
   const [ordemProj, setOrdemProj] = useState<OrdemProj>(() => carregarOrdemProj(ORDEM_KEY));
   const [largurasProj, setLargurasProj] = useState<LargurasProj>(() => carregarLargurasProj(LARG_KEY));
   const seqRef = useRef(0);
@@ -947,7 +947,8 @@ type ColProjKey =
 
 interface ColProjDef { key: ColProjKey; label: string; visivel: boolean }
 
-const COLS_PROJ_PADRAO: ColProjDef[] = [
+/** Colunas comuns a todas as visões (sem "Tipo"). */
+const COLS_PROJ_BASE: ColProjDef[] = [
   { key: 'cliente',      label: 'Cliente',      visivel: true },
   { key: 'projeto',      label: 'Projeto',      visivel: true },
   { key: 'etapa',        label: 'Etapa',        visivel: true },
@@ -955,23 +956,31 @@ const COLS_PROJ_PADRAO: ColProjDef[] = [
   { key: 'status',       label: 'Status',       visivel: true },
   { key: 'responsaveis', label: 'Responsáveis', visivel: true },
   { key: 'observacao',   label: 'Observação',   visivel: true },
-  { key: 'tipo',         label: 'Tipo',         visivel: false },
 ];
-const COL_PROJ_KEY = 'wenox-colunas-projetos-v1';
+/** Default por contexto: na visão geral "Tipo" aparece e já vem marcada;
+ *  nas páginas de área a coluna "Tipo" nem existe (redundante — F-029). */
+function colunasPadraoProj(incluirTipo: boolean): ColProjDef[] {
+  return incluirTipo
+    ? [...COLS_PROJ_BASE, { key: 'tipo', label: 'Tipo', visivel: true }]
+    : COLS_PROJ_BASE;
+}
+// v2: bump força o novo default (Tipo visível) na visão geral.
+const COL_PROJ_KEY = 'wenox-colunas-projetos-v2';
 
-function carregarColunasProj(key: string): ColProjDef[] {
+function carregarColunasProj(key: string, incluirTipo: boolean): ColProjDef[] {
+  const padrao = colunasPadraoProj(incluirTipo);
   try {
     const s = localStorage.getItem(key);
-    if (!s) return COLS_PROJ_PADRAO;
+    if (!s) return padrao;
     const salvo = JSON.parse(s) as ColProjDef[];
-    const conhecidas = new Map(COLS_PROJ_PADRAO.map((c) => [c.key, c]));
+    const conhecidas = new Map(padrao.map((c) => [c.key, c]));
     const ord: ColProjDef[] = salvo
       .filter((c) => conhecidas.has(c.key))
       .map((c) => ({ ...conhecidas.get(c.key)!, visivel: !!c.visivel }));
-    for (const c of COLS_PROJ_PADRAO) if (!ord.some((o) => o.key === c.key)) ord.push(c);
+    for (const c of padrao) if (!ord.some((o) => o.key === c.key)) ord.push(c);
     return ord;
   } catch {
-    return COLS_PROJ_PADRAO;
+    return padrao;
   }
 }
 function salvarColunasProj(key: string, cols: ColProjDef[]) {

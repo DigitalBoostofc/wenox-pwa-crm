@@ -173,22 +173,7 @@ export async function atualizarTarefa(
   } catch {
     /* */
   }
-  // Guard R3.c — validação direta no input (cobre bypass quando `antes` não pôde ser carregado).
-  if (input.etapas?.length === 0 && (input.responsaveis?.length ?? 0) > 1) {
-    throw new Error('Tarefa sem etapas pode ter apenas 1 responsável');
-  }
-  // Guard R3.c — validação no estado mergeado para updates parciais (um campo de cada vez).
-  if (antes !== undefined && (input.etapas !== undefined || input.responsaveis !== undefined)) {
-    const resultEtapas = (input.etapas !== undefined
-      ? input.etapas
-      : (antes.etapas as unknown[] | undefined) ?? []) as unknown[];
-    const resultResp = (input.responsaveis !== undefined
-      ? input.responsaveis
-      : (antes.responsaveis as string[] | undefined) ?? []) as string[];
-    if (resultEtapas.length === 0 && resultResp.length > 1) {
-      throw new Error('Tarefa sem etapas pode ter apenas 1 responsável');
-    }
-  }
+  // (Guard R3.c removido: etapas saíram do MVP — múltiplos responsáveis são livres.)
   const dados: Record<string, unknown> = { ...input, ...(uid ? { updated_by: uid } : {}) };
   const antesConcluida = estaConcluida(antes?.status_opcao as string | undefined, antes?.status as string | undefined);
   if (input.status_opcao !== undefined) {

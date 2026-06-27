@@ -9,6 +9,9 @@ import { RECORRENCIA_LABEL } from './types';
 import { StatusOpcaoChip } from './StatusOpcaoChip';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
 import { listProjetos } from '@/projetos/projetosService';
+import {
+  clientesComProjetoDoTipo, projetosDoClienteTipo, projetoPadraoDoCliente, projetoAtivo,
+} from '@/projetos/relacaoTarefa';
 import { listClientes } from '@/clientes/clientesService';
 import { listContatos } from '@/contatos/contatosService';
 import { listUsuarios } from '@/usuarios/usuariosService';
@@ -168,14 +171,23 @@ export function TarefaSheet({
     return usuarios.find((u) => u.id === id)?.nome || id;
   }
 
-  function nomeCliente(id: string) {
-    const c = clientes.find((cl) => cl.id === id);
-    return c ? nomeExibicao(c) : id;
-  }
-
-  const projetosOrdenados = [...projetos].sort((a, b) =>
-    nomeCliente(a.cliente).localeCompare(nomeCliente(b.cliente), 'pt-BR'),
-  );
+  // Relação guiada pelo TIPO da tarefa (área): só clientes com projeto do tipo,
+  // e o projeto ativo já vem pré-selecionado.
+  const tipoTarefa = t?.tipo || '';
+  const clientesDisponiveis = (() => {
+    if (!tipoTarefa) return clientes;
+    const set = clientesComProjetoDoTipo(projetos, tipoTarefa);
+    const arr = clientes.filter((c) => set.has(c.id));
+    // Mantém o cliente já selecionado visível, mesmo sem projeto do tipo.
+    if (t?.cliente && !set.has(t.cliente)) {
+      const cur = clientes.find((c) => c.id === t.cliente);
+      if (cur) arr.push(cur);
+    }
+    return arr;
+  })();
+  const projetosDoCliente = t?.cliente
+    ? projetosDoClienteTipo(projetos, t.cliente, tipoTarefa || undefined)
+    : [];
 
   function handleNomeBlur(e: React.FocusEvent<HTMLInputElement>) {
     const v = e.target.value.trim();
@@ -198,37 +210,39 @@ export function TarefaSheet({
     salvarCampo({ recorrencia: r });
   }
 
-  async function handleProjeto(e: React.ChangeEvent<HTMLSelectElement>) {
-    const projetoId = e.target.value;
-    if (!projetoId) {
-      await salvarCampo({ projeto: '' });
-    } else {
-      const proj = projetos.find((p) => p.id === projetoId);
-      const clienteId = proj?.cliente ?? '';
-      setT((prev) => prev ? {
-        ...prev,
-        projeto: projetoId,
-        cliente: clienteId,
-        expand: {
-          ...prev.expand,
-          projeto: proj ? { id: proj.id, nome: proj.nome } : undefined,
-        },
-      } : prev);
-      if (modoRascunho) return;
-      setErroSalvo('');
-      try {
-        const atualizado = await atualizarTarefa(t!.id, { projeto: projetoId, cliente: clienteId });
-        setT(atualizado as Tarefa);
-        onMudou();
-      } catch (e2) {
-        setErroSalvo(e2 instanceof Error ? e2.message : 'Erro ao salvar');
-        if (t) setT({ ...t });
-      }
+  /** Aplica cliente + projeto juntos (expand local p/ refletir na hora; persiste só campos reais). */
+  async function aplicarClienteProjeto(clienteId: string, projetoId: string, limparContato: boolean) {
+    const proj = projetos.find((p) => p.id === projetoId);
+    const patchPersist: Partial<Tarefa> = { cliente: clienteId, projeto: projetoId };
+    if (limparContato) patchPersist.contato = '';
+    setT((prev) => prev ? {
+      ...prev,
+      ...patchPersist,
+      expand: { ...prev.expand, projeto: proj ? { id: proj.id, nome: proj.nome } : undefined },
+    } : prev);
+    if (modoRascunho) return;
+    setErroSalvo('');
+    try {
+      const atualizado = await atualizarTarefa(t!.id, patchPersist as never);
+      setT(atualizado as Tarefa);
+      onMudou();
+    } catch (e2) {
+      setErroSalvo(e2 instanceof Error ? e2.message : 'Erro ao salvar');
+      if (t) setT({ ...t });
     }
   }
 
-  function handleClienteAvulso(e: React.ChangeEvent<HTMLSelectElement>) {
-    salvarCampo({ cliente: e.target.value, projeto: '', contato: '' });
+  /** Trocar cliente → auto-seleciona o projeto ativo do tipo (limpa contato). */
+  function handleCliente(clienteId: string) {
+    if (!clienteId) { aplicarClienteProjeto('', '', true); return; }
+    const projetoId = projetoPadraoDoCliente(projetos, clienteId, t?.tipo || undefined);
+    aplicarClienteProjeto(clienteId, projetoId, true);
+  }
+
+  /** Trocar projeto (dentro do mesmo cliente). */
+  function handleProjetoSel(projetoId: string) {
+    const proj = projetos.find((p) => p.id === projetoId);
+    aplicarClienteProjeto(proj?.cliente ?? t?.cliente ?? '', projetoId, false);
   }
 
   function handleLado(novoLado: 'wenox' | 'cliente') {
@@ -460,39 +474,56 @@ export function TarefaSheet({
               </div>
               )}
 
-              {/* 5. Projeto */}
-              <div>
-                <RotuloCampo>Projeto</RotuloCampo>
-                <select
-                  value={t.projeto ?? ''}
-                  onChange={handleProjeto}
-                  className={selectCls}
-                >
-                  <option value="">Sem projeto</option>
-                  {projetosOrdenados.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nome} — {nomeCliente(p.cliente)}
-                    </option>
-                  ))}
-                </select>
-                {t.projeto && t.cliente && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Cliente: {nomeCliente(t.cliente)}
-                  </p>
-                )}
-                {!t.projeto && (
-                  <div className="mt-2">
-                    <RotuloCampo>Cliente (opcional)</RotuloCampo>
-                    <select
-                      value={t.cliente ?? ''}
-                      onChange={handleClienteAvulso}
-                      className={selectCls}
-                    >
-                      <option value="">Sem cliente</option>
-                      {clientes.map((c) => (
-                        <option key={c.id} value={c.id}>{nomeExibicao(c)}</option>
-                      ))}
-                    </select>
+              {/* 5. Cliente → Projeto (guiado pelo tipo da tarefa) */}
+              <div className="space-y-3">
+                <div>
+                  <RotuloCampo>{tipoTarefa ? `Cliente (com projeto de ${tipoTarefa})` : 'Cliente'}</RotuloCampo>
+                  <select
+                    value={t.cliente ?? ''}
+                    onChange={(e) => handleCliente(e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="">Sem cliente (interna)</option>
+                    {clientesDisponiveis.map((c) => (
+                      <option key={c.id} value={c.id}>{nomeExibicao(c)}</option>
+                    ))}
+                  </select>
+                  {tipoTarefa && clientesDisponiveis.length === 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Nenhum cliente com projeto de {tipoTarefa}. Crie o projeto primeiro.
+                    </p>
+                  )}
+                </div>
+
+                {t.cliente && (
+                  <div>
+                    <RotuloCampo>Projeto</RotuloCampo>
+                    {projetosDoCliente.length === 0 ? (
+                      <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                        Nenhum projeto{tipoTarefa ? ` de ${tipoTarefa}` : ''} para este cliente.
+                      </p>
+                    ) : projetosDoCliente.length === 1 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm">
+                          {projetosDoCliente[0].nome}
+                        </span>
+                        {!projetoAtivo(projetosDoCliente[0]) && (
+                          <span className="text-xs text-muted-foreground">(inativo)</span>
+                        )}
+                      </div>
+                    ) : (
+                      <select
+                        value={t.projeto ?? ''}
+                        onChange={(e) => handleProjetoSel(e.target.value)}
+                        className={selectCls}
+                      >
+                        {projetosDoCliente.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nome}{projetoAtivo(p) ? '' : ' (inativo)'}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 )}
               </div>

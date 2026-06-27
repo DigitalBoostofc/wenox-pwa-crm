@@ -74,30 +74,27 @@ describe('criarTarefa — guard R3.c', () => {
   });
 });
 
-describe('atualizarTarefa — guard R3.c', () => {
+describe('atualizarTarefa — múltiplos responsáveis (MVP sem etapas)', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('rejeita: input resulta em 0 etapas + 2 responsaveis', async () => {
+  // O guard R3.c ("sem etapas só 1 responsável") foi REMOVIDO no MVP sem etapas:
+  // múltiplos responsáveis passam a ser livres.
+  it('aceita: 0 etapas + 2 responsaveis', async () => {
     api.getOne.mockResolvedValue({ id: 't4', etapas: [etapa], responsaveis: ['u1'] });
+    api.update.mockResolvedValue({ id: 't4', etapas: [], responsaveis: ['u1', 'u2'] });
     await expect(
       atualizarTarefa('t4', { etapas: [], responsaveis: ['u1', 'u2'] }),
-    ).rejects.toThrow('Tarefa sem etapas pode ter apenas 1 responsável');
-    expect(api.update).not.toHaveBeenCalled();
+    ).resolves.toMatchObject({ id: 't4' });
+    expect(api.update).toHaveBeenCalledTimes(1);
   });
 
-  it('rejeita: antes.etapas=[] e input traz 2 responsaveis', async () => {
+  it('aceita: antes.etapas=[] e input traz 2 responsaveis', async () => {
     api.getOne.mockResolvedValue({ id: 't5', etapas: [], responsaveis: ['u1'] });
+    api.update.mockResolvedValue({ id: 't5', etapas: [], responsaveis: ['u1', 'u2'] });
     await expect(
       atualizarTarefa('t5', { responsaveis: ['u1', 'u2'] }),
-    ).rejects.toThrow('Tarefa sem etapas pode ter apenas 1 responsável');
-    expect(api.update).not.toHaveBeenCalled();
-  });
-
-  it('rejeita: antes.responsaveis tem 2 e input zera etapas', async () => {
-    api.getOne.mockResolvedValue({ id: 't6', etapas: [etapa], responsaveis: ['u1', 'u2'] });
-    await expect(
-      atualizarTarefa('t6', { etapas: [] }),
-    ).rejects.toThrow('Tarefa sem etapas pode ter apenas 1 responsável');
+    ).resolves.toMatchObject({ id: 't5' });
+    expect(api.update).toHaveBeenCalledTimes(1);
   });
 
   it('aceita: adiciona etapas ao estado que tinha 2 responsaveis', async () => {

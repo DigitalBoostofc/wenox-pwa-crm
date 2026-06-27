@@ -25,7 +25,14 @@ import {
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
-import { logoUrl } from '@/clientes/clientesService';
+import { listProjetos } from '@/projetos/projetosService';
+import type { Projeto } from '@/projetos/types';
+import {
+  clientesComProjetoDoTipo, projetosDoClienteTipo, projetoPadraoDoCliente, projetoAtivo,
+} from '@/projetos/relacaoTarefa';
+import { listClientes, logoUrl } from '@/clientes/clientesService';
+import type { Cliente } from '@/clientes/types';
+import { nomeExibicao } from '@/clientes/types';
 import { corAvatar, inicial } from '@/clientes/format';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -79,7 +86,7 @@ function fmtDataHora(iso?: string): string {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
-const EDITAVEIS = new Set<ColKey>(['tarefa', 'status', 'prazo', 'prioridade', 'responsaveis', 'etiquetas', 'descricao', 'comentario']);
+const EDITAVEIS = new Set<ColKey>(['tarefa', 'cliente', 'projeto', 'status', 'prazo', 'prioridade', 'responsaveis', 'etiquetas', 'descricao', 'comentario']);
 
 function carregarColunas(prefix: string, padrao: ColDef[] = COLS_PADRAO): ColDef[] {
   try {
@@ -344,7 +351,13 @@ export function TarefasTabela({
   const opcoesFiltro = opcoesEmOrdemDeColuna();
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  useEffect(() => { listUsuarios().then(setUsuarios).catch(() => setUsuarios([])); }, []);
+  const [projetosTodos, setProjetosTodos] = useState<Projeto[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  useEffect(() => {
+    listUsuarios().then(setUsuarios).catch(() => setUsuarios([]));
+    listProjetos().then(setProjetosTodos).catch(() => setProjetosTodos([]));
+    listClientes('').then(setClientes).catch(() => setClientes([]));
+  }, []);
 
   const [colDefs, setColDefs] = useState<ColDef[]>(() => carregarColunas(persistPrefix, colunasPadrao));
   const [larguras, setLarguras] = useState<Larguras>(() => carregarLarguras(persistPrefix));
@@ -542,6 +555,22 @@ export function TarefasTabela({
       try { await addComentario('tarefa', id, v); setComentado((m) => ({ ...m, [id]: true })); onMudou?.(); } catch { /* */ }
     }
   }
+  /** Define cliente + projeto na linha (expand otimista p/ logo/nome; persiste só ids). */
+  function salvarClienteProjeto(id: string, clienteId: string, projetoId: string) {
+    const cli = clientes.find((c) => c.id === clienteId);
+    const proj = projetosTodos.find((p) => p.id === projetoId);
+    const atual = localOverrides[id]?.expand ?? tarefas.find((t) => t.id === id)?.expand;
+    salvarInline(id, {
+      cliente: clienteId,
+      projeto: projetoId,
+      expand: {
+        ...atual,
+        cliente: cli ? { id: cli.id, nome: cli.nome, nome_fantasia: cli.nome_fantasia, logo: cli.logo } : undefined,
+        projeto: proj ? { id: proj.id, nome: proj.nome, tipo: proj.tipo } : undefined,
+      },
+    } as Partial<Tarefa>);
+  }
+
   function salvarResponsaveis(id: string, ids: string[]) {
     const expandResp = ids
       .map((uid) => usuarios.find((u) => u.id === uid))
@@ -674,9 +703,52 @@ export function TarefasTabela({
       );
     }
 
-    if (key === 'projeto') return <span className="text-sm text-muted-foreground">{te.expand?.projeto?.nome ?? '—'}</span>;
+    if (key === 'projeto') {
+      if (ativo) {
+        const tipoLinha = te.tipo || undefined;
+        const cands = te.cliente ? projetosDoClienteTipo(projetosTodos, te.cliente, tipoLinha) : [];
+        return (
+          <select
+            autoFocus value={te.projeto ?? ''} onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const pid = e.target.value;
+              const proj = projetosTodos.find((p) => p.id === pid);
+              salvarClienteProjeto(t.id, proj?.cliente ?? te.cliente ?? '', pid);
+              setEditCell(null);
+            }}
+            onBlur={() => setEditCell(null)}
+            className="h-7 w-full rounded border border-input bg-background px-1 text-xs focus-visible:outline-none"
+          >
+            <option value="">{te.cliente ? '— sem projeto —' : 'selecione o cliente'}</option>
+            {cands.map((p) => <option key={p.id} value={p.id}>{p.nome}{projetoAtivo(p) ? '' : ' (inativo)'}</option>)}
+          </select>
+        );
+      }
+      return <span className="text-sm text-muted-foreground">{te.expand?.projeto?.nome ?? '—'}</span>;
+    }
 
     if (key === 'cliente') {
+      if (ativo) {
+        const tipoLinha = te.tipo || undefined;
+        const set = clientesComProjetoDoTipo(projetosTodos, tipoLinha);
+        const opts = tipoLinha ? clientes.filter((c) => set.has(c.id)) : clientes;
+        return (
+          <select
+            autoFocus value={te.cliente ?? ''} onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const cid = e.target.value;
+              const pid = cid ? projetoPadraoDoCliente(projetosTodos, cid, tipoLinha) : '';
+              salvarClienteProjeto(t.id, cid, pid);
+              setEditCell(null);
+            }}
+            onBlur={() => setEditCell(null)}
+            className="h-7 w-full rounded border border-input bg-background px-1 text-xs focus-visible:outline-none"
+          >
+            <option value="">— sem cliente —</option>
+            {opts.map((c) => <option key={c.id} value={c.id}>{nomeExibicao(c)}</option>)}
+          </select>
+        );
+      }
       const c = te.expand?.cliente;
       if (!c) return <span className="text-muted-foreground">—</span>;
       const nome = nomeClienteDe(te);

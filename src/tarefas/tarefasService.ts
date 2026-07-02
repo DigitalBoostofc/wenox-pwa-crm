@@ -37,7 +37,7 @@ function carimboConclusao(): string {
 const EXPAND = 'projeto,cliente,responsaveis,contato';
 const CAMPOS_LISTA = [
   'id', 'collectionId', 'collectionName', 'nome', 'descricao', 'tipo', 'projeto',
-  'cliente', 'lado', 'responsaveis', 'contato', 'status', 'status_opcao', 'aprovacao', 'prazo',
+  'cliente', 'lado', 'responsaveis', 'contato', 'status', 'status_opcao', 'aprovacao', 'data_inicio', 'prazo',
   'etiquetas', 'arquivada', 'ordem', 'created', 'updated', 'created_by', 'prioridade', 'checklist', 'recorrencia', 'concluida_em', 'etapas',
   'expand.projeto.id', 'expand.projeto.nome', 'expand.projeto.tipo',
   'expand.cliente.id', 'expand.cliente.collectionId', 'expand.cliente.collectionName',
@@ -73,9 +73,21 @@ function proximoPrazo(prazo: string, rec: string): string {
   ].join('-');
 }
 
+/** Janela do mês de PRODUÇÃO (início = dia 1, fim = último dia) a partir de
+ *  uma data base. Usada por tarefas Social Media (produção referente ao mês seguinte). */
+export function janelaMesProducao(base = new Date()): { data_inicio: string; prazo: string } {
+  const ano = base.getFullYear();
+  const mes = base.getMonth(); // 0-based = mês de produção (atual)
+  const ultimoDia = new Date(ano, mes + 1, 0).getDate();
+  const fmt = (d: number) => `${ano}-${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  return { data_inicio: fmt(1), prazo: fmt(ultimoDia) };
+}
+
 /** Cria a próxima ocorrência de uma tarefa recorrente. Engole erros para não
- *  interromper a conclusão da tarefa original. */
+ *  interromper a conclusão da tarefa original.
+ *  Social Media é gerada pelo robô n8n agendado (dia 1) — NÃO gera aqui p/ não duplicar. */
 async function criarProximaOcorrencia(t: Tarefa): Promise<void> {
+  if (t.tipo === 'Social Media') return;
   if (!t.recorrencia || !t.prazo) return;
   try {
     const input: TarefaInput = {
@@ -148,10 +160,17 @@ export async function criarTarefa(input: TarefaInput): Promise<Tarefa> {
     : [{ id: novaEtapaId(), texto: 'Tarefa', tipo: 'interna', responsavel: input.responsaveis?.[0], feito: false }];
   // Status MANUAL (F2): nasce na opção inicial (salvo se o form já trouxe uma).
   // As etapas viram checklist informativo — não derivam mais o status.
-  const prazo = etapaAtual(etapas)?.prazo ?? input.prazo ?? '';
+  // Social Media nasce recorrente mensal com janela do mês de produção (dia 1 → último dia),
+  // referente ao mês seguinte. Novas ocorrências são criadas pelo robô n8n no dia 1.
+  const smDefaults = input.tipo === 'Social Media' && !input.data_inicio ? janelaMesProducao() : null;
+  const prazo = etapaAtual(etapas)?.prazo ?? input.prazo ?? smDefaults?.prazo ?? '';
   const opcaoId = input.status_opcao || opcaoInicial()?.id || '';
   const espelho = opcaoId ? espelhoStatus(opcaoId) : {};
-  const dados = { ...input, etapas, prazo, ...espelho, ...(uid ? { created_by: uid, updated_by: uid } : {}) };
+  const dados = {
+    ...input, etapas, prazo, ...espelho,
+    ...(smDefaults ? { data_inicio: smDefaults.data_inicio, recorrencia: input.recorrencia || 'mensal' } : {}),
+    ...(uid ? { created_by: uid, updated_by: uid } : {}),
+  };
   const rec = (await col().create(dados)) as unknown as Tarefa;
   await registrarHistorico('tarefa', rec.id, 'Tarefa criada');
   await notificar(input.responsaveis ?? [], {

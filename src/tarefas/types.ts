@@ -38,6 +38,8 @@ export interface Tarefa {
   status?: string;
   /** Veredito do cliente: '' (pendente) | 'aprovada' | 'alteracao'. */
   aprovacao?: '' | 'aprovada' | 'alteracao';
+  /** Início da janela da tarefa (recorrência Social Media). Fim = prazo. */
+  data_inicio?: string;
   prazo?: string;
   concluida_em?: string;
   prioridade?: 'alta' | 'media' | 'baixa';

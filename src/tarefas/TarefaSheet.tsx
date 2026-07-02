@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Trash2, ExternalLink, Check, X, Plus } from 'lucide-react';
 import {
-  getTarefa, atualizarTarefa, removerTarefa, criarTarefa,
+  getTarefa, atualizarTarefa, removerTarefa, criarTarefa, janelaMesProducao,
 } from './tarefasService';
 import type { Tarefa, TarefaInput } from './types';
 import { RECORRENCIA_LABEL } from './types';
@@ -76,6 +76,18 @@ function fmtDataBR(iso?: string): string {
   return `${d}/${m}/${a}`;
 }
 
+const MESES_PT_SHEET = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+/** Rótulo "Mês/Ano" do mês SEGUINTE ao da data (produção em N → refere-se a N+1). */
+function mesSeguinteDe(iso?: string): string {
+  if (!iso) return '';
+  const [a, m] = iso.slice(0, 10).split('-').map(Number);
+  if (!a || !m) return '';
+  const prox = m === 12 ? 1 : m + 1;
+  const ano = m === 12 ? a + 1 : a;
+  return `${MESES_PT_SHEET[prox - 1]}/${ano}`;
+}
+
 export function TarefaSheet({
   tarefaId, aberto, onClose, onMudou, criar, presetProjeto, presetCliente, tipoProjeto,
 }: {
@@ -129,11 +141,14 @@ export function TarefaSheet({
       rascunhoIniciado.current = true;
       const projetoPreset = projetos.find((p) => p.id === presetProjeto);
       const clienteId = projetoPreset?.cliente ?? presetCliente ?? '';
+      const ehSocialMedia = (tipoProjeto ?? '') === 'Social Media';
+      const janelaSM = ehSocialMedia ? janelaMesProducao() : null;
       setT({
         id: '',
         nome: '',
         tipo: tipoProjeto ?? '',
-        prazo: hojeLocal(),
+        data_inicio: janelaSM?.data_inicio,
+        prazo: janelaSM?.prazo ?? hojeLocal(),
         projeto: presetProjeto ?? '',
         cliente: clienteId,
         lado: 'wenox',
@@ -141,7 +156,7 @@ export function TarefaSheet({
         contato: '',
         etiquetas: [],
         descricao: '',
-        recorrencia: '',
+        recorrencia: ehSocialMedia ? 'mensal' : '',
       });
       return;
     }
@@ -465,7 +480,23 @@ export function TarefaSheet({
               </div>
 
               {/* 4. Repetir */}
-              {t.tipo !== 'Social Media' && (
+              {t.tipo === 'Social Media' ? (
+                <div>
+                  <RotuloCampo>Recorrência</RotuloCampo>
+                  <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary/80">
+                    <p className="font-medium">Recorrência mensal automática (Social Media)</p>
+                    <p className="mt-0.5 text-muted-foreground">
+                      Uma nova ocorrência é criada automaticamente todo dia 1, independente do status do mês anterior.
+                    </p>
+                    {t.data_inicio && (
+                      <p className="mt-1 text-muted-foreground">
+                        Janela deste mês: <span className="text-foreground">{fmtDataBR(t.data_inicio)} → {fmtDataBR(t.prazo)}</span>
+                        {mesSeguinteDe(t.data_inicio) && <> · referente a <span className="text-foreground">{mesSeguinteDe(t.data_inicio)}</span></>}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
               <div>
                 <RotuloCampo>Repetir</RotuloCampo>
                 <div className="flex flex-wrap gap-2">

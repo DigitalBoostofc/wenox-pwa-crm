@@ -1,23 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal, Clock, Search, SlidersHorizontal, CalendarDays, ChevronsRightLeft, ChevronsLeftRight, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CheckSquare, Paperclip, AlignLeft, Plus, X, GripVertical, MoreHorizontal, Clock, Search, SlidersHorizontal, ChevronsRightLeft, ChevronsLeftRight } from 'lucide-react';
 import {
   getQuadro, listListas, listCartoes, moverCartao,
   criarCartao, criarLista, atualizarLista, arquivarLista,
   listCartoesArquivados, arquivarCartao,
   listListasArquivadas, restaurarLista,
   removerCartao, deletarListaComCards,
-  criarListaMes, getCardsTemplateMes, clonarCardTemplate, gerarPostsMes, vincularTarefaLista, criarTarefaSocialMedia,
-  getRecorrenciaMes, salvarRecorrenciaMes, desativarRecorrenciaMes, editarMesLista,
   listQuadros, quadrosAcessiveisIds,
-  MESES_PT, DIAS_SEMANA_CURTO,
 } from './quadrosService';
 import { useAuth } from '@/auth/useAuth';
 import { acessoQuadrosRestrito } from '@/auth/perms';
 import { listUsuarios } from '@/usuarios/usuariosService';
 import type { Usuario } from '@/usuarios/types';
-import { listProjetos } from '@/projetos/projetosService';
-import type { Projeto } from '@/projetos/types';
 import { AvatarMembro } from '@/dashboard/AvatarMembro';
 import { HeaderSlot } from '@/components/layout/HeaderSlot';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -25,9 +20,9 @@ import { Archive } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import type { Quadro, Lista, Cartao, EtiquetaCartao, RecorrenciaMes } from './types';
+import type { Quadro, Lista, Cartao, EtiquetaCartao } from './types';
 import { capaEhCor, capaCorClara, progressoChecklist, corEtiquetaSolida, corPrazoCard, fundoBoardStyle, alertaAgendar, TIPO_POST_LABEL, OBJETIVO_POST, thumbUrl, ehCartaoPost } from './types';
-import { resolverOpcaoCard, statusPostDaOpcao } from '@/tarefas/status';
+import { resolverOpcaoCard } from '@/tarefas/status';
 import { StatusOpcaoChip } from '@/tarefas/StatusOpcaoChip';
 import { CartaoSheet } from './CartaoSheet';
 import { prazoBR } from '@/tarefas/format';
@@ -231,30 +226,6 @@ export function QuadroBoardPage({ id }: { id: string }) {
   const [verArq, setVerArq] = useState(false);
   const [arquivados, setArquivados] = useState<Cartao[]>([]);
   const [listasArquivadas, setListasArquivadas] = useState<Lista[]>([]);
-  const anoAtual = new Date().getFullYear();
-  const [addMesOpen, setAddMesOpen] = useState(false);
-  const [mesSel, setMesSel] = useState<number>(new Date().getMonth() + 1);
-  const [anoSel, setAnoSel] = useState<number>(anoAtual);
-  const [criandoMes, setCriandoMes] = useState(false);
-  const [designSel, setDesignSel] = useState('');
-  const [socialSel, setSocialSel] = useState('');
-  const [tipoQtd, setTipoQtd] = useState<'padrao8' | 'padrao12' | 'personalizado'>('padrao8');
-  const [qtdCustom, setQtdCustom] = useState(8);
-  const [diasCustom, setDiasCustom] = useState<number[]>([1, 3, 5]);
-  const [recorrenciaMensal, setRecorrenciaMensal] = useState(false);
-  const [recorrencia, setRecorrencia] = useState<RecorrenciaMes | null>(null);
-  const [desativandoRecorrencia, setDesativandoRecorrencia] = useState(false);
-  const [projetoSel, setProjetoSel] = useState('');
-  const [projetos, setProjetos] = useState<Projeto[]>([]);
-  const [editMesOpen, setEditMesOpen] = useState(false);
-  const [editMesLista, setEditMesLista] = useState<Lista | null>(null);
-  const [editandoMes, setEditandoMes] = useState(false);
-  const [editTipoQtd, setEditTipoQtd] = useState<'padrao8' | 'padrao12' | 'personalizado'>('padrao8');
-  const [editQtdCustom, setEditQtdCustom] = useState(8);
-  const [editDiasCustom, setEditDiasCustom] = useState<number[]>([1, 3, 5]);
-  const [editDesignSel, setEditDesignSel] = useState('');
-  const [editSocialSel, setEditSocialSel] = useState('');
-  const [editProjetoSel, setEditProjetoSel] = useState('');
   useEffect(() => { listUsuarios().then((us) => { const m: Record<string, Usuario> = {}; for (const u of us) m[u.id] = u; setUsuariosMap(m); }).catch(() => { /* */ }); }, []);
 
   async function abrirArquivados() {
@@ -287,14 +258,11 @@ export function QuadroBoardPage({ id }: { id: string }) {
   }
 
   useEffect(() => {
-    let vivo = true;
     setCarregando(true);
     Promise.all([getQuadro(id), listListas(id), listCartoes(id)])
       .then(([q, ls, cs]) => { setQuadro(q); setListas(ls); setCartoes(cs); setErro(''); })
       .catch(() => setErro('Não foi possível carregar o quadro.'))
       .finally(() => setCarregando(false));
-    getRecorrenciaMes(id).then((r) => { if (vivo) setRecorrencia(r); }).catch(() => {});
-    return () => { vivo = false; };
   }, [id]);
 
   // Guard de acesso: Membro/Visualizador só entram em quadros onde são responsáveis.
@@ -307,11 +275,6 @@ export function QuadroBoardPage({ id }: { id: string }) {
       .catch(() => { /* em erro, não bloqueia */ });
     return () => { vivo = false; };
   }, [restrito, user?.id, id]);
-
-  useEffect(() => {
-    if (!quadro?.cliente) { setProjetos([]); return; }
-    listProjetos({ clienteId: quadro.cliente }).then(setProjetos).catch(() => setProjetos([]));
-  }, [quadro?.cliente]);
 
   const porLista = useMemo(() => {
     const m = new Map<string, Cartao[]>();
@@ -335,19 +298,6 @@ export function QuadroBoardPage({ id }: { id: string }) {
     for (const c of cartoes) for (const m of c.membros ?? []) if (m) s.add(m);
     return [...s].sort();
   }, [cartoes]);
-
-  const membrosDesign = useMemo<Usuario[]>(
-    () => Object.values(usuariosMap).filter(
-      (u) => u.status === 'Ativo' && u.role !== 'Cliente' && (u.area ?? '').trim().toLowerCase() === 'design',
-    ),
-    [usuariosMap],
-  );
-  const membrosSocial = useMemo<Usuario[]>(
-    () => Object.values(usuariosMap).filter(
-      (u) => u.status === 'Ativo' && u.role !== 'Cliente' && (u.area ?? '').trim().toLowerCase() === 'social media',
-    ),
-    [usuariosMap],
-  );
 
   function passaFiltro(c: Cartao): boolean {
     if (busca) { const t = busca.toLowerCase(); if (!((c.nome ?? '').toLowerCase().includes(t) || (c.descricao ?? '').toLowerCase().includes(t))) return false; }
@@ -440,135 +390,6 @@ export function QuadroBoardPage({ id }: { id: string }) {
     try { await atualizarLista(listaId, { nome: n }); } catch { setErro('Não foi possível renomear a lista.'); }
   }
 
-  async function adicionarMes() {
-    if (criandoMes) return;
-    setCriandoMes(true);
-    setErro('');
-    try {
-      const ordem = (listas.length ? Math.max(...listas.map((l) => l.ordem ?? 0)) : 0) + 1;
-      const listaCriada = await criarListaMes(id, mesSel, anoSel, ordem);
-
-      const diasSemana = tipoQtd === 'padrao8' ? [2, 4] : tipoQtd === 'padrao12' ? [1, 3, 5] : diasCustom;
-      const quantidade = tipoQtd === 'padrao8' ? 8 : tipoQtd === 'padrao12' ? 12 : qtdCustom;
-
-      // Busca todos os cards da lista [TEMPLATES] do quadro atual (com fallback pro global @ TEMPLATE)
-      const templateCards = await getCardsTemplateMes(id);
-      const calendIdx = templateCards.findIndex((c) =>
-        c.nome.toUpperCase().includes('CALEND'),
-      );
-
-      // Cards até (e incluindo) o CALENDÁRIO DE POSTS; os restantes vêm após os posts
-      const cardsAntes = calendIdx >= 0 ? templateCards.slice(0, calendIdx + 1) : [];
-      const cardsDepois = calendIdx >= 0 ? templateCards.slice(calendIdx + 1) : templateCards;
-
-      // 1. Clonar cards até CALENDÁRIO DE POSTS (best-effort, não aborta o mês)
-      let ordemAtual = 0;
-      for (const card of cardsAntes) {
-        const cloned = await clonarCardTemplate(id, listaCriada.id, card, ordemAtual);
-        if (cloned !== null) ordemAtual++;
-        else console.warn('[adicionarMes] falha ao clonar card template:', card.nome);
-      }
-
-      const responsaveisIds = { designId: designSel || undefined, socialId: socialSel || undefined };
-
-      // 2. Gerar posts na sequência, capturando a quantidade real criada
-      const qtdPosts = await gerarPostsMes(id, listaCriada.id, mesSel, anoSel, diasSemana, quantidade, ordemAtual, responsaveisIds);
-      ordemAtual += qtdPosts;
-
-      // 3. Clonar cards restantes (OUTRAS ATIVIDADES, CRIATIVOS, RELATÓRIOS, …)
-      for (const card of cardsDepois) {
-        const cloned = await clonarCardTemplate(id, listaCriada.id, card, ordemAtual);
-        if (cloned !== null) ordemAtual++;
-        else console.warn('[adicionarMes] falha ao clonar card template:', card.nome);
-      }
-
-      if (quadro?.cliente) {
-        const tarefa = await criarTarefaSocialMedia(
-          quadro.cliente,
-          mesSel,
-          anoSel,
-          responsaveisIds,
-          quadro.expand?.cliente?.nome_fantasia || quadro.expand?.cliente?.nome || '',
-          projetoSel || undefined,
-        );
-        await vincularTarefaLista(listaCriada.id, tarefa.id);
-      }
-      if (recorrenciaMensal) {
-        try {
-          const rec = await salvarRecorrenciaMes({ quadro: id, ativa: true, padrao_posts: tipoQtd, qtd_custom: qtdCustom, dias_custom: diasCustom, design_id: designSel || undefined, social_id: socialSel || undefined, projeto_id: projetoSel || undefined, ultimo_mes: mesSel, ultimo_ano: anoSel });
-          setRecorrencia(rec);
-        } catch {
-          setErro('Mês criado, mas não foi possível salvar a recorrência.');
-        }
-      }
-      setRecorrenciaMensal(false);
-      setDesignSel('');
-      setSocialSel('');
-      setProjetoSel('');
-      setAddMesOpen(false);
-    } catch {
-      setErro('Não foi possível criar o mês.');
-    } finally {
-      setCriandoMes(false);
-    }
-    await recarregar().catch(() => {});
-  }
-
-  function abrirEditarMes(l: Lista) {
-    setEditMesLista(l);
-    setEditTipoQtd((recorrencia?.padrao_posts as 'padrao8' | 'padrao12' | 'personalizado') || 'padrao8');
-    setEditQtdCustom(recorrencia?.qtd_custom ?? 8);
-    setEditDiasCustom(recorrencia?.dias_custom ?? [1, 3, 5]);
-    setEditDesignSel(recorrencia?.design_id ?? '');
-    setEditSocialSel(recorrencia?.social_id ?? '');
-    setEditProjetoSel(recorrencia?.projeto_id ?? '');
-    setEditMesOpen(true);
-  }
-
-  async function salvarEdicaoMes() {
-    if (!editMesLista) return;
-    // Status efetivo = espelho da opção (status_opcao) com fallback ao legado status_post,
-    // para não perder posts cujo status veio só pela opção global (F3).
-    const statusEfetivo = (c: Cartao) => statusPostDaOpcao(c.status_opcao) || c.status_post || '';
-    const postsDoMes = cartoes.filter((c) => c.lista === editMesLista.id && (!!c.status_post || !!c.status_opcao));
-    const temAgendadoOuPostado = postsDoMes.some((c) => {
-      const s = statusEfetivo(c);
-      return s === 'agendado' || s === 'postado';
-    });
-    let aviso = `Isso vai SUBSTITUIR os ${postsDoMes.length} posts atuais desta lista.`;
-    if (temAgendadoOuPostado) aviso += '\n\nATENÇÃO: há posts agendados ou já postados que serão removidos!';
-    aviso += '\n\nDeseja continuar?';
-    if (!confirm(aviso)) return;
-    setEditandoMes(true);
-    setErro('');
-    try {
-      await editarMesLista(
-        id,
-        editMesLista,
-        editTipoQtd,
-        editQtdCustom,
-        editDiasCustom,
-        editDesignSel || undefined,
-        editSocialSel || undefined,
-        editProjetoSel || undefined,
-      );
-      setEditMesOpen(false);
-      await recarregar().catch(() => {});
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Não foi possível editar o mês.');
-    } finally {
-      setEditandoMes(false);
-    }
-  }
-
-  async function desativarRecorrencia() {
-    if (!confirm('Desativar a recorrência mensal deste quadro? A lista do próximo mês não será criada automaticamente.')) return;
-    setDesativandoRecorrencia(true);
-    try { await desativarRecorrenciaMes(id); setRecorrencia((r) => r ? { ...r, ativa: false } : r); }
-    catch { setErro('Não foi possível desativar a recorrência.'); }
-    finally { setDesativandoRecorrencia(false); }
-  }
-
   if (semAcesso) return (
     <div className="flex flex-col items-center gap-3 px-5 py-16 text-center">
       <p className="text-sm text-muted-foreground">Você não tem acesso a este quadro.</p>
@@ -628,24 +449,6 @@ export function QuadroBoardPage({ id }: { id: string }) {
           )}
           {erro && <span className="text-xs text-destructive">{erro}</span>}
           <div className="ml-auto flex items-center gap-1.5">
-            {recorrencia?.ativa && (
-              <div className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-primary/80" role="status" aria-label="Recorrência mensal ativa neste quadro">
-                <RefreshCw className="size-3.5 shrink-0" aria-hidden="true" />
-                <span>Recorrência mensal ativa</span>
-                <button type="button" aria-label="Desativar recorrência mensal" disabled={desativandoRecorrencia} onClick={desativarRecorrencia}
-                  className="ml-0.5 rounded p-0.5 text-primary/50 transition-colors hover:bg-primary/10 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40">
-                  <X className="size-3" aria-hidden="true" />
-                </button>
-              </div>
-            )}
-            {listas.some(l => l.tipo === 'mes') && (
-              <Link
-                to={`/quadros/${id}/calendario`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary"
-              >
-                <CalendarDays className="size-3.5" /> Calendário
-              </Link>
-            )}
             <button onClick={abrirArquivados} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary">
               <Archive className="size-3.5" /> Arquivados
             </button>
@@ -670,7 +473,6 @@ export function QuadroBoardPage({ id }: { id: string }) {
               >
                 <ChevronsLeftRight className="size-4 shrink-0 text-muted-foreground" />
                 <Badge variant="muted" className="text-[10px]">{cards.length}</Badge>
-                {l.tipo === 'mes' && <CalendarDays className="size-3.5 shrink-0 text-primary/70" />}
                 <span style={{ writingMode: 'vertical-rl' }} className="mt-1 truncate text-sm font-semibold">{l.nome}</span>
               </div>
             );
@@ -700,7 +502,6 @@ export function QuadroBoardPage({ id }: { id: string }) {
                 ) : (
                   <span className="flex items-center gap-1 text-sm font-semibold" onClick={() => setRenomeando(l.id)} role="button">
                     <GripVertical className="size-3.5 text-muted-foreground/40" />
-                    {l.tipo === 'mes' && <CalendarDays className="size-3.5 text-primary/70 shrink-0" />}
                     {l.nome}
                   </span>
                 )}
@@ -714,7 +515,6 @@ export function QuadroBoardPage({ id }: { id: string }) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => toggleColapsar(l.id)}>Recolher lista</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setRenomeando(l.id)}>Renomear</DropdownMenuItem>
-                      {l.tipo === 'mes' && <DropdownMenuItem onClick={() => abrirEditarMes(l)}>Editar</DropdownMenuItem>}
                       <DropdownMenuItem onClick={() => arquivar(l.id)} className="text-destructive">Arquivar lista</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -750,7 +550,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
           );
         })}
 
-        {/* Adicionar lista / mês */}
+        {/* Adicionar lista */}
         <div className="flex w-72 shrink-0 flex-col gap-2">
           {novaLista !== null ? (
             <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-background/40 p-2">
@@ -771,352 +571,7 @@ export function QuadroBoardPage({ id }: { id: string }) {
               <Plus className="size-4" /> Adicionar uma lista
             </button>
           )}
-          <button
-            onClick={() => setAddMesOpen(true)}
-            className="flex w-full items-center gap-1.5 rounded-xl border border-dashed border-primary/40 px-3 py-2.5 text-sm text-primary/70 transition-colors hover:bg-primary/5 hover:text-primary"
-          >
-            <CalendarDays className="size-4" /> Adicionar mês
-          </button>
         </div>
-
-        {/* Dialog: adicionar mês */}
-        <Dialog open={addMesOpen} onOpenChange={(open) => { setAddMesOpen(open); if (!open) { setDesignSel(''); setSocialSel(''); setRecorrenciaMensal(false); setProjetoSel(''); } }}>
-          <DialogContent className="max-w-sm">
-            <div className="flex flex-col gap-4 p-5">
-              <DialogTitle className="flex items-center gap-2">
-                <CalendarDays className="size-4 text-primary" /> Adicionar mês ao quadro
-              </DialogTitle>
-
-              {/* Mês / Ano */}
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-muted-foreground">Mês</label>
-                  <select
-                    value={mesSel}
-                    onChange={(e) => setMesSel(Number(e.target.value))}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    {MESES_PT.map((m, i) => (
-                      <option key={m} value={i + 1}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-muted-foreground">Ano</label>
-                  <select
-                    value={anoSel}
-                    onChange={(e) => setAnoSel(Number(e.target.value))}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    <option value={anoAtual}>{anoAtual}</option>
-                    <option value={anoAtual + 1}>{anoAtual + 1}</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Quantidade de posts */}
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-muted-foreground">Posts do mês</label>
-                {([
-                  { id: 'padrao8', label: '8 posts', desc: 'Terça e Quinta' },
-                  { id: 'padrao12', label: '12 posts', desc: 'Seg, Qua e Sex' },
-                  { id: 'personalizado', label: 'Personalizado', desc: 'Escolha os dias' },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setTipoQtd(opt.id)}
-                    className={cn(
-                      'flex items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm transition-colors',
-                      tipoQtd === opt.id ? 'border-primary bg-primary/5 text-foreground' : 'border-border hover:bg-secondary',
-                    )}
-                  >
-                    <span className={cn('size-3.5 shrink-0 rounded-full border-2 transition-colors', tipoQtd === opt.id ? 'border-primary bg-primary' : 'border-muted-foreground')} />
-                    <span className="font-medium">{opt.label}</span>
-                    <span className="text-xs text-muted-foreground">{opt.desc}</span>
-                  </button>
-                ))}
-
-                {/* Painel personalizado */}
-                {tipoQtd === 'personalizado' && (
-                  <div className="mt-1 flex flex-col gap-3 rounded-md border border-border bg-secondary/30 p-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs text-muted-foreground">Quantidade</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={31}
-                        value={qtdCustom}
-                        onChange={(e) => setQtdCustom(Math.max(1, Number(e.target.value)))}
-                        className="h-8 w-24 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs text-muted-foreground">Dias da semana</label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {DIAS_SEMANA_CURTO.map((dia, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setDiasCustom((prev) =>
-                              prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort((a, b) => a - b),
-                            )}
-                            className={cn(
-                              'rounded border px-2.5 py-1 text-xs font-medium transition-colors',
-                              diasCustom.includes(idx) ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-secondary',
-                            )}
-                          >
-                            {dia}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Responsáveis por função */}
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="sel-design" className="text-xs text-muted-foreground">Design</label>
-                  <select
-                    id="sel-design"
-                    value={designSel}
-                    onChange={(e) => setDesignSel(e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    <option value="">—</option>
-                    {membrosDesign.map((u) => (
-                      <option key={u.id} value={u.id}>{u.nome}</option>
-                    ))}
-                  </select>
-                  {membrosDesign.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground">Nenhum membro com função Design</p>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="sel-social" className="text-xs text-muted-foreground">Social Media</label>
-                  <select
-                    id="sel-social"
-                    value={socialSel}
-                    onChange={(e) => setSocialSel(e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    <option value="">—</option>
-                    {membrosSocial.map((u) => (
-                      <option key={u.id} value={u.id}>{u.nome}</option>
-                    ))}
-                  </select>
-                  {membrosSocial.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground">Nenhum membro com função Social Media</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Projeto (obrigatório) */}
-              <div className="flex flex-col gap-1">
-                <label htmlFor="sel-projeto" className="text-xs text-muted-foreground">
-                  Projeto <span className="text-destructive">*</span>
-                </label>
-                {projetos.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Este cliente não tem projetos cadastrados — cadastre um projeto pra criar o mês.
-                  </p>
-                ) : (
-                  <select
-                    id="sel-projeto"
-                    value={projetoSel}
-                    onChange={(e) => setProjetoSel(e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    <option value="">—</option>
-                    {projetos.map((p) => (
-                      <option key={p.id} value={p.id}>{p.nome}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-3">
-                  <label htmlFor="toggle-recorrencia" className="cursor-pointer select-none text-sm font-medium leading-none">Recorrência mensal</label>
-                  <button id="toggle-recorrencia" type="button" role="switch" aria-checked={recorrenciaMensal} onClick={() => setRecorrenciaMensal((v) => !v)}
-                    className={cn('relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60', recorrenciaMensal ? 'bg-primary' : 'bg-input')}>
-                    <span className={cn('pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform', recorrenciaMensal ? 'translate-x-4' : 'translate-x-0')} />
-                  </button>
-                </div>
-                {recorrenciaMensal && (<p className="text-[11px] text-muted-foreground">Todo dia 01, às 00:01, a lista do próximo mês será criada automaticamente com os mesmos responsáveis.</p>)}
-              </div>
-
-              <div className="flex justify-end gap-2 border-t border-border pt-3">
-                <Button variant="outline" size="sm" onClick={() => setAddMesOpen(false)} disabled={criandoMes}>
-                  Cancelar
-                </Button>
-                <Button size="sm" onClick={adicionarMes} disabled={criandoMes || !projetoSel || projetos.length === 0 || (tipoQtd === 'personalizado' && diasCustom.length === 0)}>
-                  {criandoMes ? 'Criando…' : 'Confirmar'}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Dialog: editar mês */}
-        <Dialog open={editMesOpen} onOpenChange={(open) => {
-          setEditMesOpen(open);
-          if (!open) {
-            setEditMesLista(null);
-            setEditTipoQtd('padrao8');
-            setEditQtdCustom(8);
-            setEditDiasCustom([1, 3, 5]);
-            setEditDesignSel('');
-            setEditSocialSel('');
-            setEditProjetoSel('');
-          }
-        }}>
-          <DialogContent className="max-w-sm">
-            <div className="flex flex-col gap-4 p-5">
-              <DialogTitle className="flex items-center gap-2">
-                <CalendarDays className="size-4 text-primary" /> Editar mês
-              </DialogTitle>
-
-              {/* Quantidade de posts */}
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-muted-foreground">Posts do mês</label>
-                {([
-                  { id: 'padrao8', label: '8 posts', desc: 'Terça e Quinta' },
-                  { id: 'padrao12', label: '12 posts', desc: 'Seg, Qua e Sex' },
-                  { id: 'personalizado', label: 'Personalizado', desc: 'Escolha os dias' },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setEditTipoQtd(opt.id)}
-                    className={cn(
-                      'flex items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm transition-colors',
-                      editTipoQtd === opt.id ? 'border-primary bg-primary/5 text-foreground' : 'border-border hover:bg-secondary',
-                    )}
-                  >
-                    <span className={cn('size-3.5 shrink-0 rounded-full border-2 transition-colors', editTipoQtd === opt.id ? 'border-primary bg-primary' : 'border-muted-foreground')} />
-                    <span className="font-medium">{opt.label}</span>
-                    <span className="text-xs text-muted-foreground">{opt.desc}</span>
-                  </button>
-                ))}
-
-                {/* Painel personalizado */}
-                {editTipoQtd === 'personalizado' && (
-                  <div className="mt-1 flex flex-col gap-3 rounded-md border border-border bg-secondary/30 p-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs text-muted-foreground">Quantidade</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={31}
-                        value={editQtdCustom}
-                        onChange={(e) => setEditQtdCustom(Math.max(1, Number(e.target.value)))}
-                        className="h-8 w-24 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs text-muted-foreground">Dias da semana</label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {DIAS_SEMANA_CURTO.map((dia, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setEditDiasCustom((prev) =>
-                              prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort((a, b) => a - b),
-                            )}
-                            className={cn(
-                              'rounded border px-2.5 py-1 text-xs font-medium transition-colors',
-                              editDiasCustom.includes(idx) ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-secondary',
-                            )}
-                          >
-                            {dia}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Responsáveis por função */}
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="edit-sel-design" className="text-xs text-muted-foreground">Design</label>
-                  <select
-                    id="edit-sel-design"
-                    value={editDesignSel}
-                    onChange={(e) => setEditDesignSel(e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    <option value="">—</option>
-                    {membrosDesign.map((u) => (
-                      <option key={u.id} value={u.id}>{u.nome}</option>
-                    ))}
-                  </select>
-                  {membrosDesign.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground">Nenhum membro com função Design</p>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="edit-sel-social" className="text-xs text-muted-foreground">Social Media</label>
-                  <select
-                    id="edit-sel-social"
-                    value={editSocialSel}
-                    onChange={(e) => setEditSocialSel(e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    <option value="">—</option>
-                    {membrosSocial.map((u) => (
-                      <option key={u.id} value={u.id}>{u.nome}</option>
-                    ))}
-                  </select>
-                  {membrosSocial.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground">Nenhum membro com função Social Media</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Projeto (obrigatório) */}
-              <div className="flex flex-col gap-1">
-                <label htmlFor="edit-sel-projeto" className="text-xs text-muted-foreground">
-                  Projeto <span className="text-destructive">*</span>
-                </label>
-                {projetos.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Este cliente não tem projetos cadastrados.
-                  </p>
-                ) : (
-                  <select
-                    id="edit-sel-projeto"
-                    value={editProjetoSel}
-                    onChange={(e) => setEditProjetoSel(e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    <option value="">—</option>
-                    {projetos.map((p) => (
-                      <option key={p.id} value={p.id}>{p.nome}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                As mudanças regeneram os posts deste mês e passam a valer para os próximos meses gerados automaticamente neste quadro.
-              </p>
-
-              <div className="flex justify-end gap-2 border-t border-border pt-3">
-                <Button variant="outline" size="sm" onClick={() => setEditMesOpen(false)} disabled={editandoMes}>
-                  Cancelar
-                </Button>
-                <Button size="sm" onClick={salvarEdicaoMes} disabled={editandoMes || !editProjetoSel || projetos.length === 0 || (editTipoQtd === 'personalizado' && editDiasCustom.length === 0)}>
-                  {editandoMes ? 'Salvando…' : 'Salvar'}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       <CartaoSheet

@@ -66,8 +66,6 @@ const ModeloPostConfigPage = lazy(() =>
   import('@/quadros/ModeloPostConfigPage').then((m) => ({ default: m.ModeloPostConfigPage })));
 const VinculosQuadrosPage = lazy(() =>
   import('@/quadros/VinculosQuadrosPage').then((m) => ({ default: m.VinculosQuadrosPage })));
-const CalendarioPage = lazy(() =>
-  import('@/quadros/CalendarioPage').then((m) => ({ default: m.CalendarioPage })));
 const RevisaoPostsPage = lazy(() =>
   import('@/quadros/RevisaoPostsPage').then((m) => ({ default: m.RevisaoPostsPage })));
 
@@ -236,15 +234,6 @@ function AuthedApp() {
             render={(props) => (
               <Protegido modulo="quadros">
                 <QuadroBoardPage id={(props.match.params as { id: string }).id} />
-              </Protegido>
-            )}
-          />
-          <Route
-            exact
-            path="/quadros/:id/calendario"
-            render={(props) => (
-              <Protegido modulo="quadros">
-                <CalendarioPage id={(props.match.params as { id: string }).id} />
               </Protegido>
             )}
           />

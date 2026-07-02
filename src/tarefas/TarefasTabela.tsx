@@ -69,6 +69,12 @@ const COLS_PADRAO: ColDef[] = [
   { key: 'atualizado', label: 'Atualizado em', visivel: false },
 ];
 
+const LARGURAS_PADRAO: Record<ColKey, number> = {
+  cliente: 150, projeto: 150, tarefa: 200, status: 120, prazo: 110,
+  prioridade: 100, responsaveis: 130, etiquetas: 160, descricao: 200,
+  comentario: 200, criado: 140, atualizado: 140,
+};
+
 /** Mapa coluna → campo de ordenação (quando aplicável), p/ o menu do cabeçalho (N1). */
 const COL_ORDEM: Partial<Record<ColKey, OrdemRegra['campo']>> = {
   tarefa: 'nome', status: 'status', prazo: 'prazo', prioridade: 'prioridade', cliente: 'cliente', criado: 'criado',
@@ -965,14 +971,10 @@ export function TarefasTabela({
     return (
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-            <colgroup>
-              <col style={{ width: ordenavel ? 64 : 44 }} />
-              {colsVisiveis.map((col) => <col key={col.key} style={larguras[col.key] ? { width: larguras[col.key] } : undefined} />)}
-            </colgroup>
+          <table className="text-sm" style={{ tableLayout: 'fixed', minWidth: '100%' }}>
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-3 py-3">
+                <th className="px-3 py-3" style={{ width: ordenavel ? 64 : 44 }}>
                   <input type="checkbox" aria-label="Selecionar todas" checked={todasSel}
                     onChange={(e) => toggleSelTodas(idsLinhas, e.target.checked)}
                     className="size-3.5 cursor-pointer accent-primary" />
@@ -981,7 +983,7 @@ export function TarefasTabela({
                   const podeOrdenar = !!COL_ORDEM[col.key];
                   const podeFiltrar = !!COL_FILTRO[col.key];
                   return (
-                    <th key={col.key} className="relative px-4 py-3 font-medium">
+                    <th key={col.key} className="relative px-4 py-3 font-medium" style={{ width: larguras[col.key] ?? LARGURAS_PADRAO[col.key] }}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button type="button" className="flex max-w-full items-center gap-1 truncate uppercase hover:text-foreground">{col.label}</button>

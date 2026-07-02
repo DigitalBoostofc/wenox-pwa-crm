@@ -54,6 +54,28 @@ function hojeLocal(): string {
   ].join('-');
 }
 
+/** Próxima data no dia `dia` do mês: mês atual se ainda não passou, senão o próximo.
+ *  O dia é clampado ao último dia do mês alvo (ex.: 31 em fevereiro vira 28/29). */
+function proximaDataDia(dia: number): string {
+  const hoje = new Date();
+  let ano = hoje.getFullYear();
+  let mes = hoje.getMonth(); // 0-based
+  if (dia < hoje.getDate()) {
+    mes += 1;
+    if (mes > 11) { mes = 0; ano += 1; }
+  }
+  const ultimoDia = new Date(ano, mes + 1, 0).getDate();
+  const d = Math.min(dia, ultimoDia);
+  return `${ano}-${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+/** dd/mm/aaaa a partir de "YYYY-MM-DD" (sem desvio de fuso). */
+function fmtDataBR(iso?: string): string {
+  if (!iso) return '';
+  const [a, m, d] = iso.slice(0, 10).split('-');
+  return `${d}/${m}/${a}`;
+}
+
 export function TarefaSheet({
   tarefaId, aberto, onClose, onMudou, criar, presetProjeto, presetCliente, tipoProjeto,
 }: {
@@ -207,7 +229,14 @@ export function TarefaSheet({
   }
 
   function handleRecorrencia(r: '' | 'semanal' | 'quinzenal' | 'mensal') {
-    salvarCampo({ recorrencia: r });
+    // A recorrência precisa de um prazo (é dele que sai a próxima ocorrência).
+    if (r && !t?.prazo) salvarCampo({ recorrencia: r, prazo: hojeLocal() });
+    else salvarCampo({ recorrencia: r });
+  }
+
+  /** Define o dia do mês em que a tarefa mensal se repete (grava no prazo). */
+  function handleDiaMes(dia: number) {
+    salvarCampo({ prazo: proximaDataDia(dia) });
   }
 
   /** Aplica cliente + projeto juntos (expand local p/ refletir na hora; persiste só campos reais). */
@@ -466,9 +495,27 @@ export function TarefaSheet({
                     );
                   })}
                 </div>
+                {t.recorrencia === 'mensal' && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Repete todo dia</span>
+                    <select
+                      value={t.prazo ? Number(t.prazo.slice(8, 10)) : new Date().getDate()}
+                      onChange={(e) => handleDiaMes(Number(e.target.value))}
+                      className="rounded-md border border-border bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      aria-label="Dia do mês da recorrência"
+                    >
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                    <span className="text-sm text-muted-foreground">do mês</span>
+                  </div>
+                )}
                 {t.recorrencia && (
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    Ao concluir, uma nova ocorrência é criada com o próximo prazo.
+                    {t.recorrencia === 'mensal' && t.prazo
+                      ? `Ao concluir, a próxima ocorrência cai no dia ${Number(t.prazo.slice(8, 10))} do mês seguinte (próximo prazo: ${fmtDataBR(t.prazo)}).`
+                      : 'Ao concluir, uma nova ocorrência é criada com o próximo prazo.'}
                   </p>
                 )}
               </div>

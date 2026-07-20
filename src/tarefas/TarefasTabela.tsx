@@ -42,6 +42,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { colWidth, startColumnResize } from '@/lib/columnResize';
 
 const filtroCls =
   'h-9 rounded-md border border-input bg-background/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
@@ -119,16 +120,7 @@ function salvarLarguras(prefix: string, l: Larguras) {
   try { localStorage.setItem(`${prefix}-larguras-v1`, JSON.stringify(l)); } catch { /* */ }
 }
 
-/** Arrasto de redimensionamento de coluna. */
-function dragResize(thEl: HTMLElement, e: React.MouseEvent, aplicar: (largura: number) => void) {
-  e.preventDefault(); e.stopPropagation();
-  const base = thEl.getBoundingClientRect().width;
-  const startX = e.clientX; const MIN = 80;
-  document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
-  function onMove(ev: MouseEvent) { aplicar(Math.max(MIN, Math.round(base + (ev.clientX - startX)))); }
-  function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.body.style.cursor = ''; document.body.style.userSelect = ''; }
-  document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
-}
+
 
 /* ------------------------------ Mês / competência ------------------------- */
 
@@ -529,8 +521,25 @@ export function TarefasTabela({
 
   const colsVisiveis = colDefs.filter((c) => c.visivel);
 
-  function iniciarResize(key: ColKey, thEl: HTMLElement, e: React.MouseEvent) {
-    dragResize(thEl, e, (w) => setLarguras((prev) => { const n = { ...prev, [key]: w }; salvarLarguras(persistPrefix, n); return n; }));
+  function widthCol(key: ColKey) {
+    return colWidth(key, larguras, LARGURAS_PADRAO);
+  }
+
+  function iniciarResize(key: ColKey, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    startColumnResize({
+      startWidth: widthCol(key),
+      clientX: e.clientX,
+      onMove: (w) => setLarguras((prev) => ({ ...prev, [key]: w })),
+      onEnd: (w) => {
+        setLarguras((prev) => {
+          const n = { ...prev, [key]: w };
+          salvarLarguras(persistPrefix, n);
+          return n;
+        });
+      },
+    });
   }
 
   /* ------------------------------ Salvar inline ----------------------------- */
@@ -968,13 +977,23 @@ export function TarefasTabela({
   function tabela(linhas: Tarefa[], vazio: string, comNova = false, comRodape = true, ordenavel = false) {
     const idsLinhas = linhas.map((l) => l.id);
     const todasSel = idsLinhas.length > 0 && idsLinhas.every((id) => selecao.has(id));
+    // Larguras explícitas em todas as colunas + width da tabela = soma →
+    // cada coluna é independente (sem redistribuição do browser).
+    const wLead = ordenavel ? 64 : 44;
+    const tableW = wLead + colsVisiveis.reduce((s, c) => s + widthCol(c.key), 0);
     return (
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="text-sm" style={{ tableLayout: 'fixed', minWidth: '100%' }}>
+          <table className="text-sm" style={{ tableLayout: 'fixed', width: tableW }}>
+            <colgroup>
+              <col style={{ width: wLead }} />
+              {colsVisiveis.map((col) => (
+                <col key={col.key} style={{ width: widthCol(col.key) }} />
+              ))}
+            </colgroup>
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-3 py-3" style={{ width: ordenavel ? 64 : 44 }}>
+                <th className="px-3 py-3">
                   <input type="checkbox" aria-label="Selecionar todas" checked={todasSel}
                     onChange={(e) => toggleSelTodas(idsLinhas, e.target.checked)}
                     className="size-3.5 cursor-pointer accent-primary" />
@@ -983,7 +1002,7 @@ export function TarefasTabela({
                   const podeOrdenar = !!COL_ORDEM[col.key];
                   const podeFiltrar = !!COL_FILTRO[col.key];
                   return (
-                    <th key={col.key} className="relative px-4 py-3 font-medium" style={{ width: larguras[col.key] ?? LARGURAS_PADRAO[col.key] }}>
+                    <th key={col.key} className="relative px-4 py-3 font-medium">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button type="button" className="flex max-w-full items-center gap-1 truncate uppercase hover:text-foreground">{col.label}</button>
@@ -1003,8 +1022,9 @@ export function TarefasTabela({
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <span role="separator" aria-orientation="vertical" aria-label="Redimensionar"
-                        onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)}
-                        className="group absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center">
+                        onMouseDown={(e) => iniciarResize(col.key, e)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="group absolute -right-1 top-0 z-10 flex h-full w-2 cursor-col-resize select-none items-center justify-center">
                         <span aria-hidden className="h-2/3 w-px bg-border transition-colors group-hover:w-0.5 group-hover:bg-primary" />
                       </span>
                     </th>

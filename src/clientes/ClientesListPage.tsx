@@ -21,6 +21,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { HeaderSlot } from '@/components/layout/HeaderSlot';
+import { colWidth, startColumnResize } from '@/lib/columnResize';
 
 type ColKey = 'telefone' | 'email' | 'origem' | 'servicos' | 'status' | 'desde';
 /** Chave usada também pelo mapa de larguras (inclui 'cliente', que é a 1ª coluna). */
@@ -36,6 +37,12 @@ const COLS_PADRAO: ColDef[] = [
 ];
 const COL_KEY = 'wenox-colunas-clientes-v2';
 const LARGURA_KEY = 'wenox-larguras-clientes-v1';
+
+/** Defaults para TODAS as colunas — evita redistribuição ao redimensionar. */
+const LARGURAS_PADRAO: Record<LarguraKey, number> = {
+  cliente: 220, telefone: 140, email: 200, origem: 120,
+  servicos: 160, status: 110, desde: 130,
+};
 
 type Larguras = Partial<Record<LarguraKey, number>>;
 function carregarLarguras(): Larguras {
@@ -168,28 +175,26 @@ export function ClientesListPage() {
     return () => clearTimeout(timer);
   }, [busca]);
 
+  function widthCol(key: LarguraKey) {
+    return colWidth(key, larguras, LARGURAS_PADRAO);
+  }
+
   /** Inicia o arraste de redimensionamento de uma coluna. */
-  function iniciarResize(key: LarguraKey, thEl: HTMLElement, e: React.MouseEvent) {
+  function iniciarResize(key: LarguraKey, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    const base = thEl.getBoundingClientRect().width;
-    const startX = e.clientX;
-    const MIN = 80;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    function onMove(ev: MouseEvent) {
-      const nova = Math.max(MIN, Math.round(base + (ev.clientX - startX)));
-      setLarguras((prev) => ({ ...prev, [key]: nova }));
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      setLarguras((prev) => { salvarLarguras(prev); return prev; });
-    }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    startColumnResize({
+      startWidth: widthCol(key),
+      clientX: e.clientX,
+      onMove: (w) => setLarguras((prev) => ({ ...prev, [key]: w })),
+      onEnd: (w) => {
+        setLarguras((prev) => {
+          const next = { ...prev, [key]: w };
+          salvarLarguras(next);
+          return next;
+        });
+      },
+    });
   }
 
   function toggleCol(k: ColKey) {
@@ -251,6 +256,10 @@ export function ClientesListPage() {
     () => colDefs.filter((c) => c.visivel),
     [colDefs],
   );
+  const wTrail = 40;
+  const tableW = widthCol('cliente')
+    + colsVisiveis.reduce((s, c) => s + widthCol(c.key), 0)
+    + wTrail;
   const selectCls =
     'h-10 rounded-md border border-input bg-background/40 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
@@ -404,60 +413,62 @@ export function ClientesListPage() {
       ) : isDesktop ? (
         /* ---------- DESKTOP: tabela ---------- */
         <Card className="overflow-hidden">
-          <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th
-                  className="relative px-5 py-3 font-medium"
-                  style={larguras.cliente ? { width: larguras.cliente } : undefined}
-                >
-                  Cliente
-                  <ResizeHandle onMouseDown={(e) => iniciarResize('cliente', e.currentTarget.parentElement!, e)} />
-                </th>
+          <div className="overflow-x-auto">
+            <table className="text-sm" style={{ tableLayout: 'fixed', width: tableW }}>
+              <colgroup>
+                <col style={{ width: widthCol('cliente') }} />
                 {colsVisiveis.map((col) => (
-                  <th
-                    key={col.key}
-                    className="relative px-4 py-3 font-medium"
-                    style={larguras[col.key] ? { width: larguras[col.key] } : undefined}
-                  >
-                    {col.label}
-                    <ResizeHandle onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)} />
-                  </th>
+                  <col key={col.key} style={{ width: widthCol(col.key) }} />
                 ))}
-                <th className="w-10 px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {visiveis.map((c) => {
-                const nome = nomeExibicao(c);
-                return (
-                <tr
-                  key={c.id}
-                  onClick={() => history.push(`/clientes/${c.id}`)}
-                  className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50"
-                >
-                  <td className="overflow-hidden px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar nome={nome} src={logoUrl(c, '100x100')} />
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{nome}</p>
-                        <p className="text-xs text-muted-foreground">{c.categoria}</p>
-                      </div>
-                    </div>
-                  </td>
+                <col style={{ width: wTrail }} />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="relative px-5 py-3 font-medium">
+                    Cliente
+                    <ResizeHandle onMouseDown={(e) => iniciarResize('cliente', e)} />
+                  </th>
                   {colsVisiveis.map((col) => (
-                    <td key={col.key} className="overflow-hidden truncate px-4 py-3 text-muted-foreground">
-                      {celula(c, col.key)}
-                    </td>
+                    <th key={col.key} className="relative px-4 py-3 font-medium">
+                      {col.label}
+                      <ResizeHandle onMouseDown={(e) => iniciarResize(col.key, e)} />
+                    </th>
                   ))}
-                  <td className="w-10 px-4 py-3 text-right text-muted-foreground">
-                    <ChevronRight className="ml-auto size-4" />
-                  </td>
+                  <th className="px-4 py-3" />
                 </tr>
-                );
-              })}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {visiveis.map((c) => {
+                  const nome = nomeExibicao(c);
+                  return (
+                  <tr
+                    key={c.id}
+                    onClick={() => history.push(`/clientes/${c.id}`)}
+                    className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50"
+                  >
+                    <td className="overflow-hidden px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar nome={nome} src={logoUrl(c, '100x100')} />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{nome}</p>
+                          <p className="text-xs text-muted-foreground">{c.categoria}</p>
+                        </div>
+                      </div>
+                    </td>
+                    {colsVisiveis.map((col) => (
+                      <td key={col.key} className="overflow-hidden truncate px-4 py-3 text-muted-foreground">
+                        {celula(c, col.key)}
+                      </td>
+                    ))}
+                    <td className="px-4 py-3 text-right text-muted-foreground">
+                      <ChevronRight className="ml-auto size-4" />
+                    </td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </Card>
       ) : (
         /* ---------- MOBILE: cards ---------- */

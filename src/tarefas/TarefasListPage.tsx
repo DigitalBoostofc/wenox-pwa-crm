@@ -44,8 +44,8 @@ function carregarView(key = VIEW_KEY): ViewMode {
 
 type Escopo = 'minhas' | 'todas' | 'internas';
 const ESCOPOS: { v: Escopo; label: string }[] = [
-  { v: 'minhas', label: 'Minhas' },
   { v: 'todas', label: 'Todas' },
+  { v: 'minhas', label: 'Minhas' },
   { v: 'internas', label: 'Internas (sem projeto)' },
 ];
 
@@ -83,7 +83,7 @@ export function TarefasListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
   const history = useHistory();
   const location = useLocation();
   const [busca, setBusca] = useState('');
-  const [escopo, setEscopo] = useState<Escopo>('minhas');
+  const [escopo, setEscopo] = useState<Escopo>('todas');
   // Cada área tem sua própria preferência de visualização isolada.
   const viewKey = tipoFixo ? `wenox-tarefas-${tipoFixo}-view-v1` : VIEW_KEY;
   const [view, setView] = useState<ViewMode>(() => carregarView(viewKey));

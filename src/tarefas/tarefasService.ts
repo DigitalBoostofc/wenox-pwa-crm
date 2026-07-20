@@ -7,7 +7,6 @@ import type { Tarefa, TarefaInput, EtapaTarefa } from './types';
 import { tarefaConcluida } from './format';
 import {
   opcaoInicial, opcaoConcluido, opcaoEhConclusiva, espelhoStatus,
-  opcaoPorId, responsavelDaOpcao,
 } from './status';
 import { normalizarResponsaveis } from './responsavel';
 import {
@@ -230,24 +229,6 @@ export async function atualizarTarefa(
       link: `/tarefas/${id}`,
     });
   }
-  // Notifica o responsável designado do status quando a opção muda.
-  if (input.status_opcao !== undefined && input.status_opcao !== (antes?.status_opcao as string | undefined)) {
-    await notificarResponsavelDoStatus(id, rec.nome, input.status_opcao);
-  } else if (
-    input.status !== undefined &&
-    input.status_opcao === undefined &&
-    input.status !== (antes?.status as string | undefined)
-  ) {
-    const dest = responsavelDaOpcao(undefined, input.status);
-    if (dest) {
-      await notificar([dest], {
-        tipo: 'atribuicao',
-        titulo: `Tarefa em "${input.status}": ${rec.nome}`,
-        mensagem: `A tarefa passou para o status ${input.status}.`,
-        link: `/tarefas/${id}`,
-      });
-    }
-  }
   // Dispara recorrência na transição não-concluída → concluída via edição de campo.
   const agoraConcluida = input.status_opcao !== undefined
     ? opcaoEhConclusiva(input.status_opcao)
@@ -256,24 +237,6 @@ export async function atualizarTarefa(
     await criarProximaOcorrencia(antes as unknown as Tarefa);
   }
   return rec;
-}
-
-/** Notifica o membro designado na opção de status (best-effort). */
-async function notificarResponsavelDoStatus(
-  tarefaId: string,
-  nomeTarefa: string,
-  opcaoId: string,
-): Promise<void> {
-  const op = opcaoPorId(opcaoId);
-  const dest = op?.responsavel;
-  if (!dest) return;
-  const rotulo = op?.nome || 'novo status';
-  await notificar([dest], {
-    tipo: 'atribuicao',
-    titulo: `Tarefa em "${rotulo}": ${nomeTarefa}`,
-    mensagem: `A tarefa passou para o status ${rotulo}.`,
-    link: `/tarefas/${tarefaId}`,
-  });
 }
 
 export async function removerTarefa(id: string): Promise<void> {
@@ -317,9 +280,6 @@ export async function moverTarefaOpcao(id: string, opcaoId: string): Promise<Tar
     ...(pb.authStore?.record?.id ? { updated_by: pb.authStore.record.id } : {}),
   })) as unknown as Tarefa;
   await registrarHistorico('tarefa', id, `Moveu para "${esp.status}"`);
-  if (antes?.status_opcao !== opcaoId) {
-    await notificarResponsavelDoStatus(id, rec.nome, opcaoId);
-  }
   if (concl && antes && !estaConcluida(antes.status_opcao, antes.status)) {
     await criarProximaOcorrencia(antes);
   }

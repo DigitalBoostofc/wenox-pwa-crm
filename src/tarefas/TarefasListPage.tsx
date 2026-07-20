@@ -8,7 +8,7 @@ import { tarefaConcluida } from './format';
 import { TarefasTabela } from './TarefasTabela';
 import {
   opcoesEmOrdemDeColuna, resolverOpcao, corOpcaoClass, useStatusGlobal, espelhoStatus,
-  opcaoPermitidaParaResponsaveis, opcaoPorId, type StatusOpcao,
+  type StatusOpcao,
 } from './status';
 import { useAuth } from '@/auth/useAuth';
 import { ehCliente, canGerirEquipe } from '@/auth/perms';
@@ -205,13 +205,6 @@ export function TarefasListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
   async function mover(tarefaId: string, opcaoId: string) {
     const alvo = tarefas.find((t) => t.id === tarefaId);
     if (!alvo || alvo.status_opcao === opcaoId) return;
-    const op = opcaoPorId(opcaoId);
-    if (op && !opcaoPermitidaParaResponsaveis(op, alvo.responsaveis)) {
-      setErro(
-        `Status "${op.nome}" exige o responsável designado entre os responsáveis da tarefa.`,
-      );
-      return;
-    }
     // Otimista: grava os dois campos (id + espelho nome) p/ o bucketing — que dá
     // precedência ao nome — refletir a coluna nova na hora, sem snap-back.
     setTarefas((lst) => lst.map((t) => (t.id === tarefaId ? { ...t, ...espelhoStatus(opcaoId) } : t)));

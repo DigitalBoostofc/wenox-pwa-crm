@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  areaTarefasSincrona, casarTipoProjeto, pathTarefasSincrono,
-} from '@/tarefas/rotaPadraoTarefas';
+  areaTarefasSincrona, casarTipoProjeto,
+  pathTarefasSincrono, pathProjetosSincrono,
+} from '@/lib/rotaPadraoArea';
 
-describe('areaTarefasSincrona', () => {
+describe('areaTarefasSincrona / areaPadrao', () => {
   it('Owner/Admin/Gestor → Gestão', () => {
     expect(areaTarefasSincrona({ role: 'Owner' })).toBe('Gestão');
     expect(areaTarefasSincrona({ role: 'Admin' })).toBe('Gestão');
@@ -32,10 +33,14 @@ describe('casarTipoProjeto', () => {
   });
 });
 
-describe('pathTarefasSincrono', () => {
-  it('monta path da área', () => {
+describe('pathTarefasSincrono / pathProjetosSincrono', () => {
+  it('monta path da área em tarefas e projetos', () => {
     expect(pathTarefasSincrono({ role: 'Owner' })).toBe('/tarefas/area/Gest%C3%A3o');
     expect(pathTarefasSincrono({ role: 'Membro', area: 'Design' })).toBe('/tarefas/area/Design');
     expect(pathTarefasSincrono({ role: 'Cliente' })).toBe('/tarefas');
+
+    expect(pathProjetosSincrono({ role: 'Owner' })).toBe('/projetos/area/Gest%C3%A3o');
+    expect(pathProjetosSincrono({ role: 'Membro', area: 'Design' })).toBe('/projetos/area/Design');
+    expect(pathProjetosSincrono({ role: 'Cliente' })).toBe('/projetos');
   });
 });

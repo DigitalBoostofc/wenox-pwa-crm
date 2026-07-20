@@ -32,8 +32,8 @@ const StatusTarefaPage = lazy(() =>
   import('@/opcoes/StatusTarefaPage').then((m) => ({ default: m.StatusTarefaPage })));
 const EtapasTarefaConfigPage = lazy(() =>
   import('@/tarefas/EtapasTarefaConfigPage').then((m) => ({ default: m.EtapasTarefaConfigPage })));
-const ProjetosListPage = lazy(() =>
-  import('@/projetos/ProjetosListPage').then((m) => ({ default: m.ProjetosListPage })));
+const ProjetosHomeRedirect = lazy(() =>
+  import('@/projetos/ProjetosHomeRedirect').then((m) => ({ default: m.ProjetosHomeRedirect })));
 const ProjetoFormPage = lazy(() =>
   import('@/projetos/ProjetoFormPage').then((m) => ({ default: m.ProjetoFormPage })));
 const ProjetoDetailPage = lazy(() =>
@@ -174,7 +174,7 @@ function AuthedApp() {
             )}
           />
           <Route exact path="/projetos">
-            <Protegido modulo="projetos"><ProjetosListPage /></Protegido>
+            <Protegido modulo="projetos"><ProjetosHomeRedirect /></Protegido>
           </Route>
           <Route exact path="/projetos/novo">
             <Protegido modulo="projetos"><ProjetoFormPage /></Protegido>
@@ -299,7 +299,7 @@ function ClienteApp({ clienteId }: { clienteId: string }) {
       <AppShell>
         <Suspense fallback={<CarregandoTela />}>
           <Switch>
-            <Route exact path="/projetos" component={ProjetosListPage} />
+            <Route exact path="/projetos" component={ProjetosHomeRedirect} />
             <Route
               exact
               path="/projetos/:id"

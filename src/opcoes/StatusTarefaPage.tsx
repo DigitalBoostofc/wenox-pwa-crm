@@ -10,6 +10,8 @@ import {
   carregarStatusRemoto, salvarStatusRemoto,
   contarTarefasComOpcao, contarCardsComOpcao,
 } from '@/tarefas/status';
+import { listUsuarios } from '@/usuarios/usuariosService';
+import type { Usuario } from '@/usuarios/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -18,10 +20,22 @@ import { cn } from '@/lib/utils';
 const selectCls =
   'h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
+/** Membros internos ativos elegíveis como responsável de status. */
+function membrosElegiveis(lista: Usuario[]): Usuario[] {
+  return lista
+    .filter((u) => u.role !== 'Cliente' && u.status !== 'Inativo')
+    .sort((a, b) => (a.nome || a.email).localeCompare(b.nome || b.email, 'pt-BR'));
+}
+
+function rotuloUsuario(u: Usuario): string {
+  return (u.nome || u.email || u.id).trim();
+}
+
 export function StatusTarefaPage() {
   const [grupos, setGrupos] = useState<StatusGrupo[]>([]);
   const [opcoes, setOpcoes] = useState<StatusOpcao[]>([]);
   const [originalIds, setOriginalIds] = useState<Set<string>>(new Set());
+  const [membros, setMembros] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -29,12 +43,16 @@ export function StatusTarefaPage() {
 
   useEffect(() => {
     let vivo = true;
-    carregarStatusRemoto().then(() => {
+    Promise.all([
+      carregarStatusRemoto(),
+      listUsuarios().catch(() => [] as Usuario[]),
+    ]).then(([, users]) => {
       if (!vivo) return;
       const cfg = getStatusGlobal();
       setGrupos([...cfg.grupos].sort((a, b) => a.ordem - b.ordem));
       setOpcoes(cfg.opcoes.map((o) => ({ ...o })));
       setOriginalIds(new Set(cfg.opcoes.map((o) => o.id)));
+      setMembros(membrosElegiveis(users));
       setCarregando(false);
     });
     return () => { vivo = false; };
@@ -70,7 +88,7 @@ export function StatusTarefaPage() {
   function removerGrupo(id: string) {
     clearMsg();
     if (opcoes.some((o) => o.grupo === id)) {
-      setErro('Mova ou remova todas as opções deste grupo antes de excluí-lo.');
+      setErro('Remova todas as opções deste grupo antes de excluí-lo.');
       return;
     }
     setGrupos((lst) => lst.filter((g) => g.id !== id).map((g, i) => ({ ...g, ordem: i })));
@@ -81,6 +99,19 @@ export function StatusTarefaPage() {
   function patchOpcao(id: string, campo: Partial<StatusOpcao>) {
     clearMsg();
     setOpcoes((lst) => lst.map((o) => (o.id === id ? { ...o, ...campo } : o)));
+  }
+
+  function setResponsavelOpcao(id: string, userId: string) {
+    clearMsg();
+    setOpcoes((lst) => lst.map((o) => {
+      if (o.id !== id) return o;
+      if (!userId) {
+        const { responsavel: _r, ...rest } = o;
+        void _r;
+        return rest;
+      }
+      return { ...o, responsavel: userId };
+    }));
   }
 
   function opcoesDoGrupoLocal(grupoId: string): StatusOpcao[] {
@@ -112,16 +143,6 @@ export function StatusTarefaPage() {
       .filter((o) => o.grupo === grupoId)
       .reduce((acc, o) => Math.max(acc, o.ordem), -1);
     setOpcoes((lst) => [...lst, { id, grupo: grupoId, nome: '', cor: 'cinza', ordem: maiorOrdem + 1 }]);
-  }
-
-  function moverOpcaoParaGrupo(id: string, novoGrupo: string) {
-    clearMsg();
-    setOpcoes((lst) => {
-      const maiorOrdem = lst
-        .filter((o) => o.grupo === novoGrupo)
-        .reduce((acc, o) => Math.max(acc, o.ordem), -1);
-      return lst.map((o) => o.id === id ? { ...o, grupo: novoGrupo, ordem: maiorOrdem + 1 } : o);
-    });
   }
 
   async function removerOpcao(opcao: StatusOpcao) {
@@ -184,7 +205,17 @@ export function StatusTarefaPage() {
       const doGrupo = opcoes
         .filter((o) => o.grupo === g.id && idsGrupo.has(o.grupo))
         .sort((a, b) => a.ordem - b.ordem)
-        .map((o, i) => ({ ...o, nome: o.nome.trim(), ordem: i }));
+        .map((o, i) => {
+          const resp = o.responsavel?.trim();
+          const base: StatusOpcao = {
+            id: o.id,
+            grupo: o.grupo,
+            nome: o.nome.trim(),
+            cor: o.cor,
+            ordem: i,
+          };
+          return resp ? { ...base, responsavel: resp } : base;
+        });
       opcoesFinais.push(...doGrupo);
     }
 
@@ -220,8 +251,9 @@ export function StatusTarefaPage() {
       <p className="text-sm text-muted-foreground">
         Organize os status em <strong>grupos</strong> (ex: "A fazer", "Em andamento") e crie
         {' '}<strong>opções</strong> dentro de cada grupo (ex: "Em produção", "Aguardando aprovação").
-        A ordem dos grupos define as colunas do kanban. Use o seletor "Mover para" para mover
-        uma opção entre grupos.
+        A ordem dos grupos define as colunas do kanban. Em cada opção, defina um
+        {' '}<strong>responsável</strong> para ser notificado e ver a tarefa em Minha área enquanto
+        ela estiver nesse status.
       </p>
 
       {carregando ? (
@@ -260,6 +292,7 @@ export function StatusTarefaPage() {
                     </select>
                     <div className="flex flex-col">
                       <button
+                        type="button"
                         aria-label="Subir grupo"
                         disabled={gIdx === 0}
                         onClick={() => moverGrupo(grupo.id, -1)}
@@ -268,6 +301,7 @@ export function StatusTarefaPage() {
                         <ChevronUp className="size-4" />
                       </button>
                       <button
+                        type="button"
                         aria-label="Descer grupo"
                         disabled={gIdx === grupos.length - 1}
                         onClick={() => moverGrupo(grupo.id, 1)}
@@ -294,7 +328,7 @@ export function StatusTarefaPage() {
                       <span className="w-9" />
                       <span>Opção</span>
                       <span>Cor</span>
-                      <span>Mover para</span>
+                      <span>Responsável</span>
                       <span className="w-9" />
                     </div>
                   )}
@@ -307,6 +341,7 @@ export function StatusTarefaPage() {
                       {/* Subir/descer opção */}
                       <div className="flex flex-col">
                         <button
+                          type="button"
                           aria-label="Subir opção"
                           disabled={oIdx === 0}
                           onClick={() => moverOpcao(op.id, -1)}
@@ -315,6 +350,7 @@ export function StatusTarefaPage() {
                           <ChevronUp className="size-4" />
                         </button>
                         <button
+                          type="button"
                           aria-label="Descer opção"
                           disabled={oIdx === opcoesGrupo.length - 1}
                           onClick={() => moverOpcao(op.id, 1)}
@@ -353,16 +389,22 @@ export function StatusTarefaPage() {
                         ))}
                       </select>
 
-                      {/* Mover para grupo */}
+                      {/* Responsável designado do status */}
                       <select
-                        value={op.grupo}
-                        onChange={(e) => moverOpcaoParaGrupo(op.id, e.target.value)}
+                        value={op.responsavel ?? ''}
+                        onChange={(e) => setResponsavelOpcao(op.id, e.target.value)}
                         className={selectCls}
-                        aria-label="Mover opção para grupo"
+                        aria-label="Responsável do status"
+                        title="Membro notificado e que vê a tarefa em Minha área neste status"
                       >
-                        {grupos.map((g) => (
-                          <option key={g.id} value={g.id}>{g.nome || '(sem nome)'}</option>
+                        <option value="">Ninguém</option>
+                        {membros.map((u) => (
+                          <option key={u.id} value={u.id}>{rotuloUsuario(u)}</option>
                         ))}
+                        {/* Mantém id órfão (usuário removido) selecionável até limpar */}
+                        {op.responsavel && !membros.some((m) => m.id === op.responsavel) && (
+                          <option value={op.responsavel}>Usuário removido</option>
+                        )}
                       </select>
 
                       {/* Remover opção */}

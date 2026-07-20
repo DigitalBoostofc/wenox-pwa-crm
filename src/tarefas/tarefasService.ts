@@ -9,6 +9,7 @@ import {
   opcaoInicial, opcaoConcluido, opcaoEhConclusiva, espelhoStatus,
   opcaoPorId, responsavelDaOpcao,
 } from './status';
+import { normalizarResponsaveis } from './responsavel';
 import {
   temEtapas, etapaAtual, etapaAtualIndex, aguardandoAprovacaoCliente,
   indexEtapaInternaAnterior, novaEtapaId,
@@ -154,11 +155,13 @@ export async function getTarefa(id: string): Promise<Tarefa> {
 
 export async function criarTarefa(input: TarefaInput): Promise<Tarefa> {
   const uid = pb.authStore?.record?.id;
+  // Regra de produto: no máximo 1 responsável (relation multi no PB).
+  const responsaveis = normalizarResponsaveis(input.responsaveis);
   // Toda tarefa nasce com pelo menos 1 etapa: se não vierem etapas, cria uma
-  // etapa única ("Tarefa") atribuída ao 1º responsável (single-step).
+  // etapa única ("Tarefa") atribuída ao responsável (single-step).
   const etapas: EtapaTarefa[] = (input.etapas?.length ?? 0) > 0
     ? input.etapas!
-    : [{ id: novaEtapaId(), texto: 'Tarefa', tipo: 'interna', responsavel: input.responsaveis?.[0], feito: false }];
+    : [{ id: novaEtapaId(), texto: 'Tarefa', tipo: 'interna', responsavel: responsaveis[0], feito: false }];
   // Status MANUAL (F2): nasce na opção inicial (salvo se o form já trouxe uma).
   // As etapas viram checklist informativo — não derivam mais o status.
   // Social Media nasce recorrente mensal com janela do mês de produção (dia 1 → último dia),
@@ -168,13 +171,13 @@ export async function criarTarefa(input: TarefaInput): Promise<Tarefa> {
   const opcaoId = input.status_opcao || opcaoInicial()?.id || '';
   const espelho = opcaoId ? espelhoStatus(opcaoId) : {};
   const dados = {
-    ...input, etapas, prazo, ...espelho,
+    ...input, responsaveis, etapas, prazo, ...espelho,
     ...(smDefaults ? { data_inicio: smDefaults.data_inicio, recorrencia: input.recorrencia || 'mensal' } : {}),
     ...(uid ? { created_by: uid, updated_by: uid } : {}),
   };
   const rec = (await col().create(dados)) as unknown as Tarefa;
   await registrarHistorico('tarefa', rec.id, 'Tarefa criada');
-  await notificar(input.responsaveis ?? [], {
+  await notificar(responsaveis, {
     tipo: 'atribuicao',
     titulo: `Você foi atribuído à tarefa: ${rec.nome}`,
     link: `/tarefas/${rec.id}`,
@@ -193,7 +196,10 @@ export async function atualizarTarefa(
   } catch {
     /* */
   }
-  // (Guard R3.c removido: etapas saíram do MVP — múltiplos responsáveis são livres.)
+  // No máximo 1 responsável (UI e regra de negócio).
+  if (input.responsaveis !== undefined) {
+    input = { ...input, responsaveis: normalizarResponsaveis(input.responsaveis) };
+  }
   const dados: Record<string, unknown> = { ...input, ...(uid ? { updated_by: uid } : {}) };
   const antesConcluida = estaConcluida(antes?.status_opcao as string | undefined, antes?.status as string | undefined);
   if (input.status_opcao !== undefined) {

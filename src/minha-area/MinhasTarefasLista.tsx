@@ -3,6 +3,7 @@ import { useDadosAgencia } from '@/dashboard/useDadosAgencia';
 import { useAuth } from '@/auth/useAuth';
 import { TarefasTabela } from '@/tarefas/TarefasTabela';
 import { TarefaViewSheet } from '@/tarefas/TarefaViewSheet';
+import { tarefaEhDoUsuario } from '@/tarefas/status';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolean }) {
@@ -12,7 +13,7 @@ export function MinhasTarefasLista({ somenteLeitura }: { somenteLeitura?: boolea
   const [viewId, setViewId] = useState<string | null>(null);
 
   const minhas = useMemo(
-    () => tarefas.filter((t) => (t.responsaveis ?? []).includes(uid) && !t.arquivada),
+    () => tarefas.filter((t) => tarefaEhDoUsuario(t, uid)),
     [tarefas, uid],
   );
 

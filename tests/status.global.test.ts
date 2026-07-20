@@ -4,6 +4,7 @@ import {
   resolverOpcao, espelhoStatus, corOpcaoClass, grupoDaOpcao,
   opcoesEmOrdemDeColuna, CORES_STATUS,
   resolverOpcaoCard, statusPostDaOpcao, opcaoIdDoStatusPost,
+  responsavelDaOpcao, usuarioDesignadoPeloStatus, tarefaEhDoUsuario,
 } from '@/tarefas/status';
 
 /* Sem config remota/localStorage no teste → usa DEFAULT_STATUS_GLOBAL (seed v1):
@@ -103,5 +104,29 @@ describe('status global — espelho de POSTS (status_post)', () => {
     expect(resolverOpcaoCard('op_concluido', undefined)?.id).toBe('op_concluido');
     // nada resolve
     expect(resolverOpcaoCard('id_inexistente', '')).toBeUndefined();
+  });
+});
+
+describe('status global — responsável designado por opção', () => {
+  it('seed padrão não tem responsável designado', () => {
+    expect(responsavelDaOpcao('op_em_andamento')).toBeUndefined();
+    expect(usuarioDesignadoPeloStatus({ status_opcao: 'op_em_andamento' }, 'u1')).toBe(false);
+  });
+
+  it('tarefaEhDoUsuario considera responsáveis diretos', () => {
+    expect(tarefaEhDoUsuario({ responsaveis: ['u1'], status_opcao: 'op_em_andamento' }, 'u1')).toBe(true);
+    expect(tarefaEhDoUsuario({ responsaveis: ['u2'], status_opcao: 'op_em_andamento' }, 'u1')).toBe(false);
+  });
+
+  it('tarefaEhDoUsuario ignora arquivadas por padrão', () => {
+    expect(tarefaEhDoUsuario(
+      { responsaveis: ['u1'], status_opcao: 'op_em_andamento', arquivada: true },
+      'u1',
+    )).toBe(false);
+    expect(tarefaEhDoUsuario(
+      { responsaveis: ['u1'], status_opcao: 'op_em_andamento', arquivada: true },
+      'u1',
+      { incluirArquivadas: true },
+    )).toBe(true);
   });
 });

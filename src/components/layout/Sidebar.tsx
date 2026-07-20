@@ -21,7 +21,7 @@ import { canGerirUsuarios } from '@/auth/perms';
 import { useTheme } from './ThemeProvider';
 import { usePermissoes } from '@/config/PermissoesProvider';
 import { fotoUrl } from '@/usuarios/usuariosService';
-import { pathTarefasSincrono } from '@/tarefas/rotaPadraoTarefas';
+import { pathTarefasSincrono, pathProjetosSincrono } from '@/lib/rotaPadraoArea';
 import logoWenox from '@/assets/wenox-logo.png';
 import iconeWenox from '@/assets/wenox-icon.png';
 
@@ -33,9 +33,10 @@ function isActive(pathname: string, itemPath: string) {
   return pathname.startsWith(itemPath);
 }
 
-/** Destino real do link (Tarefas → área do usuário). */
+/** Destino real do link (Tarefas/Projetos → área do usuário). */
 function pathDoItem(itemPath: string, user: { role?: string; area?: string } | null | undefined): string {
   if (itemPath === '/tarefas') return pathTarefasSincrono(user);
+  if (itemPath === '/projetos') return pathProjetosSincrono(user);
   return itemPath;
 }
 

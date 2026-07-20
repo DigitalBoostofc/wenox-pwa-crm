@@ -2,6 +2,8 @@ import { useState, useRef } from 'react';
 import { criarTarefa } from './tarefasService';
 import { statusInicial } from './status';
 import { useAuth } from '@/auth/useAuth';
+import { getProjeto } from '@/projetos/projetosService';
+import { responsaveisValidosParaProjeto } from './responsavel';
 
 export function QuickAddTarefa({
   onCriada,
@@ -32,13 +34,21 @@ export function QuickAddTarefa({
     try {
       const d = new Date();
       const hoje = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      // Responsável só se o criador estiver alocado no projeto.
+      let responsaveis: string[] = [];
+      if (presetProjeto && user?.id) {
+        try {
+          const proj = await getProjeto(presetProjeto);
+          responsaveis = responsaveisValidosParaProjeto([user.id], proj);
+        } catch { /* sem projeto → sem responsável */ }
+      }
       const nova = await criarTarefa({
         nome,
         status: statusInicial(),
         tipo: area ?? '',
         prazo: hoje,
         lado: 'wenox',
-        responsaveis: user?.id ? [user.id] : [],
+        responsaveis,
         cliente: presetCliente ?? '',
         projeto: presetProjeto ?? '',
         contato: '',

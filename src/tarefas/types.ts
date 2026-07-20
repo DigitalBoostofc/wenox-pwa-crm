@@ -30,7 +30,11 @@ export interface Tarefa {
   projeto?: string; // id do projeto (vazio = tarefa interna avulsa)
   cliente?: string; // id do cliente (derivado do projeto)
   lado?: LadoTarefa;
-  responsaveis?: string[]; // ids de usuarios (lado = wenox)
+  /**
+   * Responsável da tarefa (relation multi no PB, mas a UI/regra usa no máximo 1).
+   * Só pode ser alguém alocado em `projeto.responsaveis`.
+   */
+  responsaveis?: string[];
   contato?: string; // id do contato do cliente (lado = cliente)
   /** Fonte de verdade do status (modelo global, F2): id de uma StatusOpcao. */
   status_opcao?: string;

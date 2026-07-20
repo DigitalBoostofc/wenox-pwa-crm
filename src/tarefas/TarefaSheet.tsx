@@ -12,6 +12,9 @@ import { listProjetos } from '@/projetos/projetosService';
 import {
   clientesComProjetoDoTipo, projetosDoClienteTipo, projetoPadraoDoCliente, projetoAtivo,
 } from '@/projetos/relacaoTarefa';
+import {
+  candidatosResponsavelProjeto, normalizarResponsaveis, responsaveisValidosParaProjeto,
+} from './responsavel';
 import { listClientes } from '@/clientes/clientesService';
 import { listContatos } from '@/contatos/contatosService';
 import { listUsuarios } from '@/usuarios/usuariosService';
@@ -152,7 +155,10 @@ export function TarefaSheet({
         projeto: presetProjeto ?? '',
         cliente: clienteId,
         lado: 'wenox',
-        responsaveis: user?.id ? [user.id] : [],
+        responsaveis: responsaveisValidosParaProjeto(
+          user?.id ? [user.id] : [],
+          projetoPreset,
+        ),
         contato: '',
         etiquetas: [],
         descricao: '',
@@ -254,15 +260,27 @@ export function TarefaSheet({
     salvarCampo({ prazo: proximaDataDia(dia) });
   }
 
-  /** Aplica cliente + projeto juntos (expand local p/ refletir na hora; persiste só campos reais). */
+  /** Aplica cliente + projeto juntos (expand local p/ refletir na hora; persiste só campos reais).
+   *  Responsável inválido na nova equipe do projeto é limpo. */
   async function aplicarClienteProjeto(clienteId: string, projetoId: string, limparContato: boolean) {
     const proj = projetos.find((p) => p.id === projetoId);
-    const patchPersist: Partial<Tarefa> = { cliente: clienteId, projeto: projetoId };
+    const resps = responsaveisValidosParaProjeto(t?.responsaveis, proj);
+    const patchPersist: Partial<Tarefa> = {
+      cliente: clienteId,
+      projeto: projetoId,
+      responsaveis: resps,
+    };
     if (limparContato) patchPersist.contato = '';
     setT((prev) => prev ? {
       ...prev,
       ...patchPersist,
-      expand: { ...prev.expand, projeto: proj ? { id: proj.id, nome: proj.nome } : undefined },
+      expand: {
+        ...prev.expand,
+        projeto: proj ? { id: proj.id, nome: proj.nome } : undefined,
+        responsaveis: resps.length
+          ? (prev.expand?.responsaveis ?? []).filter((r) => resps.includes(r.id))
+          : [],
+      },
     } : prev);
     if (modoRascunho) return;
     setErroSalvo('');
@@ -298,13 +316,10 @@ export function TarefaSheet({
     salvarCampo({ contato: e.target.value });
   }
 
-  function toggleResponsavel(uid: string) {
-    const atuais = t?.responsaveis ?? [];
-    if (ehMembro && uid === user?.id && atuais.includes(uid)) return;
-    const proximos = atuais.includes(uid)
-      ? atuais.filter((x) => x !== uid)
-      : [...atuais, uid];
-    salvarCampo({ responsaveis: proximos });
+  /** Único responsável: escolhe ou limpa (só equipe do projeto). */
+  function setResponsavel(uid: string | null) {
+    if (ehMembro && uid === null && t?.responsaveis?.[0] === user?.id) return;
+    salvarCampo({ responsaveis: normalizarResponsaveis(uid ? [uid] : []) });
   }
 
   function adicionarTag() {
@@ -654,65 +669,79 @@ export function TarefaSheet({
                 </div>
               )}
 
-              {/* 7. Responsáveis */}
-              {(!temCliente() || lado() === 'wenox') && (
-                <div>
-                  <RotuloCampo>Responsáveis</RotuloCampo>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label="Selecionar responsáveis"
-                        className={cn(
-                          selectCls,
-                          'flex items-center justify-between text-left',
-                          !(t.responsaveis?.length) && 'text-muted-foreground',
-                        )}
-                      >
-                        {(t.responsaveis?.length ?? 0) > 0
-                          ? `${t.responsaveis!.length} selecionado(s)`
-                          : 'Selecionar responsáveis'}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="max-h-64 w-64 overflow-y-auto">
-                      {usuarios.map((u) => {
-                        const ativo = (t.responsaveis ?? []).includes(u.id);
-                        return (
-                          <DropdownMenuItem
-                            key={u.id}
-                            onSelect={(e) => { e.preventDefault(); toggleResponsavel(u.id); }}
-                          >
-                            <Check className={cn('mr-2 size-3.5', ativo ? 'opacity-100' : 'opacity-0')} />
-                            {u.nome || u.email}
-                          </DropdownMenuItem>
-                        );
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  {(t.responsaveis?.length ?? 0) > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {(t.responsaveis ?? []).map((id) => (
-                        <span
-                          key={id}
-                          className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs"
-                        >
-                          {nomeUsuario(id)}
-                          {!(ehMembro && id === user?.id) && (
-                            <button
-                              type="button"
-                              onClick={() => toggleResponsavel(id)}
-                              aria-label={`Remover ${nomeUsuario(id)}`}
-                              className="text-muted-foreground hover:text-destructive"
-                            >
-                              <X className="size-3" />
-                            </button>
+              {/* 7. Responsável (único, só equipe do projeto) */}
+              {(!temCliente() || lado() === 'wenox') && (() => {
+                const proj = t.projeto ? projetos.find((p) => p.id === t.projeto) : undefined;
+                const candidatos = candidatosResponsavelProjeto(proj, usuarios);
+                const idAtual = t.responsaveis?.[0];
+                return (
+                  <div>
+                    <RotuloCampo>Responsável</RotuloCampo>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Selecionar responsável"
+                          className={cn(
+                            selectCls,
+                            'flex items-center justify-between text-left',
+                            !idAtual && 'text-muted-foreground',
                           )}
+                        >
+                          {idAtual ? nomeUsuario(idAtual) : 'Selecionar responsável'}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="max-h-64 w-64 overflow-y-auto">
+                        {!t.projeto ? (
+                          <p className="px-2 py-2 text-xs text-muted-foreground">
+                            Vincule um projeto para escolher o responsável.
+                          </p>
+                        ) : candidatos.length === 0 ? (
+                          <p className="px-2 py-2 text-xs text-muted-foreground">
+                            Ninguém alocado neste projeto. Adicione responsáveis no projeto.
+                          </p>
+                        ) : (
+                          <>
+                            <DropdownMenuItem
+                              onSelect={(e) => { e.preventDefault(); setResponsavel(null); }}
+                            >
+                              <Check className={cn('mr-2 size-3.5', !idAtual ? 'opacity-100' : 'opacity-0')} />
+                              Ninguém
+                            </DropdownMenuItem>
+                            {candidatos.map((u) => {
+                              const ativo = idAtual === u.id;
+                              return (
+                                <DropdownMenuItem
+                                  key={u.id}
+                                  onSelect={(e) => { e.preventDefault(); setResponsavel(u.id); }}
+                                >
+                                  <Check className={cn('mr-2 size-3.5', ativo ? 'opacity-100' : 'opacity-0')} />
+                                  {u.nome || u.email}
+                                </DropdownMenuItem>
+                              );
+                            })}
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    {idAtual && !(ehMembro && idAtual === user?.id) && (
+                      <div className="mt-2">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs">
+                          {nomeUsuario(idAtual)}
+                          <button
+                            type="button"
+                            onClick={() => setResponsavel(null)}
+                            aria-label={`Remover ${nomeUsuario(idAtual)}`}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="size-3" />
+                          </button>
                         </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* 8. Etiquetas */}
               <div>

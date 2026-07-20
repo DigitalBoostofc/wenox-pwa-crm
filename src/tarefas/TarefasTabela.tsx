@@ -31,6 +31,9 @@ import type { Projeto } from '@/projetos/types';
 import {
   clientesComProjetoDoTipo, projetosDoClienteTipo, projetoPadraoDoCliente, projetoAtivo,
 } from '@/projetos/relacaoTarefa';
+import {
+  candidatosResponsavelProjeto, normalizarResponsaveis, responsaveisValidosParaProjeto,
+} from './responsavel';
 import { listClientes, logoUrl } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
 import { nomeExibicao } from '@/clientes/types';
@@ -63,7 +66,7 @@ const COLS_PADRAO: ColDef[] = [
   { key: 'status', label: 'Status', visivel: true },
   { key: 'prazo', label: 'Prazo', visivel: true },
   { key: 'prioridade', label: 'Prioridade', visivel: true },
-  { key: 'responsaveis', label: 'Responsáveis', visivel: true },
+  { key: 'responsaveis', label: 'Responsável', visivel: true },
   { key: 'etiquetas', label: 'Etiquetas', visivel: false },
   { key: 'descricao', label: 'Descrição', visivel: false },
   { key: 'comentario', label: 'Comentário', visivel: false },
@@ -571,23 +574,35 @@ export function TarefasTabela({
       try { await addComentario('tarefa', id, v); setComentado((m) => ({ ...m, [id]: true })); onMudou?.(); } catch { /* */ }
     }
   }
-  /** Define cliente + projeto na linha (expand otimista p/ logo/nome; persiste só ids). */
+  /** Define cliente + projeto na linha (expand otimista p/ logo/nome; persiste só ids).
+   *  Se o responsável atual não estiver na equipe do projeto, limpa. */
   function salvarClienteProjeto(id: string, clienteId: string, projetoId: string) {
     const cli = clientes.find((c) => c.id === clienteId);
     const proj = projetosTodos.find((p) => p.id === projetoId);
+    const base = tarefas.find((x) => x.id === id);
+    const t0 = base ? tarefaMesclada(base) : undefined;
+    const resps = responsaveisValidosParaProjeto(t0?.responsaveis, proj);
+    const expandResp = resps
+      .map((uid) => usuarios.find((u) => u.id === uid))
+      .filter(Boolean)
+      .map((u) => ({ id: u!.id, nome: u!.nome, email: u!.email }));
     const atual = localOverrides[id]?.expand ?? tarefas.find((t) => t.id === id)?.expand;
     salvarInline(id, {
       cliente: clienteId,
       projeto: projetoId,
+      responsaveis: resps,
       expand: {
         ...atual,
         cliente: cli ? { id: cli.id, nome: cli.nome, nome_fantasia: cli.nome_fantasia, logo: cli.logo } : undefined,
         projeto: proj ? { id: proj.id, nome: proj.nome, tipo: proj.tipo } : undefined,
+        responsaveis: expandResp,
       },
     } as Partial<Tarefa>);
   }
 
-  function salvarResponsaveis(id: string, ids: string[]) {
+  /** Define o único responsável (precisa estar na equipe do projeto). */
+  function salvarResponsavel(id: string, userId: string | null) {
+    const ids = normalizarResponsaveis(userId ? [userId] : []);
     const expandResp = ids
       .map((uid) => usuarios.find((u) => u.id === uid))
       .filter(Boolean)
@@ -841,31 +856,48 @@ export function TarefasTabela({
 
     if (key === 'responsaveis') {
       const rs = te.expand?.responsaveis ?? [];
-      const idsAtuais = te.responsaveis ?? [];
+      const idAtual = te.responsaveis?.[0];
+      const proj = te.projeto
+        ? projetosTodos.find((p) => p.id === te.projeto)
+        : undefined;
+      const candidatos = candidatosResponsavelProjeto(proj, usuarios);
       const conteudo = rs.length === 0
         ? <span className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-muted-foreground"><UserRound className="size-3.5" /></span>
-        : (
-          <div className="flex -space-x-2">
-            {rs.slice(0, 3).map((r) => <AvatarMembro key={r.id} membro={r} className="size-7 border-2 border-card text-[10px]" />)}
-            {rs.length > 3 && <div className="grid size-7 place-items-center rounded-full border-2 border-card bg-secondary text-[10px] font-bold text-muted-foreground">+{rs.length - 3}</div>}
-          </div>
-        );
+        : <AvatarMembro membro={rs[0]} className="size-7 border-2 border-card text-[10px]" />;
       if (!ativo) return conteudo;
       return (
         <DropdownMenu open onOpenChange={(o) => { if (!o) setEditCell(null); }}>
           <DropdownMenuTrigger asChild><button type="button" onClick={(e) => e.stopPropagation()}>{conteudo}</button></DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="max-h-64 w-60 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            {usuarios.map((u) => {
-              const sel = idsAtuais.includes(u.id);
-              return (
-                <DropdownMenuItem key={u.id} onSelect={(e) => {
+            {!te.projeto ? (
+              <p className="px-2 py-2 text-xs text-muted-foreground">Vincule um projeto para escolher o responsável.</p>
+            ) : candidatos.length === 0 ? (
+              <p className="px-2 py-2 text-xs text-muted-foreground">Ninguém alocado neste projeto.</p>
+            ) : (
+              <>
+                <DropdownMenuItem onSelect={(e) => {
                   e.preventDefault();
-                  salvarResponsaveis(t.id, sel ? idsAtuais.filter((x) => x !== u.id) : [...idsAtuais, u.id]);
+                  salvarResponsavel(t.id, null);
+                  setEditCell(null);
                 }}>
-                  <Check className={cn('mr-2 size-3.5', sel ? 'opacity-100' : 'opacity-0')} />{u.nome || u.email}
+                  <Check className={cn('mr-2 size-3.5', !idAtual ? 'opacity-100' : 'opacity-0')} />
+                  Ninguém
                 </DropdownMenuItem>
-              );
-            })}
+                {candidatos.map((u) => {
+                  const sel = idAtual === u.id;
+                  return (
+                    <DropdownMenuItem key={u.id} onSelect={(e) => {
+                      e.preventDefault();
+                      salvarResponsavel(t.id, u.id);
+                      setEditCell(null);
+                    }}>
+                      <Check className={cn('mr-2 size-3.5', sel ? 'opacity-100' : 'opacity-0')} />
+                      {u.nome || u.email}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       );

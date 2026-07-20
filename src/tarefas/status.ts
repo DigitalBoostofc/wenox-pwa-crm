@@ -288,6 +288,33 @@ export function tarefaEhDoUsuario(
   return usuarioDesignadoPeloStatus(t, userId);
 }
 
+/**
+ * Opção de status permitida para a tarefa:
+ * - sem responsável designado → sempre disponível;
+ * - com responsável → só se ele estiver nos responsáveis da tarefa.
+ */
+export function opcaoPermitidaParaResponsaveis(
+  opcao: Pick<StatusOpcao, 'responsavel'>,
+  responsaveisIds?: string[] | null,
+): boolean {
+  if (!opcao.responsavel) return true;
+  return (responsaveisIds ?? []).includes(opcao.responsavel);
+}
+
+/**
+ * Filtra opções pelo critério acima.
+ * `incluirId` mantém o status atual visível (ex.: alguém saiu dos responsáveis).
+ */
+export function filtrarOpcoesPorResponsaveis(
+  opcoes: StatusOpcao[],
+  responsaveisIds?: string[] | null,
+  incluirId?: string,
+): StatusOpcao[] {
+  return opcoes.filter(
+    (o) => o.id === incluirId || opcaoPermitidaParaResponsaveis(o, responsaveisIds),
+  );
+}
+
 /* ---------------------- espelho de POSTS (status_post) -------------------- */
 /* Mapa entre as opções de post do seed e o valor legado `status_post` lido
  * pelo backend Python. Usa ids estáveis do seed (não muda em rename). F3/F4. */

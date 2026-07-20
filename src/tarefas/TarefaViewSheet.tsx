@@ -117,6 +117,7 @@ export function TarefaViewSheet({
                       <StatusOpcaoSelect
                         value={statusOpcaoEdit}
                         statusLegado={t.status}
+                        responsaveis={t.responsaveis}
                         onChange={setStatusOpcaoEdit}
                         className={selectCls}
                       />

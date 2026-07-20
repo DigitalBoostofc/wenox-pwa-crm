@@ -12,6 +12,7 @@ import { addComentario } from '@/atividade/atividadeService';
 import {
   useStatusGlobal, opcoesEmOrdemDeColuna, resolverOpcao,
   espelhoStatus, getGrupos, opcoesDoGrupo, opcaoIdPorNome,
+  filtrarOpcoesPorResponsaveis,
 } from './status';
 import {
   catPrazoData, corPrazo, pesoPrioridade, rotuloPrioridade, nomeClienteDe,
@@ -775,15 +776,20 @@ export function TarefasTabela({
 
     if (key === 'status') {
       if (ativo) {
+        const selecionado = te.status_opcao ?? opcaoIdPorNome(te.status) ?? '';
         return (
           <select
-            autoFocus value={te.status_opcao ?? opcaoIdPorNome(te.status) ?? ''}
+            autoFocus value={selecionado}
             onChange={(e) => { if (e.target.value) salvarInline(t.id, espelhoStatus(e.target.value)); setEditCell(null); }}
             onBlur={() => setEditCell(null)} onClick={(e) => e.stopPropagation()}
             className="h-7 w-full rounded border border-input bg-background px-1 text-xs focus-visible:outline-none"
           >
             {getGrupos().map((g) => {
-              const ops = opcoesDoGrupo(g.id);
+              const ops = filtrarOpcoesPorResponsaveis(
+                opcoesDoGrupo(g.id),
+                te.responsaveis,
+                selecionado,
+              );
               if (!ops.length) return null;
               return <optgroup key={g.id} label={g.nome}>{ops.map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}</optgroup>;
             })}
@@ -1310,7 +1316,14 @@ export function TarefasTabela({
                 <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 text-xs">Status <ChevronDown className="size-3" /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="center" className="max-h-72 w-56 overflow-y-auto">
                   {getGrupos().map((g) => {
-                    const ops = opcoesDoGrupo(g.id);
+                    // Em massa: opção com designado só se TODOS os selecionados o tiverem.
+                    const selecionadas = filtradas.filter((t) => selecao.has(t.id));
+                    const ops = opcoesDoGrupo(g.id).filter((o) => {
+                      if (!o.responsavel) return true;
+                      return selecionadas.every((t) =>
+                        (tarefaMesclada(t).responsaveis ?? []).includes(o.responsavel!),
+                      );
+                    });
                     if (!ops.length) return null;
                     return (
                       <div key={g.id}>

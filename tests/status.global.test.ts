@@ -5,6 +5,7 @@ import {
   opcoesEmOrdemDeColuna, CORES_STATUS,
   resolverOpcaoCard, statusPostDaOpcao, opcaoIdDoStatusPost,
   responsavelDaOpcao, usuarioDesignadoPeloStatus, tarefaEhDoUsuario,
+  opcaoPermitidaParaResponsaveis, filtrarOpcoesPorResponsaveis,
 } from '@/tarefas/status';
 
 /* Sem config remota/localStorage no teste → usa DEFAULT_STATUS_GLOBAL (seed v1):
@@ -128,5 +129,24 @@ describe('status global — responsável designado por opção', () => {
       'u1',
       { incluirArquivadas: true },
     )).toBe(true);
+  });
+
+  it('opcao sem responsável é sempre permitida; com responsável exige match', () => {
+    expect(opcaoPermitidaParaResponsaveis({ }, ['u1'])).toBe(true);
+    expect(opcaoPermitidaParaResponsaveis({ responsavel: undefined }, ['u1'])).toBe(true);
+    expect(opcaoPermitidaParaResponsaveis({ responsavel: 'u1' }, ['u1', 'u2'])).toBe(true);
+    expect(opcaoPermitidaParaResponsaveis({ responsavel: 'u1' }, ['u2'])).toBe(false);
+    expect(opcaoPermitidaParaResponsaveis({ responsavel: 'u1' }, [])).toBe(false);
+  });
+
+  it('filtrarOpcoesPorResponsaveis mantém o status atual mesmo se não bater', () => {
+    const ops = [
+      { id: 'a', grupo: 'g', nome: 'A', cor: 'cinza' as const, ordem: 0 },
+      { id: 'b', grupo: 'g', nome: 'B', cor: 'azul' as const, ordem: 1, responsavel: 'u1' },
+      { id: 'c', grupo: 'g', nome: 'C', cor: 'verde' as const, ordem: 2, responsavel: 'u2' },
+    ];
+    const filtradas = filtrarOpcoesPorResponsaveis(ops, ['u1'], 'c');
+    expect(filtradas.map((o) => o.id)).toEqual(['a', 'b', 'c']);
+    expect(filtrarOpcoesPorResponsaveis(ops, ['u1']).map((o) => o.id)).toEqual(['a', 'b']);
   });
 });

@@ -1,5 +1,6 @@
 import {
   useStatusGlobal, getGrupos, opcoesDoGrupo, opcaoIdPorNome,
+  filtrarOpcoesPorResponsaveis,
 } from './status';
 import { cn } from '@/lib/utils';
 
@@ -13,16 +14,22 @@ const selectCls =
  * `value` é o status_opcao (id). Para dados legados/pré-backfill, passe
  * `statusLegado` (nome) e o componente pré-seleciona a opção equivalente.
  * `onChange` recebe o id da opção escolhida.
+ *
+ * Com `responsaveis` da tarefa: opções com responsável designado só aparecem
+ * se esse usuário estiver nos responsáveis; opções sem responsável aparecem sempre.
  */
 export function StatusOpcaoSelect({
   value,
   statusLegado,
+  responsaveis,
   onChange,
   className,
   ariaLabel = 'Status',
 }: {
   value?: string;
   statusLegado?: string;
+  /** Ids dos responsáveis da tarefa/card — filtra opções com designado. */
+  responsaveis?: string[];
   onChange: (opcaoId: string) => void;
   className?: string;
   ariaLabel?: string;
@@ -40,7 +47,11 @@ export function StatusOpcaoSelect({
     >
       {!selecionado && <option value="" disabled>Selecione…</option>}
       {grupos.map((g) => {
-        const opcoes = opcoesDoGrupo(g.id);
+        const opcoes = filtrarOpcoesPorResponsaveis(
+          opcoesDoGrupo(g.id),
+          responsaveis,
+          selecionado,
+        );
         if (opcoes.length === 0) return null;
         return (
           <optgroup key={g.id} label={g.nome}>

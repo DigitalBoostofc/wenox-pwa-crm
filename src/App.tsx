@@ -44,8 +44,8 @@ const EtapasProjetoPage = lazy(() =>
   import('@/projetos/EtapasProjetoPage').then((m) => ({ default: m.EtapasProjetoPage })));
 const DashboardPage = lazy(() =>
   import('@/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
-const TarefasListPage = lazy(() =>
-  import('@/tarefas/TarefasListPage').then((m) => ({ default: m.TarefasListPage })));
+const TarefasHomeRedirect = lazy(() =>
+  import('@/tarefas/TarefasHomeRedirect').then((m) => ({ default: m.TarefasHomeRedirect })));
 const TarefasAreaPage = lazy(() =>
   import('@/tarefas/TarefasAreaPage').then((m) => ({ default: m.TarefasAreaPage })));
 const TarefaDetailPage = lazy(() =>
@@ -204,7 +204,7 @@ function AuthedApp() {
             )}
           />
           <Route exact path="/tarefas">
-            <Protegido modulo="tarefas"><TarefasListPage /></Protegido>
+            <Protegido modulo="tarefas"><TarefasHomeRedirect /></Protegido>
           </Route>
           <Route
             path="/tarefas/area/:tipo"
@@ -307,7 +307,7 @@ function ClienteApp({ clienteId }: { clienteId: string }) {
                 <ProjetoDetailPage id={(props.match.params as { id: string }).id} />
               )}
             />
-            <Route exact path="/tarefas" component={TarefasListPage} />
+            <Route exact path="/tarefas" component={TarefasHomeRedirect} />
             <Route exact path="/tarefas/nova">
               <Redirect to="/tarefas" />
             </Route>

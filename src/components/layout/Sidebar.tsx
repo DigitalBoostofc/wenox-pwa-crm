@@ -21,6 +21,7 @@ import { canGerirUsuarios } from '@/auth/perms';
 import { useTheme } from './ThemeProvider';
 import { usePermissoes } from '@/config/PermissoesProvider';
 import { fotoUrl } from '@/usuarios/usuariosService';
+import { pathTarefasSincrono } from '@/tarefas/rotaPadraoTarefas';
 import logoWenox from '@/assets/wenox-logo.png';
 import iconeWenox from '@/assets/wenox-icon.png';
 
@@ -30,6 +31,12 @@ function isActive(pathname: string, itemPath: string) {
   if (itemPath === '/config')
     return pathname.startsWith('/config') || pathname.startsWith('/usuarios');
   return pathname.startsWith(itemPath);
+}
+
+/** Destino real do link (Tarefas → área do usuário). */
+function pathDoItem(itemPath: string, user: { role?: string; area?: string } | null | undefined): string {
+  if (itemPath === '/tarefas') return pathTarefasSincrono(user);
+  return itemPath;
 }
 
 export function SidebarBrand({ compacta = false }: { compacta?: boolean }) {
@@ -95,7 +102,7 @@ export function SidebarNav({
         return (
           <Link
             key={item.path}
-            to={item.path}
+            to={pathDoItem(item.path, user)}
             className={className}
             onClick={onNavigate}
             title={compacta ? item.label : undefined}

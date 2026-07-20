@@ -8,7 +8,7 @@ import type { Usuario } from '@/usuarios/types';
 import { tarefaConcluida, prazoVencido, prazoBR } from '@/tarefas/format';
 import { temEtapas, aguardandoAprovacaoCliente, ehVezDoUsuario, prazoEfetivo, prazoVencidoEfetivo } from '@/tarefas/etapas';
 import type { Tarefa } from '@/tarefas/types';
-import { statusConcluido, statusInicial, tarefaEhDoUsuario, usuarioDesignadoPeloStatus } from '@/tarefas/status';
+import { statusConcluido, statusInicial, tarefaEhDoUsuario } from '@/tarefas/status';
 import { MinhaSemanaList, parsePrazo } from '@/tarefas/MinhaSemanaList';
 import { EtapasStepper } from '@/tarefas/EtapasStepper';
 import { QuickAddTarefa } from '@/tarefas/QuickAddTarefa';
@@ -176,16 +176,10 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
   const [concluidasAberta, setConcluidasAberta] = useState(false);
 
   const uid = user?.id ?? '';
-  // Responsável direto da tarefa OU designado pelo status atual.
   const minhasTarefas = todasTarefas.filter((t) => tarefaEhDoUsuario(t, uid));
 
   const suaVezAgora = [...minhasTarefas]
-    .filter((t) => {
-      if (tarefaConcluida(t.status)) return false;
-      // Designado pelo status = "sua vez" neste status.
-      if (usuarioDesignadoPeloStatus(t, uid)) return true;
-      return ehVezDoUsuario(t, uid) || !temEtapas(t);
-    })
+    .filter((t) => !tarefaConcluida(t.status) && (ehVezDoUsuario(t, uid) || !temEtapas(t)))
     .sort((a, b) => {
       const pa = parsePrazo(prazoEfetivo(a))?.getTime() ?? Infinity;
       const pb = parsePrazo(prazoEfetivo(b))?.getTime() ?? Infinity;
@@ -194,11 +188,7 @@ export function MeuDiaBloco({ somenteLeitura }: { somenteLeitura?: boolean }) {
     });
 
   const aguardando = minhasTarefas.filter(
-    (t) =>
-      temEtapas(t) &&
-      !tarefaConcluida(t.status) &&
-      !ehVezDoUsuario(t, uid) &&
-      !usuarioDesignadoPeloStatus(t, uid),
+    (t) => temEtapas(t) && !tarefaConcluida(t.status) && !ehVezDoUsuario(t, uid),
   );
   const concluidas = minhasTarefas.filter((t) => tarefaConcluida(t.status));
 

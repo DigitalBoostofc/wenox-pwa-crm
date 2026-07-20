@@ -27,12 +27,6 @@ export interface StatusOpcao {
   nome: string;
   cor: CorStatus;
   ordem: number;
-  /**
-   * Usuário (id) designado para este status.
-   * Quando uma tarefa entra nesta opção: notifica o membro e a tarefa
-   * aparece em "Minhas tarefas" dele enquanto permanecer neste status.
-   */
-  responsavel?: string;
 }
 
 export interface StatusGlobalConfig {
@@ -125,14 +119,12 @@ function normalizarGrupo(x: Partial<StatusGrupo>, i: number): StatusGrupo {
 }
 
 function normalizarOpcao(x: Partial<StatusOpcao>, i: number, grupoFallback: string): StatusOpcao {
-  const resp = typeof x.responsavel === 'string' ? x.responsavel.trim() : '';
   return {
     id: x.id || novoStatusId('op'),
     grupo: x.grupo || grupoFallback,
     nome: String(x.nome ?? '').trim() || 'Status',
     cor: corValida(x.cor),
     ordem: Number.isFinite(x.ordem) ? Number(x.ordem) : i,
-    ...(resp ? { responsavel: resp } : {}),
   };
 }
 
@@ -258,61 +250,18 @@ export function espelhoStatus(opcaoId: string): { status_opcao: string; status: 
   return { status_opcao: opcaoId, status: opcaoPorId(opcaoId)?.nome ?? '' };
 }
 
-/** Id do usuário designado na opção (se houver). */
-export function responsavelDaOpcao(opcaoId?: string, nomeLegado?: string): string | undefined {
-  return resolverOpcao(opcaoId, nomeLegado)?.responsavel || undefined;
-}
-
-/** True se o usuário é o responsável designado do status atual da tarefa. */
-export function usuarioDesignadoPeloStatus(
-  t: { status_opcao?: string; status?: string },
-  userId?: string,
-): boolean {
-  if (!userId) return false;
-  const r = responsavelDaOpcao(t.status_opcao, t.status);
-  return !!r && r === userId;
-}
-
 /**
- * Tarefa "minha": está nos responsáveis diretos OU o status atual designa o usuário.
+ * Tarefa "minha": o usuário está nos responsáveis da tarefa.
  * Por padrão ignora arquivadas.
  */
 export function tarefaEhDoUsuario(
-  t: { responsaveis?: string[]; status_opcao?: string; status?: string; arquivada?: boolean },
+  t: { responsaveis?: string[]; arquivada?: boolean },
   userId?: string,
   opts?: { incluirArquivadas?: boolean },
 ): boolean {
   if (!userId) return false;
   if (!opts?.incluirArquivadas && t.arquivada) return false;
-  if ((t.responsaveis ?? []).includes(userId)) return true;
-  return usuarioDesignadoPeloStatus(t, userId);
-}
-
-/**
- * Opção de status permitida para a tarefa:
- * - sem responsável designado → sempre disponível;
- * - com responsável → só se ele estiver nos responsáveis da tarefa.
- */
-export function opcaoPermitidaParaResponsaveis(
-  opcao: Pick<StatusOpcao, 'responsavel'>,
-  responsaveisIds?: string[] | null,
-): boolean {
-  if (!opcao.responsavel) return true;
-  return (responsaveisIds ?? []).includes(opcao.responsavel);
-}
-
-/**
- * Filtra opções pelo critério acima.
- * `incluirId` mantém o status atual visível (ex.: alguém saiu dos responsáveis).
- */
-export function filtrarOpcoesPorResponsaveis(
-  opcoes: StatusOpcao[],
-  responsaveisIds?: string[] | null,
-  incluirId?: string,
-): StatusOpcao[] {
-  return opcoes.filter(
-    (o) => o.id === incluirId || opcaoPermitidaParaResponsaveis(o, responsaveisIds),
-  );
+  return (t.responsaveis ?? []).includes(userId);
 }
 
 /* ---------------------- espelho de POSTS (status_post) -------------------- */

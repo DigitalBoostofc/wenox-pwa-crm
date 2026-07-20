@@ -517,7 +517,6 @@ export function CartaoSheet({ cartaoId, aberto, labelsDisponiveis = [], clienteI
                       <StatusOpcaoSelect
                         value={resolverOpcaoCard(c.status_opcao, c.status_post)?.id ?? ''}
                         statusLegado={undefined}
-                        responsaveis={c.membros_ids ?? c.membros}
                         onChange={(opcaoId) => salvar(espelhoStatusCard(opcaoId) as Partial<Cartao>)}
                         ariaLabel="Status do post"
                       />

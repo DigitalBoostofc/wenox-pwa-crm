@@ -4,8 +4,7 @@ import {
   resolverOpcao, espelhoStatus, corOpcaoClass, grupoDaOpcao,
   opcoesEmOrdemDeColuna, CORES_STATUS,
   resolverOpcaoCard, statusPostDaOpcao, opcaoIdDoStatusPost,
-  responsavelDaOpcao, usuarioDesignadoPeloStatus, tarefaEhDoUsuario,
-  opcaoPermitidaParaResponsaveis, filtrarOpcoesPorResponsaveis,
+  tarefaEhDoUsuario,
 } from '@/tarefas/status';
 
 /* Sem config remota/localStorage no teste → usa DEFAULT_STATUS_GLOBAL (seed v1):
@@ -108,45 +107,21 @@ describe('status global — espelho de POSTS (status_post)', () => {
   });
 });
 
-describe('status global — responsável designado por opção', () => {
-  it('seed padrão não tem responsável designado', () => {
-    expect(responsavelDaOpcao('op_em_andamento')).toBeUndefined();
-    expect(usuarioDesignadoPeloStatus({ status_opcao: 'op_em_andamento' }, 'u1')).toBe(false);
+describe('status global — tarefaEhDoUsuario', () => {
+  it('considera responsáveis da tarefa', () => {
+    expect(tarefaEhDoUsuario({ responsaveis: ['u1'] }, 'u1')).toBe(true);
+    expect(tarefaEhDoUsuario({ responsaveis: ['u2'] }, 'u1')).toBe(false);
   });
 
-  it('tarefaEhDoUsuario considera responsáveis diretos', () => {
-    expect(tarefaEhDoUsuario({ responsaveis: ['u1'], status_opcao: 'op_em_andamento' }, 'u1')).toBe(true);
-    expect(tarefaEhDoUsuario({ responsaveis: ['u2'], status_opcao: 'op_em_andamento' }, 'u1')).toBe(false);
-  });
-
-  it('tarefaEhDoUsuario ignora arquivadas por padrão', () => {
+  it('ignora arquivadas por padrão', () => {
     expect(tarefaEhDoUsuario(
-      { responsaveis: ['u1'], status_opcao: 'op_em_andamento', arquivada: true },
+      { responsaveis: ['u1'], arquivada: true },
       'u1',
     )).toBe(false);
     expect(tarefaEhDoUsuario(
-      { responsaveis: ['u1'], status_opcao: 'op_em_andamento', arquivada: true },
+      { responsaveis: ['u1'], arquivada: true },
       'u1',
       { incluirArquivadas: true },
     )).toBe(true);
-  });
-
-  it('opcao sem responsável é sempre permitida; com responsável exige match', () => {
-    expect(opcaoPermitidaParaResponsaveis({ }, ['u1'])).toBe(true);
-    expect(opcaoPermitidaParaResponsaveis({ responsavel: undefined }, ['u1'])).toBe(true);
-    expect(opcaoPermitidaParaResponsaveis({ responsavel: 'u1' }, ['u1', 'u2'])).toBe(true);
-    expect(opcaoPermitidaParaResponsaveis({ responsavel: 'u1' }, ['u2'])).toBe(false);
-    expect(opcaoPermitidaParaResponsaveis({ responsavel: 'u1' }, [])).toBe(false);
-  });
-
-  it('filtrarOpcoesPorResponsaveis mantém o status atual mesmo se não bater', () => {
-    const ops = [
-      { id: 'a', grupo: 'g', nome: 'A', cor: 'cinza' as const, ordem: 0 },
-      { id: 'b', grupo: 'g', nome: 'B', cor: 'azul' as const, ordem: 1, responsavel: 'u1' },
-      { id: 'c', grupo: 'g', nome: 'C', cor: 'verde' as const, ordem: 2, responsavel: 'u2' },
-    ];
-    const filtradas = filtrarOpcoesPorResponsaveis(ops, ['u1'], 'c');
-    expect(filtradas.map((o) => o.id)).toEqual(['a', 'b', 'c']);
-    expect(filtrarOpcoesPorResponsaveis(ops, ['u1']).map((o) => o.id)).toEqual(['a', 'b']);
   });
 });

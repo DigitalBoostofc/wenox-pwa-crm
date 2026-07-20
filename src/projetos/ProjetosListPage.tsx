@@ -22,6 +22,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { colWidth, startColumnResize } from '@/lib/columnResize';
 import { BarraTipos, PillsTipos, iconeTipo } from '@/components/BarraTipos';
 import { ProjetoSheet } from './ProjetoSheet';
 import { Card } from '@/components/ui/card';
@@ -677,10 +678,10 @@ export function ProjetosListPage({ tipoFixo }: { tipoFixo?: string } = {}) {
           colDefs={colDefsProj}
           ordem={ordemProj}
           larguras={largurasProj}
-          onResize={(key, largura) => {
+          onResize={(key, largura, persist = false) => {
             setLargurasProj((prev) => {
               const next = { ...prev, [key]: largura };
-              salvarLargurasProj(LARG_KEY, next);
+              if (persist) salvarLargurasProj(LARG_KEY, next);
               return next;
             });
           }}
@@ -1014,6 +1015,11 @@ function posicaoStatusProj(s?: string): number {
 /** Larguras (px) por coluna da tabela de projetos — persistidas. */
 type LargurasProj = Partial<Record<ColProjKey, number>>;
 const LARGURA_PROJ_KEY = 'wenox-larguras-projetos-v1';
+/** Defaults para TODAS as colunas — sem isso o browser redistribui o espaço ao redimensionar. */
+const LARGURAS_PADRAO_PROJ: Record<ColProjKey, number> = {
+  cliente: 160, projeto: 180, etapa: 140, prazo: 110,
+  status: 120, responsaveis: 140, observacao: 180, tipo: 120,
+};
 function carregarLargurasProj(key: string): LargurasProj {
   try {
     const s = localStorage.getItem(key);
@@ -1216,7 +1222,8 @@ function ListaProjetos({
   colDefs: ColProjDef[];
   ordem: OrdemProj;
   larguras: LargurasProj;
-  onResize: (key: ColProjKey, largura: number) => void;
+  /** live update; `persist=true` no mouseup pra gravar no localStorage. */
+  onResize: (key: ColProjKey, largura: number, persist?: boolean) => void;
 }) {
 
   const projetosOrdenados = useMemo(() => {
@@ -1247,27 +1254,6 @@ function ListaProjetos({
     return arr;
   }, [projetos, ordem, etapasPorTipo]);
 
-  function iniciarResize(key: ColProjKey, thEl: HTMLElement, e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    const base = thEl.getBoundingClientRect().width;
-    const startX = e.clientX;
-    const MIN = 80;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    function onMove(ev: MouseEvent) {
-      onResize(key, Math.max(MIN, Math.round(base + (ev.clientX - startX))));
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }
-
   const colsVisiveis = useMemo(
     () => colDefs.filter((c) =>
       c.visivel &&
@@ -1276,6 +1262,23 @@ function ListaProjetos({
     ),
     [colDefs, mostrarColTipo, mostrarColEtapa],
   );
+
+  function widthCol(key: ColProjKey) {
+    return colWidth(key, larguras, LARGURAS_PADRAO_PROJ);
+  }
+
+  function iniciarResize(key: ColProjKey, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    startColumnResize({
+      startWidth: widthCol(key),
+      clientX: e.clientX,
+      onMove: (w) => onResize(key, w, false),
+      onEnd: (w) => onResize(key, w, true),
+    });
+  }
+
+  const tableW = colsVisiveis.reduce((s, c) => s + widthCol(c.key), 0);
 
   function celula(p: Projeto, key: ColProjKey) {
     if (key === 'cliente') {
@@ -1413,55 +1416,56 @@ function ListaProjetos({
 
   return (
     <Card className="overflow-hidden">
-      <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-        <thead>
-          <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+      <div className="overflow-x-auto">
+        <table className="text-sm" style={{ tableLayout: 'fixed', width: tableW }}>
+          <colgroup>
             {colsVisiveis.map((col) => (
-              <th
-                key={col.key}
-                className="relative px-4 py-3 font-medium"
-                style={larguras[col.key] ? { width: larguras[col.key] } : undefined}
-              >
-                {col.label}
-                <ResizeHandle
-                  onMouseDown={(e) => iniciarResize(col.key, e.currentTarget.parentElement!, e)}
-                />
-              </th>
+              <col key={col.key} style={{ width: widthCol(col.key) }} />
             ))}
-          </tr>
-        </thead>
-        <tbody>
-          {projetos.length === 0 ? (
-            <tr>
-              <td colSpan={colsVisiveis.length || 1}
-                className="px-5 py-12 text-center text-sm text-muted-foreground">
-                {totalBruto === 0 && areaAtiva ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <span>Nenhum projeto na área <strong>{areaAtiva}</strong>.</span>
-                    <Button variant="outline" size="sm" onClick={onVerTodasAreas}>
-                      Ver todas as áreas
-                    </Button>
-                  </div>
-                ) : totalBruto === 0
-                  ? 'Nenhum projeto ainda. Use o botão "Novo projeto" pra cadastrar.'
-                  : 'Nenhum projeto neste filtro.'}
-              </td>
-            </tr>
-          ) : projetosOrdenados.map((p) => (
-            <tr
-              key={p.id}
-              onClick={() => onAbrir(p.id)}
-              className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50"
-            >
+          </colgroup>
+          <thead>
+            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
               {colsVisiveis.map((col) => (
-                <td key={col.key} className="overflow-hidden px-4 py-3 text-muted-foreground">
-                  {celula(p, col.key)}
-                </td>
+                <th key={col.key} className="relative px-4 py-3 font-medium">
+                  {col.label}
+                  <ResizeHandle onMouseDown={(e) => iniciarResize(col.key, e)} />
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {projetos.length === 0 ? (
+              <tr>
+                <td colSpan={colsVisiveis.length || 1}
+                  className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  {totalBruto === 0 && areaAtiva ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <span>Nenhum projeto na área <strong>{areaAtiva}</strong>.</span>
+                      <Button variant="outline" size="sm" onClick={onVerTodasAreas}>
+                        Ver todas as áreas
+                      </Button>
+                    </div>
+                  ) : totalBruto === 0
+                    ? 'Nenhum projeto ainda. Use o botão "Novo projeto" pra cadastrar.'
+                    : 'Nenhum projeto neste filtro.'}
+                </td>
+              </tr>
+            ) : projetosOrdenados.map((p) => (
+              <tr
+                key={p.id}
+                onClick={() => onAbrir(p.id)}
+                className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50"
+              >
+                {colsVisiveis.map((col) => (
+                  <td key={col.key} className="overflow-hidden px-4 py-3 text-muted-foreground">
+                    {celula(p, col.key)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Card>
   );
 }

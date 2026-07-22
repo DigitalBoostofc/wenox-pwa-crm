@@ -7,10 +7,6 @@ import {
   listAcessos, createAcesso, updateAcesso, removeAcesso,
 } from '@/acessos/acessosService';
 import type { Acesso, AcessoInput } from '@/acessos/types';
-import { listOpcoes } from '@/opcoes/opcoesService';
-import type { Opcao } from '@/opcoes/types';
-import { listUsuarios } from '@/usuarios/usuariosService';
-import type { Usuario } from '@/usuarios/types';
 import { useAuth } from '@/auth/useAuth';
 import { canGerirEquipe } from '@/auth/perms';
 import { haDias } from '@/clientes/format';
@@ -28,12 +24,24 @@ import {
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
-const vazio: Omit<AcessoInput, 'cliente'> = {
-  plataforma: '', categoria: '', url: '', login: '', senha: '',
-  tem_2fa: false, responsavel: '', observacoes: '',
+/** Campos editáveis no modal (categoria/responsável ficam fora da UI, mas preservados). */
+type FormAcesso = {
+  plataforma: string;
+  url: string;
+  login: string;
+  senha: string;
+  tem_2fa: boolean;
+  observacoes: string;
+  /** Preservados no save sem aparecer no form. */
+  categoria: string;
+  responsavel: string;
 };
-const inputCls =
-  'h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+
+const vazio: FormAcesso = {
+  plataforma: '', url: '', login: '', senha: '',
+  tem_2fa: false, observacoes: '',
+  categoria: '', responsavel: '',
+};
 
 async function copiar(texto: string) {
   try {
@@ -79,11 +87,9 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
   const { user } = useAuth();
   const podeGerir = canGerirEquipe(user?.role);
   const [acessos, setAcessos] = useState<Acesso[]>([]);
-  const [cats, setCats] = useState<Opcao[]>([]);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ ...vazio });
+  const [form, setForm] = useState<FormAcesso>({ ...vazio });
   const [mostrarForm, setMostrarForm] = useState(false);
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -99,8 +105,6 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
 
   useEffect(() => {
     carregar();
-    listOpcoes('categoria_acesso').then(setCats);
-    listUsuarios().then(setUsuarios).catch(() => {});
   }, [carregar]);
 
   function abrirNovo() {
@@ -110,7 +114,6 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
     setErro('');
   }
 
-  /** Clique no acesso → modal flutuante com o formulário. */
   function abrirEdicao(a: Acesso) {
     if (!podeGerir) {
       setHistoricoId(a.id);
@@ -118,21 +121,39 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
     }
     setEditId(a.id);
     setForm({
-      plataforma: a.plataforma, categoria: a.categoria ?? '', url: a.url ?? '',
-      login: a.login ?? '', senha: a.senha ?? '', tem_2fa: !!a.tem_2fa,
-      responsavel: a.responsavel ?? '', observacoes: a.observacoes ?? '',
+      plataforma: a.plataforma,
+      url: a.url ?? '',
+      login: a.login ?? '',
+      senha: a.senha ?? '',
+      tem_2fa: !!a.tem_2fa,
+      observacoes: a.observacoes ?? '',
+      // preservados
+      categoria: a.categoria ?? '',
+      responsavel: a.responsavel ?? '',
     });
     setMostrarForm(true);
     setErro('');
   }
 
-  /** Fecha sem salvar (X, clique fora, Cancelar, Esc). */
   function fecharSemSalvar() {
     setMostrarForm(false);
     setEditId(null);
     setForm({ ...vazio });
     setErro('');
     setSalvando(false);
+  }
+
+  function payloadForm(): Omit<AcessoInput, 'cliente'> {
+    return {
+      plataforma: form.plataforma,
+      url: form.url,
+      login: form.login,
+      senha: form.senha,
+      tem_2fa: form.tem_2fa,
+      observacoes: form.observacoes,
+      categoria: form.categoria,
+      responsavel: form.responsavel,
+    };
   }
 
   async function salvar(e: React.FormEvent) {
@@ -144,8 +165,9 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
     }
     setSalvando(true);
     try {
-      if (editId) await updateAcesso(editId, form);
-      else await createAcesso({ ...form, cliente: clienteId });
+      const dados = payloadForm();
+      if (editId) await updateAcesso(editId, dados);
+      else await createAcesso({ ...dados, cliente: clienteId });
       fecharSemSalvar();
       await carregar();
     } catch (err) {
@@ -159,10 +181,6 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
     await removeAcesso(a);
     if (editId === a.id) fecharSemSalvar();
     await carregar();
-  }
-
-  function nomeResp(a: Acesso) {
-    return a.expand?.responsavel?.nome ?? a.expand?.responsavel?.email ?? '—';
   }
 
   const acessoHistorico = historicoId ? acessos.find((x) => x.id === historicoId) : null;
@@ -179,7 +197,6 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
         )}
       </div>
 
-      {/* Modal flutuante — fundo embasado; clique fora fecha sem salvar */}
       <Dialog
         open={mostrarForm}
         onOpenChange={(o) => {
@@ -198,19 +215,11 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
           </div>
 
           <form onSubmit={salvar} className="grid gap-3 p-5 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor="ac-pl" className="text-sm text-muted-foreground">Plataforma</label>
               <Input id="ac-pl" value={form.plataforma}
                 onChange={(e) => setForm({ ...form, plataforma: e.target.value })}
                 autoFocus />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="ac-cat" className="text-sm text-muted-foreground">Categoria</label>
-              <select id="ac-cat" className={inputCls} value={form.categoria}
-                onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
-                <option value="">—</option>
-                {cats.map((o) => <option key={o.id} value={o.valor}>{o.valor}</option>)}
-              </select>
             </div>
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor="ac-url" className="text-sm text-muted-foreground">URL / site</label>
@@ -227,15 +236,7 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
               <Input id="ac-senha" value={form.senha}
                 onChange={(e) => setForm({ ...form, senha: e.target.value })} />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="ac-resp" className="text-sm text-muted-foreground">Responsável (Wenox)</label>
-              <select id="ac-resp" className={inputCls} value={form.responsavel}
-                onChange={(e) => setForm({ ...form, responsavel: e.target.value })}>
-                <option value="">—</option>
-                {usuarios.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
-              </select>
-            </div>
-            <label className="flex items-center gap-2 self-end pb-2 text-sm text-muted-foreground">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-2">
               <input type="checkbox" checked={!!form.tem_2fa}
                 onChange={(e) => setForm({ ...form, tem_2fa: e.target.checked })} />
               Tem 2FA (autenticação em duas etapas)
@@ -294,66 +295,72 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
         </CardContent></Card>
       ) : (
         <Card className="divide-y divide-border">
-          {acessos.map((a) => (
-            <div
-              key={a.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => abrirEdicao(a)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  abrirEdicao(a);
-                }
-              }}
-              className={cn(
-                'flex flex-wrap items-center gap-3 px-4 py-3 text-left transition-colors',
-                'cursor-pointer hover:bg-secondary/50',
-              )}
-              aria-label={`${podeGerir ? 'Editar' : 'Ver'} ${a.plataforma}`}
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <KeyRound className="size-4 shrink-0 text-primary" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">
-                    {a.plataforma}
-                    {a.categoria && (
-                      <span className="text-muted-foreground"> · {a.categoria}</span>
-                    )}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {nomeResp(a)} · atualizado {haDias(a.updated) || '—'}
-                  </p>
-                </div>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-              </div>
-
+          {acessos.map((a) => {
+            const obs = (a.observacoes ?? '').trim();
+            return (
               <div
-                className="flex items-center gap-3"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
+                key={a.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => abrirEdicao(a)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    abrirEdicao(a);
+                  }
+                }}
+                className={cn(
+                  'flex flex-col gap-1.5 px-4 py-3 text-left transition-colors',
+                  'cursor-pointer hover:bg-secondary/50',
+                )}
+                aria-label={`${podeGerir ? 'Editar' : 'Ver'} ${a.plataforma}`}
               >
-                <LoginInline valor={a.login} />
-                <SenhaInline valor={a.senha} />
-                {a.tem_2fa && (
-                  <Badge variant="info" className="gap-1">
-                    <ShieldCheck className="size-3" />2FA
-                  </Badge>
-                )}
-                {a.url && (
-                  <a
-                    href={a.url.startsWith('http') ? a.url : `https://${a.url}`}
-                    target="_blank"
-                    rel="noopener"
-                    aria-label="Abrir site"
-                    className="text-muted-foreground hover:text-foreground"
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <KeyRound className="size-4 shrink-0 text-primary" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{a.plataforma}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        atualizado {haDias(a.updated) || '—'}
+                      </p>
+                    </div>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  </div>
+
+                  <div
+                    className="flex items-center gap-3"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
                   >
-                    <ExternalLink className="size-4" />
-                  </a>
-                )}
+                    <LoginInline valor={a.login} />
+                    <SenhaInline valor={a.senha} />
+                    {a.tem_2fa && (
+                      <Badge variant="info" className="gap-1">
+                        <ShieldCheck className="size-3" />2FA
+                      </Badge>
+                    )}
+                    {a.url && (
+                      <a
+                        href={a.url.startsWith('http') ? a.url : `https://${a.url}`}
+                        target="_blank"
+                        rel="noopener"
+                        aria-label="Abrir site"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <ExternalLink className="size-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {obs ? (
+                  <p className="line-clamp-2 pl-7 text-sm text-muted-foreground" title={obs}>
+                    {obs}
+                  </p>
+                ) : null}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </Card>
       )}
 

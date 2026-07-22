@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   KeyRound, Plus, Pencil, Trash2, Eye, EyeOff, Copy, ExternalLink,
-  MessageSquare, ShieldCheck, MoreHorizontal,
+  MessageSquare, ShieldCheck, ChevronRight,
 } from 'lucide-react';
 import {
   listAcessos, createAcesso, updateAcesso, removeAcesso,
@@ -20,10 +20,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
 import {
   Sheet, SheetContent, SheetTitle,
 } from '@/components/ui/sheet';
@@ -83,14 +79,12 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
   const [cats, setCats] = useState<Opcao[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
-  /** Menu flutuante aberto (id do acesso). */
-  const [menuId, setMenuId] = useState<string | null>(null);
-  /** Sheet de comentários/histórico. */
-  const [detalheId, setDetalheId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...vazio });
   const [mostrarForm, setMostrarForm] = useState(false);
   const [erro, setErro] = useState('');
+  const [historicoId, setHistoricoId] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -106,13 +100,27 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
     listUsuarios().then(setUsuarios).catch(() => {});
   }, [carregar]);
 
+  function scrollForm() {
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
   function abrirNovo() {
     setEditId(null);
     setForm({ ...vazio });
     setMostrarForm(true);
     setErro('');
+    scrollForm();
   }
+
+  /** Clique no acesso → abre o formulário de edição com todos os campos. */
   function abrirEdicao(a: Acesso) {
+    if (!podeGerir) {
+      // Sem permissão de editar: só histórico/leitura.
+      setHistoricoId(a.id);
+      return;
+    }
     setEditId(a.id);
     setForm({
       plataforma: a.plataforma, categoria: a.categoria ?? '', url: a.url ?? '',
@@ -121,7 +129,14 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
     });
     setMostrarForm(true);
     setErro('');
-    setMenuId(null);
+    scrollForm();
+  }
+
+  function fecharForm() {
+    setMostrarForm(false);
+    setEditId(null);
+    setForm({ ...vazio });
+    setErro('');
   }
 
   async function salvar(e: React.FormEvent) {
@@ -134,7 +149,7 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
     try {
       if (editId) await updateAcesso(editId, form);
       else await createAcesso({ ...form, cliente: clienteId });
-      setMostrarForm(false);
+      fecharForm();
       await carregar();
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao salvar');
@@ -142,9 +157,9 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
   }
 
   async function excluir(a: Acesso) {
-    setMenuId(null);
     if (!confirm(`Remover o acesso "${a.plataforma}"?`)) return;
     await removeAcesso(a);
+    if (editId === a.id) fecharForm();
     await carregar();
   }
 
@@ -152,77 +167,118 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
     return a.expand?.responsavel?.nome ?? a.expand?.responsavel?.email ?? '—';
   }
 
-  const acessoDetalhe = detalheId ? acessos.find((x) => x.id === detalheId) : null;
+  const acessoHistorico = historicoId ? acessos.find((x) => x.id === historicoId) : null;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Logins e senhas das ferramentas usadas para este cliente.
+          {podeGerir && ' Clique em um acesso para editar.'}
         </p>
         {podeGerir && (
           <Button size="sm" onClick={abrirNovo}><Plus /> Novo acesso</Button>
         )}
       </div>
 
+      {/* Formulário flutuante: novo ou edição ao clicar no acesso */}
       {mostrarForm && (
-        <Card><CardContent className="pt-6">
-          <form onSubmit={salvar} className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="ac-pl" className="text-sm text-muted-foreground">Plataforma</label>
-              <Input id="ac-pl" value={form.plataforma}
-                onChange={(e) => setForm({ ...form, plataforma: e.target.value })} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="ac-cat" className="text-sm text-muted-foreground">Categoria</label>
-              <select id="ac-cat" className={inputCls} value={form.categoria}
-                onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
-                <option value="">—</option>
-                {cats.map((o) => <option key={o.id} value={o.valor}>{o.valor}</option>)}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <label htmlFor="ac-url" className="text-sm text-muted-foreground">URL / site</label>
-              <Input id="ac-url" value={form.url}
-                onChange={(e) => setForm({ ...form, url: e.target.value })} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="ac-login" className="text-sm text-muted-foreground">Login</label>
-              <Input id="ac-login" value={form.login}
-                onChange={(e) => setForm({ ...form, login: e.target.value })} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="ac-senha" className="text-sm text-muted-foreground">Senha</label>
-              <Input id="ac-senha" value={form.senha}
-                onChange={(e) => setForm({ ...form, senha: e.target.value })} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="ac-resp" className="text-sm text-muted-foreground">Responsável (Wenox)</label>
-              <select id="ac-resp" className={inputCls} value={form.responsavel}
-                onChange={(e) => setForm({ ...form, responsavel: e.target.value })}>
-                <option value="">—</option>
-                {usuarios.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
-              </select>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input type="checkbox" checked={!!form.tem_2fa}
-                onChange={(e) => setForm({ ...form, tem_2fa: e.target.checked })} />
-              Tem 2FA (autenticação em duas etapas)
-            </label>
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <label htmlFor="ac-obs" className="text-sm text-muted-foreground">Observações</label>
-              <textarea id="ac-obs" rows={2} value={form.observacoes}
-                onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
-                className="w-full rounded-md border border-input bg-background/40 p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
-            </div>
-            {erro && <p className="text-sm font-medium text-destructive sm:col-span-2">{erro}</p>}
-            <div className="flex gap-2 sm:col-span-2">
-              <Button type="submit" size="sm">{editId ? 'Salvar' : 'Adicionar'}</Button>
-              <Button type="button" size="sm" variant="ghost"
-                onClick={() => setMostrarForm(false)}>Cancelar</Button>
-            </div>
-          </form>
-        </CardContent></Card>
+        <div ref={formRef}>
+          <Card className="border-primary/30 shadow-lg shadow-primary/5">
+            <CardContent className="pt-6">
+              <div className="mb-4 flex items-center gap-2">
+                <KeyRound className="size-5 text-primary" />
+                <h3 className="text-base font-semibold">
+                  {editId ? `Editar: ${form.plataforma || 'acesso'}` : 'Novo acesso'}
+                </h3>
+              </div>
+              <form onSubmit={salvar} className="grid gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ac-pl" className="text-sm text-muted-foreground">Plataforma</label>
+                  <Input id="ac-pl" value={form.plataforma}
+                    onChange={(e) => setForm({ ...form, plataforma: e.target.value })}
+                    autoFocus />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ac-cat" className="text-sm text-muted-foreground">Categoria</label>
+                  <select id="ac-cat" className={inputCls} value={form.categoria}
+                    onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
+                    <option value="">—</option>
+                    {cats.map((o) => <option key={o.id} value={o.valor}>{o.valor}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label htmlFor="ac-url" className="text-sm text-muted-foreground">URL / site</label>
+                  <Input id="ac-url" value={form.url}
+                    onChange={(e) => setForm({ ...form, url: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ac-login" className="text-sm text-muted-foreground">Login</label>
+                  <Input id="ac-login" value={form.login}
+                    onChange={(e) => setForm({ ...form, login: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ac-senha" className="text-sm text-muted-foreground">Senha</label>
+                  <Input id="ac-senha" value={form.senha}
+                    onChange={(e) => setForm({ ...form, senha: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ac-resp" className="text-sm text-muted-foreground">Responsável (Wenox)</label>
+                  <select id="ac-resp" className={inputCls} value={form.responsavel}
+                    onChange={(e) => setForm({ ...form, responsavel: e.target.value })}>
+                    <option value="">—</option>
+                    {usuarios.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                  </select>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input type="checkbox" checked={!!form.tem_2fa}
+                    onChange={(e) => setForm({ ...form, tem_2fa: e.target.checked })} />
+                  Tem 2FA (autenticação em duas etapas)
+                </label>
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label htmlFor="ac-obs" className="text-sm text-muted-foreground">Observações</label>
+                  <textarea id="ac-obs" rows={2} value={form.observacoes}
+                    onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
+                    className="w-full rounded-md border border-input bg-background/40 p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
+                </div>
+                {erro && <p className="text-sm font-medium text-destructive sm:col-span-2">{erro}</p>}
+                <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                  <Button type="submit" size="sm">{editId ? 'Salvar' : 'Adicionar'}</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={fecharForm}>
+                    Cancelar
+                  </Button>
+                  {editId && (
+                    <>
+                      <span className="mx-1 h-4 w-px bg-border" />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setHistoricoId(editId);
+                        }}
+                      >
+                        <MessageSquare className="size-3.5" /> Comentários
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() => {
+                          const a = acessos.find((x) => x.id === editId);
+                          if (a) void excluir(a);
+                        }}
+                      >
+                        <Trash2 className="size-3.5" /> Remover
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {carregando ? (
@@ -236,93 +292,64 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
       ) : (
         <Card className="divide-y divide-border">
           {acessos.map((a) => {
-            const menuAberto = menuId === a.id;
+            const selecionado = mostrarForm && editId === a.id;
             return (
-              <div key={a.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <DropdownMenu
-                  open={menuAberto}
-                  onOpenChange={(o) => setMenuId(o ? a.id : null)}
-                >
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className={cn(
-                        'flex min-w-0 flex-1 items-center gap-3 rounded-md text-left outline-none transition-colors',
-                        'hover:bg-secondary/50 focus-visible:ring-2 focus-visible:ring-ring/60',
-                        menuAberto && 'bg-secondary/40',
+              <div
+                key={a.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => abrirEdicao(a)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    abrirEdicao(a);
+                  }
+                }}
+                className={cn(
+                  'flex flex-wrap items-center gap-3 px-4 py-3 text-left transition-colors',
+                  'cursor-pointer hover:bg-secondary/50',
+                  selecionado && 'bg-primary/5 ring-1 ring-inset ring-primary/25',
+                )}
+                aria-label={`${podeGerir ? 'Editar' : 'Ver'} ${a.plataforma}`}
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <KeyRound className="size-4 shrink-0 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">
+                      {a.plataforma}
+                      {a.categoria && (
+                        <span className="text-muted-foreground"> · {a.categoria}</span>
                       )}
-                      aria-label={`Menu de ${a.plataforma}`}
-                    >
-                      <KeyRound className="size-4 shrink-0 text-primary" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">
-                          {a.plataforma}
-                          {a.categoria && (
-                            <span className="text-muted-foreground"> · {a.categoria}</span>
-                          )}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {nomeResp(a)} · atualizado {haDias(a.updated) || '—'}
-                        </p>
-                      </div>
-                      <MoreHorizontal className="size-4 shrink-0 text-muted-foreground" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56">
-                    <DropdownMenuLabel className="truncate">{a.plataforma}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {a.login && (
-                      <DropdownMenuItem onSelect={() => void copiar(a.login!)}>
-                        <Copy /> Copiar login
-                      </DropdownMenuItem>
-                    )}
-                    {a.senha && (
-                      <DropdownMenuItem onSelect={() => void copiar(a.senha!)}>
-                        <Copy /> Copiar senha
-                      </DropdownMenuItem>
-                    )}
-                    {a.url && (
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          const href = a.url!.startsWith('http') ? a.url! : `https://${a.url}`;
-                          window.open(href, '_blank', 'noopener');
-                        }}
-                      >
-                        <ExternalLink /> Abrir site
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        setMenuId(null);
-                        setDetalheId(a.id);
-                      }}
-                    >
-                      <MessageSquare /> Comentários & histórico
-                    </DropdownMenuItem>
-                    {podeGerir && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => abrirEdicao(a)}>
-                          <Pencil /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onSelect={() => void excluir(a)}
-                        >
-                          <Trash2 /> Remover
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {nomeResp(a)} · atualizado {haDias(a.updated) || '—'}
+                    </p>
+                  </div>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                </div>
 
-                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="flex items-center gap-3"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
                   <LoginInline valor={a.login} />
                   <SenhaInline valor={a.senha} />
                   {a.tem_2fa && (
                     <Badge variant="info" className="gap-1">
                       <ShieldCheck className="size-3" />2FA
                     </Badge>
+                  )}
+                  {a.url && (
+                    <a
+                      href={a.url.startsWith('http') ? a.url : `https://${a.url}`}
+                      target="_blank"
+                      rel="noopener"
+                      aria-label="Abrir site"
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <ExternalLink className="size-4" />
+                    </a>
                   )}
                 </div>
               </div>
@@ -331,64 +358,28 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
         </Card>
       )}
 
-      {/* Sheet flutuante: observações + comentários/histórico */}
-      <Sheet open={!!detalheId} onOpenChange={(o) => { if (!o) setDetalheId(null); }}>
+      {/* Comentários & histórico (opcional, a partir do formulário) */}
+      <Sheet open={!!historicoId} onOpenChange={(o) => { if (!o) setHistoricoId(null); }}>
         <SheetContent className="flex w-full max-w-lg flex-col gap-4 overflow-y-auto sm:max-w-lg">
           <SheetTitle className="flex items-center gap-2 pr-8">
-            <KeyRound className="size-5 text-primary" />
-            {acessoDetalhe?.plataforma ?? 'Acesso'}
+            <MessageSquare className="size-5 text-primary" />
+            {acessoHistorico?.plataforma ?? 'Acesso'}
           </SheetTitle>
-          {acessoDetalhe && (
+          {acessoHistorico && (
             <div className="flex flex-col gap-4">
-              {acessoDetalhe.categoria && (
-                <p className="text-sm text-muted-foreground">{acessoDetalhe.categoria}</p>
-              )}
-              <div className="grid gap-2 rounded-lg border border-border p-3 text-sm">
-                <div className="flex justify-between gap-2">
-                  <span className="text-muted-foreground">Login</span>
-                  <LoginInline valor={acessoDetalhe.login} />
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-muted-foreground">Senha</span>
-                  <SenhaInline valor={acessoDetalhe.senha} />
-                </div>
-                {acessoDetalhe.url && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">URL</span>
-                    <a
-                      href={acessoDetalhe.url.startsWith('http') ? acessoDetalhe.url : `https://${acessoDetalhe.url}`}
-                      target="_blank"
-                      rel="noopener"
-                      className="truncate text-primary hover:underline"
-                    >
-                      {acessoDetalhe.url}
-                    </a>
-                  </div>
-                )}
-                <div className="flex justify-between gap-2">
-                  <span className="text-muted-foreground">Responsável</span>
-                  <span>{nomeResp(acessoDetalhe)}</span>
-                </div>
-              </div>
-              {acessoDetalhe.observacoes && (
+              {acessoHistorico.observacoes && (
                 <p className="rounded-md bg-secondary/50 p-3 text-sm text-muted-foreground">
-                  {acessoDetalhe.observacoes}
+                  {acessoHistorico.observacoes}
                 </p>
               )}
-              <AtividadeFeed entidade="acesso" refId={acessoDetalhe.id} />
+              <AtividadeFeed entidade="acesso" refId={acessoHistorico.id} />
               {podeGerir && (
-                <div className="flex gap-2 border-t border-border pt-3">
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setDetalheId(null);
-                    abrirEdicao(acessoDetalhe);
-                  }}>
-                    <Pencil className="size-3.5" /> Editar
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive"
-                    onClick={() => void excluir(acessoDetalhe)}>
-                    <Trash2 className="size-3.5" /> Remover
-                  </Button>
-                </div>
+                <Button size="sm" variant="outline" onClick={() => {
+                  setHistoricoId(null);
+                  abrirEdicao(acessoHistorico);
+                }}>
+                  <Pencil className="size-3.5" /> Voltar à edição
+                </Button>
               )}
             </div>
           )}

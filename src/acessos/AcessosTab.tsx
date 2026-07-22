@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   KeyRound, Plus, Pencil, Trash2, Eye, EyeOff, Copy, ExternalLink,
-  ChevronDown, ChevronRight, ShieldCheck,
+  MessageSquare, ShieldCheck, MoreHorizontal,
 } from 'lucide-react';
 import {
   listAcessos, createAcesso, updateAcesso, removeAcesso,
@@ -20,6 +20,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
+import {
+  Sheet, SheetContent, SheetTitle,
+} from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 
 const vazio: Omit<AcessoInput, 'cliente'> = {
   plataforma: '', categoria: '', url: '', login: '', senha: '',
@@ -28,13 +36,19 @@ const vazio: Omit<AcessoInput, 'cliente'> = {
 const inputCls =
   'h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
-function Login({ valor }: { valor?: string }) {
+async function copiar(texto: string) {
+  try {
+    await navigator.clipboard?.writeText(texto);
+  } catch { /* */ }
+}
+
+function LoginInline({ valor }: { valor?: string }) {
   if (!valor) return <span className="text-muted-foreground">—</span>;
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className="max-w-[180px] truncate font-mono text-sm">{valor}</span>
       <button type="button" aria-label="Copiar login"
-        onClick={() => navigator.clipboard?.writeText(valor)}
+        onClick={(e) => { e.stopPropagation(); void copiar(valor); }}
         className="text-muted-foreground hover:text-foreground">
         <Copy className="size-3.5" />
       </button>
@@ -42,18 +56,19 @@ function Login({ valor }: { valor?: string }) {
   );
 }
 
-function Senha({ valor }: { valor?: string }) {
+function SenhaInline({ valor }: { valor?: string }) {
   const [ver, setVer] = useState(false);
   if (!valor) return <span className="text-muted-foreground">—</span>;
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className="font-mono text-sm">{ver ? valor : '••••••••'}</span>
       <button type="button" aria-label={ver ? 'Ocultar senha' : 'Revelar senha'}
-        onClick={() => setVer((v) => !v)} className="text-muted-foreground hover:text-foreground">
+        onClick={(e) => { e.stopPropagation(); setVer((v) => !v); }}
+        className="text-muted-foreground hover:text-foreground">
         {ver ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
       </button>
       <button type="button" aria-label="Copiar senha"
-        onClick={() => navigator.clipboard?.writeText(valor)}
+        onClick={(e) => { e.stopPropagation(); void copiar(valor); }}
         className="text-muted-foreground hover:text-foreground">
         <Copy className="size-3.5" />
       </button>
@@ -68,7 +83,10 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
   const [cats, setCats] = useState<Opcao[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [aberto, setAberto] = useState<string | null>(null);
+  /** Menu flutuante aberto (id do acesso). */
+  const [menuId, setMenuId] = useState<string | null>(null);
+  /** Sheet de comentários/histórico. */
+  const [detalheId, setDetalheId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...vazio });
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -103,6 +121,7 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
     });
     setMostrarForm(true);
     setErro('');
+    setMenuId(null);
   }
 
   async function salvar(e: React.FormEvent) {
@@ -123,6 +142,7 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
   }
 
   async function excluir(a: Acesso) {
+    setMenuId(null);
     if (!confirm(`Remover o acesso "${a.plataforma}"?`)) return;
     await removeAcesso(a);
     await carregar();
@@ -131,6 +151,8 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
   function nomeResp(a: Acesso) {
     return a.expand?.responsavel?.nome ?? a.expand?.responsavel?.email ?? '—';
   }
+
+  const acessoDetalhe = detalheId ? acessos.find((x) => x.id === detalheId) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -214,69 +236,164 @@ export function AcessosTab({ clienteId }: { clienteId: string }) {
       ) : (
         <Card className="divide-y divide-border">
           {acessos.map((a) => {
-            const exp = aberto === a.id;
+            const menuAberto = menuId === a.id;
             return (
-              <div key={a.id}>
-                <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-                  <button onClick={() => setAberto(exp ? null : a.id)}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                    aria-label={`Detalhes de ${a.plataforma}`}>
-                    {exp ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-                         : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
-                    <KeyRound className="size-4 shrink-0 text-primary" />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">
-                        {a.plataforma}
-                        {a.categoria && (
-                          <span className="text-muted-foreground"> · {a.categoria}</span>
-                        )}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {nomeResp(a)} · atualizado {haDias(a.updated) || '—'}
-                      </p>
-                    </div>
-                  </button>
-                  <div className="flex items-center gap-3">
-                    <Login valor={a.login} />
-                    <Senha valor={a.senha} />
-                    {a.tem_2fa && (
-                      <Badge variant="info" className="gap-1">
-                        <ShieldCheck className="size-3" />2FA
-                      </Badge>
+              <div key={a.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                <DropdownMenu
+                  open={menuAberto}
+                  onOpenChange={(o) => setMenuId(o ? a.id : null)}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        'flex min-w-0 flex-1 items-center gap-3 rounded-md text-left outline-none transition-colors',
+                        'hover:bg-secondary/50 focus-visible:ring-2 focus-visible:ring-ring/60',
+                        menuAberto && 'bg-secondary/40',
+                      )}
+                      aria-label={`Menu de ${a.plataforma}`}
+                    >
+                      <KeyRound className="size-4 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">
+                          {a.plataforma}
+                          {a.categoria && (
+                            <span className="text-muted-foreground"> · {a.categoria}</span>
+                          )}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {nomeResp(a)} · atualizado {haDias(a.updated) || '—'}
+                        </p>
+                      </div>
+                      <MoreHorizontal className="size-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuLabel className="truncate">{a.plataforma}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {a.login && (
+                      <DropdownMenuItem onSelect={() => void copiar(a.login!)}>
+                        <Copy /> Copiar login
+                      </DropdownMenuItem>
+                    )}
+                    {a.senha && (
+                      <DropdownMenuItem onSelect={() => void copiar(a.senha!)}>
+                        <Copy /> Copiar senha
+                      </DropdownMenuItem>
                     )}
                     {a.url && (
-                      <a href={a.url.startsWith('http') ? a.url : `https://${a.url}`}
-                        target="_blank" rel="noopener" aria-label="Abrir site"
-                        className="text-muted-foreground hover:text-foreground">
-                        <ExternalLink className="size-4" />
-                      </a>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          const href = a.url!.startsWith('http') ? a.url! : `https://${a.url}`;
+                          window.open(href, '_blank', 'noopener');
+                        }}
+                      >
+                        <ExternalLink /> Abrir site
+                      </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setMenuId(null);
+                        setDetalheId(a.id);
+                      }}
+                    >
+                      <MessageSquare /> Comentários & histórico
+                    </DropdownMenuItem>
                     {podeGerir && (
                       <>
-                        <Button size="icon" variant="ghost" aria-label={`Editar ${a.plataforma}`}
-                          onClick={() => abrirEdicao(a)}><Pencil /></Button>
-                        <Button size="icon" variant="ghost" className="text-destructive"
-                          aria-label={`Remover ${a.plataforma}`}
-                          onClick={() => excluir(a)}><Trash2 /></Button>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => abrirEdicao(a)}>
+                          <Pencil /> Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => void excluir(a)}
+                        >
+                          <Trash2 /> Remover
+                        </DropdownMenuItem>
                       </>
                     )}
-                  </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                  <LoginInline valor={a.login} />
+                  <SenhaInline valor={a.senha} />
+                  {a.tem_2fa && (
+                    <Badge variant="info" className="gap-1">
+                      <ShieldCheck className="size-3" />2FA
+                    </Badge>
+                  )}
                 </div>
-                {exp && (
-                  <div className="px-4 pb-4">
-                    {a.observacoes && (
-                      <p className="mb-3 rounded-md bg-secondary/50 p-3 text-sm text-muted-foreground">
-                        {a.observacoes}
-                      </p>
-                    )}
-                    <AtividadeFeed entidade="acesso" refId={a.id} />
-                  </div>
-                )}
               </div>
             );
           })}
         </Card>
       )}
+
+      {/* Sheet flutuante: observações + comentários/histórico */}
+      <Sheet open={!!detalheId} onOpenChange={(o) => { if (!o) setDetalheId(null); }}>
+        <SheetContent className="flex w-full max-w-lg flex-col gap-4 overflow-y-auto sm:max-w-lg">
+          <SheetTitle className="flex items-center gap-2 pr-8">
+            <KeyRound className="size-5 text-primary" />
+            {acessoDetalhe?.plataforma ?? 'Acesso'}
+          </SheetTitle>
+          {acessoDetalhe && (
+            <div className="flex flex-col gap-4">
+              {acessoDetalhe.categoria && (
+                <p className="text-sm text-muted-foreground">{acessoDetalhe.categoria}</p>
+              )}
+              <div className="grid gap-2 rounded-lg border border-border p-3 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Login</span>
+                  <LoginInline valor={acessoDetalhe.login} />
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Senha</span>
+                  <SenhaInline valor={acessoDetalhe.senha} />
+                </div>
+                {acessoDetalhe.url && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">URL</span>
+                    <a
+                      href={acessoDetalhe.url.startsWith('http') ? acessoDetalhe.url : `https://${acessoDetalhe.url}`}
+                      target="_blank"
+                      rel="noopener"
+                      className="truncate text-primary hover:underline"
+                    >
+                      {acessoDetalhe.url}
+                    </a>
+                  </div>
+                )}
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Responsável</span>
+                  <span>{nomeResp(acessoDetalhe)}</span>
+                </div>
+              </div>
+              {acessoDetalhe.observacoes && (
+                <p className="rounded-md bg-secondary/50 p-3 text-sm text-muted-foreground">
+                  {acessoDetalhe.observacoes}
+                </p>
+              )}
+              <AtividadeFeed entidade="acesso" refId={acessoDetalhe.id} />
+              {podeGerir && (
+                <div className="flex gap-2 border-t border-border pt-3">
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setDetalheId(null);
+                    abrirEdicao(acessoDetalhe);
+                  }}>
+                    <Pencil className="size-3.5" /> Editar
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-destructive"
+                    onClick={() => void excluir(acessoDetalhe)}>
+                    <Trash2 className="size-3.5" /> Remover
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

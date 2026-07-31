@@ -99,44 +99,89 @@ export function FinanceiroPage() {
   const [cats, setCats] = useState<FinCategoria[]>([]);
   const [lancs, setLancs] = useState<FinLancamento[]>([]);
   const [abertos, setAbertos] = useState<FinLancamento[]>([]);
-  const [clientes, setClientes] = useState<ClienteFiltro[]>([]);
+  /** Clientes vindos do PB (Admin); Membro costuma vir vazio. */
+  const [clientesPb, setClientesPb] = useState<ClienteFiltro[]>([]);
   const [clienteId, setClienteId] = useState('');
   const [busca, setBusca] = useState('');
   const [erro, setErro] = useState('');
   const [ok, setOk] = useState('');
   const [carregando, setCarregando] = useState(true);
+  const [carregandoMes, setCarregandoMes] = useState(false);
 
-  const reload = useCallback(async () => {
+  /** Base: não depende do mês (contas, categorias, abertos, lista clientes PB). */
+  const loadBase = useCallback(async () => {
     setErro('');
-    setCarregando(true);
     try {
-      const de = primeiroDiaMes(ano, mes);
-      const ate = ultimoDiaMes(ano, mes);
-      const [c, k, l, a, cli] = await Promise.all([
+      const [c, k, a, cli] = await Promise.all([
         listContas(),
         listCategorias({ incluirArquivadas: false }),
-        listLancamentos({ de, ate }),
-        // Abertos: todas as datas (a pagar/receber não restrito ao mês)
         listLancamentos({ abertos: true }),
         listClientes('').catch(() => [] as Cliente[]),
       ]);
       setContas(c);
       setCats(k);
-      setLancs(l);
       setAbertos(a);
-      // Admin: listClientes completo; Membro: lista vazia/curta → completa com expand
-      const fromExpand = clientesFromLancamentos([...l, ...a]);
-      setClientes(mergeClientesFiltro(cli, fromExpand));
+      setClientesPb(cli);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar financeiro');
+    }
+  }, []);
+
+  /** Só lançamentos do mês selecionado. */
+  const loadMes = useCallback(async () => {
+    setErro('');
+    setCarregandoMes(true);
+    try {
+      const de = primeiroDiaMes(ano, mes);
+      const ate = ultimoDiaMes(ano, mes);
+      const l = await listLancamentos({ de, ate });
+      setLancs(l);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Falha ao carregar o mês');
     } finally {
-      setCarregando(false);
+      setCarregandoMes(false);
     }
   }, [ano, mes]);
 
+  const reload = useCallback(async () => {
+    setCarregando(true);
+    try {
+      await loadBase();
+      await loadMes();
+    } finally {
+      setCarregando(false);
+    }
+  }, [loadBase, loadMes]);
+
+  // Carga inicial da base (1×)
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    void (async () => {
+      setCarregando(true);
+      try {
+        await loadBase();
+      } finally {
+        setCarregando(false);
+      }
+    })();
+  }, [loadBase]);
+
+  // Ao mudar mês (e na 1ª vez): só o período
+  useEffect(() => {
+    void loadMes();
+  }, [loadMes]);
+
+  // Opções do filtro: PB + expand dos lançamentos (mês + abertos)
+  const clientes = useMemo(() => {
+    const fromExpand = clientesFromLancamentos([...lancs, ...abertos]);
+    return mergeClientesFiltro(clientesPb, fromExpand);
+  }, [clientesPb, lancs, abertos]);
+
+  // P2 Opus: se o cliente sumiu da lista (ex.: Membro ao mudar mês), limpa o filtro
+  useEffect(() => {
+    if (clienteId && !clientes.some((c) => c.id === clienteId)) {
+      setClienteId('');
+    }
+  }, [clienteId, clientes]);
 
   function mudarMes(delta: number) {
     let m = mes + delta;
@@ -162,6 +207,10 @@ export function FinanceiroPage() {
     [contas],
   );
   const mesLabel = labelMesAno(ano, mes);
+  const mesCorrente = useMemo(() => {
+    const d = new Date();
+    return ano === d.getFullYear() && mes === d.getMonth() + 1;
+  }, [ano, mes]);
 
   function flash(msg: string) {
     setOk(msg);
@@ -287,13 +336,17 @@ export function FinanceiroPage() {
         </div>
       )}
 
-      {carregando ? (
+      {carregando && !lancs.length ? (
         <p className="py-12 text-center text-sm text-muted-foreground">Carregando…</p>
       ) : (
         <>
+          {carregandoMes && (
+            <p className="text-xs text-muted-foreground">Atualizando {mesLabel}…</p>
+          )}
           {aba === 'visao' && (
             <VisaoGeral
               saldoTotal={saldoTotal}
+              saldoLabel={mesCorrente ? 'Saldo atual das contas' : 'Saldo atual das contas (agora)'}
               resumo={resumo}
               contas={contas}
               abertos={abertosFiltrados}
@@ -368,6 +421,7 @@ function CardStat({
 
 function VisaoGeral({
   saldoTotal,
+  saldoLabel,
   resumo,
   contas,
   abertos,
@@ -376,6 +430,7 @@ function VisaoGeral({
   onIr,
 }: {
   saldoTotal: number;
+  saldoLabel: string;
   resumo: ReturnType<typeof resumirLancamentos>;
   contas: FinConta[];
   abertos: FinLancamento[];
@@ -399,7 +454,7 @@ function VisaoGeral({
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <CardStat label="Saldo nas contas" valor={brl(saldoTotal)} tom="text-foreground" />
+        <CardStat label={saldoLabel} valor={brl(saldoTotal)} tom="text-foreground" />
         <CardStat
           label="Receitas do mês (pagas)"
           valor={brl(resumo.receitasPagas)}

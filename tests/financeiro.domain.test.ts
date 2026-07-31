@@ -176,6 +176,11 @@ describe('financeiro domain', () => {
     expect(merged.find((c) => c.id === 'b')?.nome_fantasia).toBe('B'); // prefer list
     // lista vazia (Membro): usa expand
     expect(mergeClientesFiltro([], fromLancs)).toEqual(fromLancs);
+    // cópia: mutar o retorno não altera fromLancs
+    const soExpand = mergeClientesFiltro([], fromLancs);
+    expect(soExpand).not.toBe(fromLancs);
+    soExpand.push({ id: 'x' });
+    expect(fromLancs.find((c) => c.id === 'x')).toBeUndefined();
   });
 
   it('primeiroDiaMes / ultimoDiaMes: Date e y/m', () => {

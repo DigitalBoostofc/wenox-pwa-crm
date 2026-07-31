@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ArrowLeftRight,
   Plus,
@@ -245,8 +244,10 @@ function VisaoGeral({
   abertos: FinLancamento[];
   onIr: (a: Aba) => void;
 }) {
-  const aPagar = abertos.filter((l) => l.tipo === 'despesa').length;
-  const aReceber = abertos.filter((l) => l.tipo === 'receita').length;
+  // Totais de abertos usam a lista completa (todas as datas), não só o mês.
+  const abertosResumo = useMemo(() => resumirLancamentos(abertos), [abertos]);
+  const qtdReceber = abertos.filter((l) => l.tipo === 'receita').length;
+  const qtdPagar = abertos.filter((l) => l.tipo === 'despesa').length;
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -274,8 +275,12 @@ function VisaoGeral({
           className="rounded-xl border border-border bg-card/40 p-4 text-left hover:bg-secondary/40"
         >
           <p className="text-sm font-medium">A receber</p>
-          <p className="text-2xl font-bold tabular-nums text-emerald-400">{brl(resumo.aReceber)}</p>
-          <p className="text-xs text-muted-foreground">{aReceber} lançamento(s) aberto(s)</p>
+          <p className="text-2xl font-bold tabular-nums text-emerald-400">
+            {brl(abertosResumo.aReceber)}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {qtdReceber} lançamento(s) aberto(s)
+          </p>
         </button>
         <button
           type="button"
@@ -283,8 +288,12 @@ function VisaoGeral({
           className="rounded-xl border border-border bg-card/40 p-4 text-left hover:bg-secondary/40"
         >
           <p className="text-sm font-medium">A pagar</p>
-          <p className="text-2xl font-bold tabular-nums text-red-400">{brl(resumo.aPagar)}</p>
-          <p className="text-xs text-muted-foreground">{aPagar} lançamento(s) aberto(s)</p>
+          <p className="text-2xl font-bold tabular-nums text-red-400">
+            {brl(abertosResumo.aPagar)}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {qtdPagar} lançamento(s) aberto(s)
+          </p>
         </button>
       </div>
       <div className="rounded-xl border border-border">
@@ -558,6 +567,22 @@ function TabelaLancamentos({
   );
 }
 
+function preferCategoria(cats: FinCategoria[], tipo: TipoLancamento, atual?: string): string {
+  const lista = cats.filter((c) => c.tipo === tipo && !c.arquivada);
+  if (atual && lista.some((c) => c.id === atual)) return atual;
+  // Prefere categorias de negócio; evita "Ajuste"/"Transferência" como default.
+  const preferidas =
+    tipo === 'receita'
+      ? ['Mensalidade / retainer', 'Serviços de clientes', 'Outras receitas']
+      : ['Ferramentas e software', 'Freelancers / terceiros', 'Marketing e anúncios'];
+  for (const nome of preferidas) {
+    const hit = lista.find((c) => c.nome === nome);
+    if (hit) return hit.id;
+  }
+  const semSistema = lista.find((c) => !c.sistema);
+  return semSistema?.id || lista[0]?.id || '';
+}
+
 function LancamentoModal({
   contas,
   cats,
@@ -571,11 +596,15 @@ function LancamentoModal({
   onClose: () => void;
   onSave: (input: Parameters<typeof createLancamento>[0]) => Promise<void>;
 }) {
-  const [tipo, setTipo] = useState<TipoLancamento>(inicial?.tipo || 'despesa');
+  const [tipo, setTipo] = useState<TipoLancamento>(inicial?.tipo || 'receita');
   const [descricao, setDescricao] = useState(inicial?.descricao || '');
   const [valor, setValor] = useState(String(inicial?.valor ?? ''));
-  const [conta, setConta] = useState(inicial?.conta || contas.find((c) => c.padrao)?.id || contas[0]?.id || '');
-  const [categoria, setCategoria] = useState(inicial?.categoria || '');
+  const [conta, setConta] = useState(
+    inicial?.conta || contas.find((c) => c.padrao)?.id || contas[0]?.id || '',
+  );
+  const [categoria, setCategoria] = useState(
+    inicial?.categoria || preferCategoria(cats, inicial?.tipo || 'receita'),
+  );
   const [data, setData] = useState(inicial?.data?.slice(0, 10) || hojeISO());
   const [vencimento, setVencimento] = useState(inicial?.vencimento?.slice(0, 10) || '');
   const [status, setStatus] = useState<StatusLancamento>(inicial?.status || 'pago');
@@ -586,24 +615,72 @@ function LancamentoModal({
   const [obs, setObs] = useState(inicial?.observacao || '');
   const [salvando, setSalvando] = useState(false);
 
-  const catsTipo = cats.filter((c) => c.tipo === tipo && !c.arquivada);
+  const catsTipo = useMemo(
+    () => cats.filter((c) => c.tipo === tipo && !c.arquivada),
+    [cats, tipo],
+  );
 
+  // Ao trocar receita/despesa, escolhe categoria válida (não "Ajuste" se houver melhor).
   useEffect(() => {
-    if (!categoria || !catsTipo.some((c) => c.id === categoria)) {
-      setCategoria(catsTipo[0]?.id || '');
+    setCategoria((prev) => preferCategoria(cats, tipo, prev));
+  }, [tipo, cats]);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    // FormData é a fonte da verdade (select nativo sempre reflete o valor atual).
+    const tipoF = String(fd.get('tipo') || tipo) as TipoLancamento;
+    const descF = String(fd.get('descricao') || '').trim();
+    const valorF = Number(String(fd.get('valor') || '0').replace(',', '.'));
+    const contaF = String(fd.get('conta') || '');
+    const catF = String(fd.get('categoria') || '');
+    const dataF = String(fd.get('data') || hojeISO());
+    const vencF = String(fd.get('vencimento') || '');
+    const statusF = String(fd.get('status') || 'pago') as StatusLancamento;
+    const recF = String(fd.get('recorrencia') || 'unica') as RecorrenciaTipo;
+    const freqF = String(fd.get('frequencia') || 'mensal') as FrequenciaRecorrencia;
+    const obsF = String(fd.get('observacao') || '');
+    if (!descF || !contaF || !catF || !(valorF > 0)) return;
+    // Garante que a categoria pertence ao tipo escolhido.
+    const catOk = cats.some((c) => c.id === catF && c.tipo === tipoF);
+    if (!catOk) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipo]);
+    setSalvando(true);
+    try {
+      await onSave({
+        tipo: tipoF,
+        descricao: descF,
+        valor: valorF,
+        conta: contaF,
+        categoria: catF,
+        data: dataF,
+        vencimento: vencF,
+        status: statusF,
+        recorrencia: recF,
+        frequencia: recF === 'unica' ? '' : freqF,
+        origem: inicial?.origem || 'manual',
+        observacao: obsF,
+        cliente: inicial?.cliente || '',
+        projeto: inicial?.projeto || '',
+      });
+    } finally {
+      setSalvando(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
       <div
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(ev) => ev.stopPropagation()}
       >
-        <h2 className="text-base font-semibold">{inicial ? 'Editar lançamento' : 'Novo lançamento'}</h2>
-        <div className="mt-4 flex flex-col gap-3">
-          <div className="flex gap-2">
+        <h2 className="text-base font-semibold">
+          {inicial ? 'Editar lançamento' : 'Novo lançamento'}
+        </h2>
+        <form className="mt-4 flex flex-col gap-3" onSubmit={(e) => void handleSubmit(e)}>
+          <input type="hidden" name="tipo" value={tipo} />
+          <div className="flex gap-2" role="group" aria-label="Tipo do lançamento">
             {(['receita', 'despesa'] as const).map((t) => (
               <button
                 key={t}
@@ -619,26 +696,45 @@ function LancamentoModal({
             ))}
           </div>
           <Campo label="Descrição">
-            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+            <Input
+              name="descricao"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              required
+            />
           </Campo>
           <div className="grid grid-cols-2 gap-3">
             <Campo label="Valor (R$)">
               <Input
+                name="valor"
                 inputMode="decimal"
                 value={valor}
                 onChange={(e) => setValor(e.target.value.replace(',', '.'))}
+                required
               />
             </Campo>
             <Campo label="Data">
-              <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+              <Input
+                name="data"
+                type="date"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                required
+              />
             </Campo>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Campo label="Conta">
-              <Select value={conta} onChange={setConta} options={contas.map((c) => ({ v: c.id, l: c.nome }))} />
+              <Select
+                name="conta"
+                value={conta}
+                onChange={setConta}
+                options={contas.map((c) => ({ v: c.id, l: c.nome }))}
+              />
             </Campo>
             <Campo label="Categoria">
               <Select
+                name="categoria"
                 value={categoria}
                 onChange={setCategoria}
                 options={catsTipo.map((c) => ({ v: c.id, l: c.nome }))}
@@ -648,6 +744,7 @@ function LancamentoModal({
           <div className="grid grid-cols-2 gap-3">
             <Campo label="Status">
               <Select
+                name="status"
                 value={status}
                 onChange={(v) => setStatus(v as StatusLancamento)}
                 options={(Object.keys(STATUS_LABEL) as StatusLancamento[]).map((s) => ({
@@ -657,12 +754,18 @@ function LancamentoModal({
               />
             </Campo>
             <Campo label="Vencimento">
-              <Input type="date" value={vencimento} onChange={(e) => setVencimento(e.target.value)} />
+              <Input
+                name="vencimento"
+                type="date"
+                value={vencimento}
+                onChange={(e) => setVencimento(e.target.value)}
+              />
             </Campo>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Campo label="Recorrência">
               <Select
+                name="recorrencia"
                 value={recorrencia}
                 onChange={(v) => setRecorrencia(v as RecorrenciaTipo)}
                 options={[
@@ -676,6 +779,7 @@ function LancamentoModal({
             {recorrencia !== 'unica' && (
               <Campo label="Frequência">
                 <Select
+                  name="frequencia"
                   value={frequencia || 'mensal'}
                   onChange={(v) => setFrequencia(v as FrequenciaRecorrencia)}
                   options={[
@@ -689,43 +793,20 @@ function LancamentoModal({
             )}
           </div>
           <Campo label="Observação">
-            <Input value={obs} onChange={(e) => setObs(e.target.value)} />
+            <Input name="observacao" value={obs} onChange={(e) => setObs(e.target.value)} />
           </Campo>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button
-            disabled={salvando || !descricao.trim() || !conta || !categoria || !(Number(valor) > 0)}
-            onClick={async () => {
-              setSalvando(true);
-              try {
-                await onSave({
-                  tipo,
-                  descricao: descricao.trim(),
-                  valor: Number(valor),
-                  conta,
-                  categoria,
-                  data,
-                  vencimento: vencimento || '',
-                  status,
-                  recorrencia: recorrencia as FinLancamento['recorrencia'],
-                  frequencia:
-                    recorrencia === 'unica' ? '' : (frequencia as FinLancamento['frequencia']),
-                  origem: inicial?.origem || 'manual',
-                  observacao: obs,
-                  cliente: inicial?.cliente || '',
-                  projeto: inicial?.projeto || '',
-                });
-              } finally {
-                setSalvando(false);
-              }
-            }}
-          >
-            {salvando ? 'Salvando…' : 'Salvar'}
-          </Button>
-        </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={salvando || !descricao.trim() || !conta || !categoria || !(Number(valor) > 0)}
+            >
+              {salvando ? 'Salvando…' : 'Salvar'}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -747,26 +828,50 @@ function AbaContas({
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<ContaTipo>('caixa');
   const [saldoIni, setSaldoIni] = useState('0');
-  const [from, setFrom] = useState(contas[0]?.id || '');
-  const [to, setTo] = useState(contas[1]?.id || contas[0]?.id || '');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [valorTx, setValorTx] = useState('');
+
+  // Mantém selects de transferência alinhados à lista de contas.
+  useEffect(() => {
+    setFrom((prev) => (prev && contas.some((c) => c.id === prev) ? prev : contas[0]?.id || ''));
+    setTo((prev) => {
+      if (prev && contas.some((c) => c.id === prev)) return prev;
+      return contas[1]?.id || contas[0]?.id || '';
+    });
+  }, [contas]);
 
   return (
     <div className="flex flex-col gap-4">
       {podeEscrever && (
         <div className="rounded-xl border border-border p-4">
           <p className="mb-3 text-sm font-medium">Nova conta</p>
-          <div className="grid gap-2 sm:grid-cols-4">
-            <Input placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
-            <Select
-              value={tipo}
-              onChange={(v) => setTipo(v as ContaTipo)}
-              options={(Object.keys(TIPO_CONTA_LABEL) as ContaTipo[]).map((t) => ({
-                v: t,
-                l: TIPO_CONTA_LABEL[t],
-              }))}
+          <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="Tipo da conta">
+            {(Object.keys(TIPO_CONTA_LABEL) as ContaTipo[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTipo(t)}
+                className={cn(
+                  'rounded-md border px-2.5 py-1 text-xs font-medium',
+                  tipo === t
+                    ? 'border-primary bg-primary/15 text-primary'
+                    : 'border-border text-muted-foreground hover:bg-secondary',
+                )}
+              >
+                {TIPO_CONTA_LABEL[t]}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Input
+              name="nome_conta"
+              placeholder="Nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
             />
             <Input
+              name="saldo_inicial"
               placeholder="Saldo inicial"
               value={saldoIni}
               onChange={(e) => setSaldoIni(e.target.value.replace(',', '.'))}
@@ -781,7 +886,9 @@ function AbaContas({
                     ativo: true,
                   });
                   setNome('');
-                  flash('Conta criada');
+                  setTipo('caixa');
+                  setSaldoIni('0');
+                  flash(`Conta criada (${TIPO_CONTA_LABEL[tipo]})`);
                   await onChange();
                 } catch (e) {
                   setErro(e instanceof Error ? e.message : 'Erro');
@@ -800,7 +907,10 @@ function AbaContas({
           <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
             <div>
               <p className="font-medium">{c.nome}</p>
-              <p className="text-xs text-muted-foreground">{TIPO_CONTA_LABEL[c.tipo]}</p>
+              <p className="text-xs text-muted-foreground">
+                {TIPO_CONTA_LABEL[c.tipo] || c.tipo}
+                {c.ativo === false ? ' · inativa' : ''}
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <span className="font-bold tabular-nums">{brl(Number(c.saldo_atual) || 0)}</span>
@@ -849,42 +959,48 @@ function AbaContas({
           <p className="mb-3 flex items-center gap-2 text-sm font-medium">
             <ArrowLeftRight className="size-4" /> Transferência
           </p>
-          <div className="grid gap-2 sm:grid-cols-4">
+          <form
+            className="grid gap-2 sm:grid-cols-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              const fromF = String(fd.get('from') || from);
+              const toF = String(fd.get('to') || to);
+              const valorF = Number(String(fd.get('valor_tx') || valorTx).replace(',', '.'));
+              void (async () => {
+                try {
+                  await transferirEntreContas({ from: fromF, to: toF, valor: valorF });
+                  setValorTx('');
+                  flash('Transferência feita');
+                  await onChange();
+                } catch (err) {
+                  setErro(err instanceof Error ? err.message : 'Erro na transferência');
+                }
+              })();
+            }}
+          >
             <Select
+              name="from"
               value={from}
               onChange={setFrom}
               options={contas.map((c) => ({ v: c.id, l: `De: ${c.nome}` }))}
             />
             <Select
+              name="to"
               value={to}
               onChange={setTo}
               options={contas.map((c) => ({ v: c.id, l: `Para: ${c.nome}` }))}
             />
             <Input
+              name="valor_tx"
               placeholder="Valor"
               value={valorTx}
               onChange={(e) => setValorTx(e.target.value.replace(',', '.'))}
             />
-            <Button
-              onClick={async () => {
-                try {
-                  await transferirEntreContas({
-                    from,
-                    to,
-                    valor: Number(valorTx),
-                  });
-                  setValorTx('');
-                  flash('Transferência feita');
-                  await onChange();
-                } catch (e) {
-                  setErro(e instanceof Error ? e.message : 'Erro na transferência');
-                }
-              }}
-              disabled={!(Number(valorTx) > 0) || from === to}
-            >
+            <Button type="submit" disabled={!(Number(valorTx) > 0) || from === to}>
               Transferir
             </Button>
-          </div>
+          </form>
         </div>
       )}
     </div>
@@ -1010,16 +1126,20 @@ function Campo({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function Select({
+  name,
   value,
   onChange,
   options,
 }: {
+  name?: string;
   value: string;
   onChange: (v: string) => void;
   options: { v: string; l: string }[];
 }) {
   return (
     <select
+      name={name}
+      aria-label={name}
       className="flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm text-foreground"
       value={value}
       onChange={(e) => onChange(e.target.value)}

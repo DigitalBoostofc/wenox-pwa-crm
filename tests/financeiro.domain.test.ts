@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addMesesISO, addPeriodoISO, brl, efeitoNoSaldo } from '@/financeiro/types';
+import { addMesesISO, addPeriodoISO, brl, efeitoNoSaldo, filtrarLancamentos, topCategoriasPagas } from '@/financeiro/types';
 import { resumirLancamentos } from '@/financeiro/financeiroService';
 import type { FinLancamento } from '@/financeiro/types';
 
@@ -38,5 +38,27 @@ describe('financeiro domain', () => {
     expect(s.saldoPeriodo).toBe(800);
     expect(s.aReceber).toBe(500);
     expect(s.aPagar).toBe(80);
+  });
+
+  it('filtrarLancamentos por cliente e busca', () => {
+    const lista = [
+      { id: '1', descricao: 'Mensalidade Gold', cliente: 'c1' },
+      { id: '2', descricao: 'Freela design', cliente: 'c2' },
+      { id: '3', descricao: 'Mensalidade Via', cliente: 'c1' },
+    ] as FinLancamento[];
+    expect(filtrarLancamentos(lista, { clienteId: 'c1' }).map((l) => l.id)).toEqual(['1', '3']);
+    expect(filtrarLancamentos(lista, { q: 'freela' }).map((l) => l.id)).toEqual(['2']);
+  });
+
+  it('topCategoriasPagas ordena e ignora não-pago', () => {
+    const lista = [
+      { status: 'pago', tipo: 'receita', valor: 100, expand: { categoria: { nome: 'A' } } },
+      { status: 'pago', tipo: 'receita', valor: 50, expand: { categoria: { nome: 'A' } } },
+      { status: 'pago', tipo: 'despesa', valor: 80, expand: { categoria: { nome: 'B' } } },
+      { status: 'pendente', tipo: 'receita', valor: 999, expand: { categoria: { nome: 'C' } } },
+    ] as FinLancamento[];
+    const top = topCategoriasPagas(lista, 5);
+    expect(top[0]).toMatchObject({ nome: 'A', valor: 150, tipo: 'receita' });
+    expect(top.find((t) => t.nome === 'C')).toBeUndefined();
   });
 });

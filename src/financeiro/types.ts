@@ -148,3 +148,38 @@ export const TIPO_CONTA_LABEL: Record<ContaTipo, string> = {
   cartao: 'Cartão',
   caixa: 'Caixa',
 };
+
+/** Nome amigável do cliente no expand ou lista. */
+export function nomeCliente(c?: { nome?: string; nome_fantasia?: string } | null): string {
+  if (!c) return '';
+  return (c.nome_fantasia || c.nome || '').trim();
+}
+
+/** Filtra lançamentos por cliente ('' = todos) e texto na descrição. */
+export function filtrarLancamentos(
+  lista: FinLancamento[],
+  opts: { clienteId?: string; q?: string } = {},
+): FinLancamento[] {
+  const q = opts.q?.trim().toLowerCase() || '';
+  return lista.filter((l) => {
+    if (opts.clienteId && l.cliente !== opts.clienteId) return false;
+    if (q && !(l.descricao || '').toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+export type BarraCategoria = { nome: string; valor: number; tipo: TipoLancamento };
+
+/** Top N categorias do mês (só lançamentos pagos), ordenado por valor. */
+export function topCategoriasPagas(lista: FinLancamento[], n = 6): BarraCategoria[] {
+  const map = new Map<string, BarraCategoria>();
+  for (const l of lista) {
+    if (l.status !== 'pago') continue;
+    const nome = l.expand?.categoria?.nome || 'Sem categoria';
+    const key = `${l.tipo}:${nome}`;
+    const cur = map.get(key) || { nome, valor: 0, tipo: l.tipo };
+    cur.valor += Number(l.valor) || 0;
+    map.set(key, cur);
+  }
+  return [...map.values()].sort((a, b) => b.valor - a.valor).slice(0, n);
+}

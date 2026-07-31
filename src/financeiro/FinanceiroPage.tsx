@@ -13,10 +13,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { listClientes } from '@/clientes/clientesService';
+import type { Cliente } from '@/clientes/types';
 import { usePodeEscreverFin } from './usePodeEscreverFin';
 import {
   brl,
+  filtrarLancamentos,
+  nomeCliente,
   STATUS_LABEL,
+  topCategoriasPagas,
   TIPO_CONTA_LABEL,
   hojeISO,
   type ContaTipo,
@@ -66,6 +71,9 @@ export function FinanceiroPage() {
   const [cats, setCats] = useState<FinCategoria[]>([]);
   const [lancs, setLancs] = useState<FinLancamento[]>([]);
   const [abertos, setAbertos] = useState<FinLancamento[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clienteId, setClienteId] = useState('');
+  const [busca, setBusca] = useState('');
   const [erro, setErro] = useState('');
   const [ok, setOk] = useState('');
   const [carregando, setCarregando] = useState(true);
@@ -76,16 +84,18 @@ export function FinanceiroPage() {
     try {
       const de = primeiroDiaMes();
       const ate = ultimoDiaMes();
-      const [c, k, l, a] = await Promise.all([
+      const [c, k, l, a, cli] = await Promise.all([
         listContas(),
         listCategorias({ incluirArquivadas: false }),
         listLancamentos({ de, ate }),
         listLancamentos({ abertos: true }),
+        listClientes('').catch(() => [] as Cliente[]),
       ]);
       setContas(c);
       setCats(k);
       setLancs(l);
       setAbertos(a);
+      setClientes(cli);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar financeiro');
     } finally {
@@ -97,7 +107,10 @@ export function FinanceiroPage() {
     void reload();
   }, [reload]);
 
-  const resumo = useMemo(() => resumirLancamentos(lancs), [lancs]);
+  const filtro = useMemo(() => ({ clienteId, q: busca }), [clienteId, busca]);
+  const lancsFiltrados = useMemo(() => filtrarLancamentos(lancs, filtro), [lancs, filtro]);
+  const abertosFiltrados = useMemo(() => filtrarLancamentos(abertos, filtro), [abertos, filtro]);
+  const resumo = useMemo(() => resumirLancamentos(lancsFiltrados), [lancsFiltrados]);
   const saldoTotal = useMemo(
     () => contas.filter((c) => c.ativo !== false).reduce((s, c) => s + (Number(c.saldo_atual) || 0), 0),
     [contas],
@@ -155,6 +168,45 @@ export function FinanceiroPage() {
         })}
       </nav>
 
+      {(aba === 'visao' || aba === 'lancamentos' || aba === 'apagar') && (
+        <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-card/40 p-3">
+          <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+            Cliente
+            <Select
+              name="filtro_cliente"
+              value={clienteId}
+              onChange={setClienteId}
+              options={[
+                { v: '', l: 'Todos os clientes' },
+                ...clientes.map((c) => ({ v: c.id, l: nomeCliente(c) || c.id })),
+              ]}
+            />
+          </label>
+          <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+            Buscar descrição
+            <Input
+              name="filtro_q"
+              placeholder="Ex.: mensalidade, freela…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </label>
+          {(clienteId || busca) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setClienteId('');
+                setBusca('');
+              }}
+            >
+              Limpar filtros
+            </Button>
+          )}
+        </div>
+      )}
+
       {carregando ? (
         <p className="py-12 text-center text-sm text-muted-foreground">Carregando…</p>
       ) : (
@@ -164,7 +216,9 @@ export function FinanceiroPage() {
               saldoTotal={saldoTotal}
               resumo={resumo}
               contas={contas}
-              abertos={abertos}
+              abertos={abertosFiltrados}
+              lancsMes={lancsFiltrados}
+              filtroAtivo={!!(clienteId || busca)}
               onIr={(a) => setAba(a)}
             />
           )}
@@ -172,7 +226,8 @@ export function FinanceiroPage() {
             <AbaLancamentos
               contas={contas}
               cats={cats}
-              lancs={lancs}
+              clientes={clientes}
+              lancs={lancsFiltrados}
               podeEscrever={podeEscrever}
               onChange={async () => {
                 await reload();
@@ -183,7 +238,7 @@ export function FinanceiroPage() {
           )}
           {aba === 'apagar' && (
             <AbaAPagarReceber
-              lista={abertos}
+              lista={abertosFiltrados}
               podeEscrever={podeEscrever}
               onChange={reload}
               flash={flash}
@@ -236,20 +291,33 @@ function VisaoGeral({
   resumo,
   contas,
   abertos,
+  lancsMes,
+  filtroAtivo,
   onIr,
 }: {
   saldoTotal: number;
   resumo: ReturnType<typeof resumirLancamentos>;
   contas: FinConta[];
   abertos: FinLancamento[];
+  lancsMes: FinLancamento[];
+  filtroAtivo: boolean;
   onIr: (a: Aba) => void;
 }) {
   // Totais de abertos usam a lista completa (todas as datas), não só o mês.
   const abertosResumo = useMemo(() => resumirLancamentos(abertos), [abertos]);
   const qtdReceber = abertos.filter((l) => l.tipo === 'receita').length;
   const qtdPagar = abertos.filter((l) => l.tipo === 'despesa').length;
+  const topCats = useMemo(() => topCategoriasPagas(lancsMes, 6), [lancsMes]);
+  const maxCat = Math.max(1, ...topCats.map((c) => c.valor));
+  const maxBar = Math.max(resumo.receitasPagas, resumo.despesasPagas, 1);
+
   return (
     <div className="flex flex-col gap-4">
+      {filtroAtivo && (
+        <p className="text-xs text-muted-foreground">
+          Números abaixo respeitam o filtro de cliente/busca (saldo das contas continua global).
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <CardStat label="Saldo nas contas" valor={brl(saldoTotal)} tom="text-foreground" />
         <CardStat
@@ -296,6 +364,71 @@ function VisaoGeral({
           </p>
         </button>
       </div>
+
+      {/* Gráfico simples: barras CSS, sem lib */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="rounded-xl border border-border p-4">
+          <p className="mb-3 text-sm font-medium">Receitas × despesas (mês)</p>
+          <div className="flex h-36 items-end gap-6 px-2">
+            <div className="flex flex-1 flex-col items-center gap-2">
+              <span className="text-xs tabular-nums text-emerald-400">
+                {brl(resumo.receitasPagas)}
+              </span>
+              <div
+                className="w-full max-w-[72px] rounded-t-md bg-emerald-500/80 transition-all"
+                style={{ height: `${Math.max(8, (resumo.receitasPagas / maxBar) * 100)}%` }}
+                title="Receitas pagas"
+              />
+              <span className="text-[11px] text-muted-foreground">Receitas</span>
+            </div>
+            <div className="flex flex-1 flex-col items-center gap-2">
+              <span className="text-xs tabular-nums text-red-400">{brl(resumo.despesasPagas)}</span>
+              <div
+                className="w-full max-w-[72px] rounded-t-md bg-red-500/80 transition-all"
+                style={{ height: `${Math.max(8, (resumo.despesasPagas / maxBar) * 100)}%` }}
+                title="Despesas pagas"
+              />
+              <span className="text-[11px] text-muted-foreground">Despesas</span>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border p-4">
+          <p className="mb-3 text-sm font-medium">Top categorias (pagas no mês)</p>
+          {topCats.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Sem pagamentos no período.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {topCats.map((c) => (
+                <li key={`${c.tipo}-${c.nome}`} className="text-xs">
+                  <div className="mb-0.5 flex justify-between gap-2">
+                    <span className="truncate text-muted-foreground">
+                      {c.tipo === 'receita' ? '↑' : '↓'} {c.nome}
+                    </span>
+                    <span
+                      className={cn(
+                        'tabular-nums font-medium',
+                        c.tipo === 'receita' ? 'text-emerald-400' : 'text-red-400',
+                      )}
+                    >
+                      {brl(c.valor)}
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className={cn(
+                        'h-full rounded-full',
+                        c.tipo === 'receita' ? 'bg-emerald-500/70' : 'bg-red-500/70',
+                      )}
+                      style={{ width: `${(c.valor / maxCat) * 100}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
       <div className="rounded-xl border border-border">
         <div className="border-b border-border px-4 py-2 text-sm font-medium">Contas</div>
         <ul className="divide-y divide-border">
@@ -325,6 +458,7 @@ function VisaoGeral({
 function AbaLancamentos({
   contas,
   cats,
+  clientes,
   lancs,
   podeEscrever,
   onChange,
@@ -333,6 +467,7 @@ function AbaLancamentos({
 }: {
   contas: FinConta[];
   cats: FinCategoria[];
+  clientes: Cliente[];
   lancs: FinLancamento[];
   podeEscrever: boolean;
   onChange: () => Promise<void>;
@@ -345,7 +480,10 @@ function AbaLancamentos({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">Lançamentos do mês corrente</p>
+        <p className="text-sm text-muted-foreground">
+          Lançamentos do mês corrente
+          {lancs.length ? ` · ${lancs.length} item(ns)` : ''}
+        </p>
         {podeEscrever && (
           <Button
             size="sm"
@@ -398,6 +536,7 @@ function AbaLancamentos({
         <LancamentoModal
           contas={contas}
           cats={cats}
+          clientes={clientes}
           inicial={edit}
           onClose={() => setAberto(false)}
           onSave={async (input) => {
@@ -506,7 +645,7 @@ function TabelaLancamentos({
                 <div className="text-xs text-muted-foreground">
                   {l.expand?.categoria?.nome || '—'} · {l.expand?.conta?.nome || '—'}
                   {l.expand?.cliente
-                    ? ` · ${l.expand.cliente.nome_fantasia || l.expand.cliente.nome}`
+                    ? ` · ${nomeCliente(l.expand.cliente)}`
                     : ''}
                   {l.recorrencia !== 'unica' ? ` · ${l.recorrencia}` : ''}
                 </div>
@@ -586,12 +725,14 @@ function preferCategoria(cats: FinCategoria[], tipo: TipoLancamento, atual?: str
 function LancamentoModal({
   contas,
   cats,
+  clientes,
   inicial,
   onClose,
   onSave,
 }: {
   contas: FinConta[];
   cats: FinCategoria[];
+  clientes: Cliente[];
   inicial: FinLancamento | null;
   onClose: () => void;
   onSave: (input: Parameters<typeof createLancamento>[0]) => Promise<void>;
@@ -605,6 +746,7 @@ function LancamentoModal({
   const [categoria, setCategoria] = useState(
     inicial?.categoria || preferCategoria(cats, inicial?.tipo || 'receita'),
   );
+  const [cliente, setCliente] = useState(inicial?.cliente || '');
   const [data, setData] = useState(inicial?.data?.slice(0, 10) || hojeISO());
   const [vencimento, setVencimento] = useState(inicial?.vencimento?.slice(0, 10) || '');
   const [status, setStatus] = useState<StatusLancamento>(inicial?.status || 'pago');
@@ -634,6 +776,7 @@ function LancamentoModal({
     const valorF = Number(String(fd.get('valor') || '0').replace(',', '.'));
     const contaF = String(fd.get('conta') || '');
     const catF = String(fd.get('categoria') || '');
+    const clienteF = String(fd.get('cliente') || '');
     const dataF = String(fd.get('data') || hojeISO());
     const vencF = String(fd.get('vencimento') || '');
     const statusF = String(fd.get('status') || 'pago') as StatusLancamento;
@@ -661,7 +804,7 @@ function LancamentoModal({
         frequencia: recF === 'unica' ? '' : freqF,
         origem: inicial?.origem || 'manual',
         observacao: obsF,
-        cliente: inicial?.cliente || '',
+        cliente: clienteF,
         projeto: inicial?.projeto || '',
       });
     } finally {
@@ -741,6 +884,17 @@ function LancamentoModal({
               />
             </Campo>
           </div>
+          <Campo label="Cliente (opcional)">
+            <Select
+              name="cliente"
+              value={cliente}
+              onChange={setCliente}
+              options={[
+                { v: '', l: '— Sem cliente —' },
+                ...clientes.map((c) => ({ v: c.id, l: nomeCliente(c) || c.id })),
+              ]}
+            />
+          </Campo>
           <div className="grid grid-cols-2 gap-3">
             <Campo label="Status">
               <Select

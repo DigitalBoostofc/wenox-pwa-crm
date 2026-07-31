@@ -3,6 +3,7 @@
  * Só apresentação — sem lógica de domínio.
  */
 import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TipoLancamento } from './types';
 
@@ -214,6 +215,80 @@ export function PillTabs<T extends string>({
           {it.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Coluna de ícones à esquerda (mesmo padrão BarraTipos de Projetos/Tarefas). */
+export function FinBarraAbas<T extends string>({
+  items,
+  value,
+  onChange,
+}: {
+  items: { id: T; label: string; icon: LucideIcon }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <aside className="hidden shrink-0 flex-col gap-2 lg:flex" aria-label="Seções do financeiro">
+      {items.map((it) => {
+        const selecionado = value === it.id;
+        const Icon = it.icon;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            onClick={() => onChange(it.id)}
+            title={it.label}
+            aria-label={it.label}
+            aria-pressed={selecionado}
+            className={cn(
+              'grid size-12 place-items-center rounded-xl border transition-colors',
+              selecionado
+                ? 'border-primary/50 bg-primary/15 text-primary shadow-[inset_0_0_0_1px_rgba(139,92,246,0.35)]'
+                : 'border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground',
+            )}
+          >
+            <Icon className="size-5" />
+          </button>
+        );
+      })}
+    </aside>
+  );
+}
+
+/** Pills das abas no mobile — espelha a FinBarraAbas. */
+export function FinPillsAbas<T extends string>({
+  items,
+  value,
+  onChange,
+}: {
+  items: { id: T; label: string; icon: LucideIcon }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-0.5 lg:hidden [&::-webkit-scrollbar]:hidden">
+      {items.map((it) => {
+        const Icon = it.icon;
+        const ativo = value === it.id;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            onClick={() => onChange(it.id)}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-sm transition-colors',
+              ativo
+                ? 'border-primary/50 bg-primary/15 text-primary'
+                : 'border-border text-muted-foreground hover:bg-secondary',
+            )}
+          >
+            <Icon className="size-3.5" />
+            {it.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

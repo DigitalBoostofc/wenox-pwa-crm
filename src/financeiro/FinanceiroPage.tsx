@@ -68,7 +68,9 @@ import {
 } from './financeiroService';
 import {
   DonutChart,
+  FinBarraAbas,
   FinCard,
+  FinPillsAbas,
   IconBubble,
   KpiStripItem,
   MonthPill,
@@ -276,160 +278,156 @@ export function FinanceiroPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 md:p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Financeiro
-          </p>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {aba === 'visao' ? 'Dashboard' : ABAS.find((a) => a.id === aba)?.label}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {podeEscrever ? 'Caixa da agência · edição liberada' : 'Somente leitura'}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {(aba === 'visao' || aba === 'lancamentos') && (
-            <MonthPill label={mesLabel} onPrev={() => mudarMes(-1)} onNext={() => mudarMes(1)} />
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full border-border"
-            onClick={() => void reload()}
-          >
-            <RefreshCw className="size-4" /> Atualizar
-          </Button>
-        </div>
-      </header>
-
-      {erro && (
-        <p className="rounded-2xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {erro}
-        </p>
-      )}
-      {ok && (
-        <p className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
-          {ok}
-        </p>
-      )}
-
-      <PillTabs
-        value={aba}
-        onChange={setAba}
-        items={ABAS.map((a) => {
-          const Icon = a.icon;
-          return { id: a.id, label: a.label, icon: <Icon className="size-3.5" /> };
-        })}
-      />
-
-      {(aba === 'visao' || aba === 'lancamentos' || aba === 'apagar') && (
-        <FinCard className="flex flex-wrap items-end gap-3 !p-3">
-          <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs text-muted-foreground">
-            Cliente
-            <Select
-              name="filtro_cliente"
-              value={clienteId}
-              onChange={setClienteId}
-              options={[
-                { v: '', l: 'Todos os clientes' },
-                ...clientes.map((c) => ({ v: c.id, l: nomeCliente(c) || c.id })),
-              ]}
-            />
-          </label>
-          <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-xs text-muted-foreground">
-            Buscar descrição
-            <Input
-              name="filtro_q"
-              placeholder="Ex.: mensalidade, freela…"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-          </label>
-          {(clienteId || busca) && (
+    <div className="flex w-full gap-4">
+      <FinBarraAbas items={ABAS} value={aba} onChange={setAba} />
+      <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              Financeiro
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {aba === 'visao' ? 'Dashboard' : ABAS.find((a) => a.id === aba)?.label}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {podeEscrever ? 'Caixa da agência · edição liberada' : 'Somente leitura'}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(aba === 'visao' || aba === 'lancamentos') && (
+              <MonthPill label={mesLabel} onPrev={() => mudarMes(-1)} onNext={() => mudarMes(1)} />
+            )}
             <Button
-              type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              onClick={() => {
-                setClienteId('');
-                setBusca('');
-              }}
+              className="rounded-full border-border"
+              onClick={() => void reload()}
             >
-              Limpar filtros
+              <RefreshCw className="size-4" /> Atualizar
             </Button>
-          )}
-        </FinCard>
-      )}
+          </div>
+        </header>
 
-      {carregando && !lancs.length ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">Carregando…</p>
-      ) : (
-        <>
-          {carregandoMes && (
-            <p className="text-xs text-muted-foreground">Atualizando {mesLabel}…</p>
-          )}
-          {aba === 'visao' && (
-            <VisaoGeral
-              saldoTotal={saldoTotal}
-              saldoLabel={mesCorrente ? 'Saldo atual das contas' : 'Saldo atual das contas (agora)'}
-              resumo={resumo}
-              contas={contas}
-              abertos={abertosParaResumo}
-              lancsMes={lancsParaResumo}
-              filtroAtivo={!!(clienteId || busca)}
-              onIr={(a) => setAba(a)}
-            />
-          )}
-          {aba === 'lancamentos' && (
-            <AbaLancamentos
-              contas={contas}
-              cats={cats}
-              clientes={clientes}
-              membros={membros}
-              viewerUserId={user?.id}
-              lancs={lancsFiltrados}
-              podeEscrever={podeEscrever}
-              onChange={async () => {
-                await reload();
-              }}
-              flash={flash}
-              setErro={setErro}
-            />
-          )}
-          {aba === 'apagar' && (
-            <AbaAPagarReceber
-              lista={abertosFiltrados}
-              podeEscrever={podeEscrever}
-              viewerUserId={user?.id}
-              onChange={async () => {
-                await reload();
-              }}
-              flash={flash}
-              setErro={setErro}
-            />
-          )}
-          {aba === 'contas' && (
-            <AbaContas
-              contas={contas}
-              podeEscrever={podeEscrever}
-              onChange={reload}
-              flash={flash}
-              setErro={setErro}
-            />
-          )}
-          {aba === 'categorias' && (
-            <AbaCategorias
-              cats={cats}
-              podeEscrever={podeEscrever}
-              onChange={reload}
-              flash={flash}
-              setErro={setErro}
-            />
-          )}
-        </>
-      )}
+        {erro && (
+          <p className="rounded-2xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {erro}
+          </p>
+        )}
+        {ok && (
+          <p className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
+            {ok}
+          </p>
+        )}
+
+        <FinPillsAbas items={ABAS} value={aba} onChange={setAba} />
+
+        {(aba === 'visao' || aba === 'lancamentos' || aba === 'apagar') && (
+          <FinCard className="flex flex-wrap items-end gap-3 !p-3">
+            <label className="flex min-w-[200px] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+              Cliente
+              <Select
+                name="filtro_cliente"
+                value={clienteId}
+                onChange={setClienteId}
+                options={[
+                  { v: '', l: 'Todos os clientes' },
+                  ...clientes.map((c) => ({ v: c.id, l: nomeCliente(c) || c.id })),
+                ]}
+              />
+            </label>
+            <label className="flex min-w-[200px] flex-[1.2] flex-col gap-1 text-xs text-muted-foreground">
+              Buscar descrição
+              <Input
+                name="filtro_q"
+                placeholder="Ex.: mensalidade, freela…"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+              />
+            </label>
+            {(clienteId || busca) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setClienteId('');
+                  setBusca('');
+                }}
+              >
+                Limpar filtros
+              </Button>
+            )}
+          </FinCard>
+        )}
+
+        {carregando && !lancs.length ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">Carregando…</p>
+        ) : (
+          <>
+            {carregandoMes && (
+              <p className="text-xs text-muted-foreground">Atualizando {mesLabel}…</p>
+            )}
+            {aba === 'visao' && (
+              <VisaoGeral
+                saldoTotal={saldoTotal}
+                saldoLabel={mesCorrente ? 'Saldo atual das contas' : 'Saldo atual das contas (agora)'}
+                resumo={resumo}
+                contas={contas}
+                abertos={abertosParaResumo}
+                lancsMes={lancsParaResumo}
+                filtroAtivo={!!(clienteId || busca)}
+                onIr={(a) => setAba(a)}
+              />
+            )}
+            {aba === 'lancamentos' && (
+              <AbaLancamentos
+                contas={contas}
+                cats={cats}
+                clientes={clientes}
+                membros={membros}
+                viewerUserId={user?.id}
+                lancs={lancsFiltrados}
+                podeEscrever={podeEscrever}
+                onChange={async () => {
+                  await reload();
+                }}
+                flash={flash}
+                setErro={setErro}
+              />
+            )}
+            {aba === 'apagar' && (
+              <AbaAPagarReceber
+                lista={abertosFiltrados}
+                podeEscrever={podeEscrever}
+                viewerUserId={user?.id}
+                onChange={async () => {
+                  await reload();
+                }}
+                flash={flash}
+                setErro={setErro}
+              />
+            )}
+            {aba === 'contas' && (
+              <AbaContas
+                contas={contas}
+                podeEscrever={podeEscrever}
+                onChange={reload}
+                flash={flash}
+                setErro={setErro}
+              />
+            )}
+            {aba === 'categorias' && (
+              <AbaCategorias
+                cats={cats}
+                podeEscrever={podeEscrever}
+                onChange={reload}
+                flash={flash}
+                setErro={setErro}
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -517,7 +515,7 @@ function VisaoGeral({
         </div>
       </FinCard>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">
         <FinCard>
           <p className="mb-3 text-sm font-medium">Receitas por categoria</p>
           <DonutChart
@@ -525,6 +523,7 @@ function VisaoGeral({
             centerLabel="Receitas"
             centerValue={brl(resumo.receitasPagas)}
             total={resumo.receitasPagas}
+            size={160}
           />
         </FinCard>
         <FinCard>
@@ -534,18 +533,19 @@ function VisaoGeral({
             centerLabel="Despesas"
             centerValue={brl(resumo.despesasPagas)}
             total={resumo.despesasPagas}
+            size={160}
           />
         </FinCard>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <FinCard>
           <p className="mb-3 text-sm font-medium">Balanço mensal</p>
-          <div className="mb-2 flex h-28 items-end gap-3">
+          <div className="mb-2 flex h-32 items-end gap-4">
             <div className="flex h-full flex-1 flex-col items-center justify-end gap-1">
               <span className="text-[10px] tabular-nums text-emerald-400">{bal.labelR}</span>
               <div
-                className="w-full max-w-[48px] rounded-t-md bg-emerald-500/85"
+                className="w-full max-w-[72px] rounded-t-md bg-emerald-500/85"
                 style={{ height: `${Math.max(8, bal.rPct)}%` }}
               />
               <span className="text-[10px] text-muted-foreground">Receitas</span>
@@ -553,7 +553,7 @@ function VisaoGeral({
             <div className="flex h-full flex-1 flex-col items-center justify-end gap-1">
               <span className="text-[10px] tabular-nums text-red-400">{bal.labelD}</span>
               <div
-                className="w-full max-w-[48px] rounded-t-md bg-red-500/85"
+                className="w-full max-w-[72px] rounded-t-md bg-red-500/85"
                 style={{ height: `${Math.max(8, bal.dPct)}%` }}
               />
               <span className="text-[10px] text-muted-foreground">Despesas</span>

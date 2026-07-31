@@ -231,14 +231,23 @@ export function FinanceiroPage() {
     [abertosVisiveis, filtro],
   );
   /** Para Membro, salário próprio entra no resumo como receita (ganho). */
-  const lancsParaResumo = useMemo(() => {
-    if (!isMembroRole || !user?.id) return lancsFiltrados;
-    return lancsFiltrados.map((l) =>
-      ehGanhoDoMembro(l, user.id)
-        ? { ...l, tipo: 'receita' as const }
-        : l,
-    );
-  }, [isMembroRole, user?.id, lancsFiltrados]);
+  const mapGanho = useCallback(
+    (lista: FinLancamento[]) => {
+      if (!isMembroRole || !user?.id) return lista;
+      return lista.map((l) =>
+        ehGanhoDoMembro(l, user.id) ? { ...l, tipo: 'receita' as const } : l,
+      );
+    },
+    [isMembroRole, user?.id],
+  );
+  const lancsParaResumo = useMemo(
+    () => mapGanho(lancsFiltrados),
+    [mapGanho, lancsFiltrados],
+  );
+  const abertosParaResumo = useMemo(
+    () => mapGanho(abertosFiltrados),
+    [mapGanho, abertosFiltrados],
+  );
   const resumo = useMemo(() => resumirLancamentos(lancsParaResumo), [lancsParaResumo]);
   const saldoTotal = useMemo(
     () => contas.filter((c) => c.ativo !== false).reduce((s, c) => s + (Number(c.saldo_atual) || 0), 0),
@@ -387,7 +396,7 @@ export function FinanceiroPage() {
               saldoLabel={mesCorrente ? 'Saldo atual das contas' : 'Saldo atual das contas (agora)'}
               resumo={resumo}
               contas={contas}
-              abertos={abertosFiltrados}
+              abertos={abertosParaResumo}
               lancsMes={lancsParaResumo}
               filtroAtivo={!!(clienteId || busca)}
               onIr={(a) => setAba(a)}
@@ -970,6 +979,22 @@ function LancamentoModal({
   );
   const isSalario = isCategoriaSalarioProlabore(catAtual);
 
+  const membrosOpts = useMemo(() => {
+    const map = new Map(membros.map((m) => [m.id, m]));
+    // editar lançamento de membro inativo: mantém opção
+    const exp = inicial?.expand?.membro;
+    if (inicial?.membro && !map.has(inicial.membro)) {
+      map.set(inicial.membro, {
+        id: inicial.membro,
+        nome: exp?.nome || exp?.nome_completo || 'Membro (inativo)',
+        email: exp?.email || '',
+        role: (exp?.role as Usuario['role']) || 'Membro',
+        status: 'Inativo',
+      });
+    }
+    return [...map.values()];
+  }, [membros, inicial]);
+
   // Ao trocar receita/despesa, escolhe categoria válida (não "Ajuste" se houver melhor).
   useEffect(() => {
     setCategoria((prev) => preferCategoria(cats, tipo, prev));
@@ -1113,7 +1138,7 @@ function LancamentoModal({
                 onChange={setMembro}
                 options={[
                   { v: '', l: '— Selecione o membro —' },
-                  ...membros.map((m) => ({
+                  ...membrosOpts.map((m) => ({
                     v: m.id,
                     l: nomeMembro(m) || m.email || m.id,
                   })),
@@ -1196,7 +1221,17 @@ function LancamentoModal({
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={salvando || (isSalario && !membro)}>
+            <Button
+              type="submit"
+              disabled={
+                salvando ||
+                !descricao.trim() ||
+                !conta ||
+                !categoria ||
+                !(Number(valor) > 0) ||
+                (isSalario && !membro)
+              }
+            >
               {salvando ? 'Salvando…' : 'Salvar'}
             </Button>
           </div>

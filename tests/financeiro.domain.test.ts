@@ -221,6 +221,8 @@ describe('financeiro domain', () => {
         tipo: 'receita',
         expand: { categoria: { nome: 'Mensalidade / retainer' } },
       },
+      // fail-closed: membro de outro sem expand de categoria
+      { id: '4', membro: 'u9', tipo: 'despesa' },
     ] as FinLancamento[];
     const v = filtrarPrivacidadeMembro(lista, 'u1');
     expect(v.map((x) => x.id)).toEqual(['1', '3']);

@@ -247,18 +247,19 @@ export function ehGanhoDoMembro(
 }
 
 /**
- * Privacidade: Membro não vê salário de outros.
- * Mantém demais lançamentos; esconde despesa salário onde membro ≠ self (ou sem membro).
+ * Privacidade Membro: não vê lançamentos com `membro` de outra pessoa
+ * (salário/pró-labore sempre grava membro; demais categorias deixam membro vazio).
+ * Fail-closed: se tem membro ≠ self, esconde — independente do expand da categoria.
  */
 export function filtrarPrivacidadeMembro(
   lista: FinLancamento[],
   userId: string,
-  catById?: Map<string, FinCategoria>,
+  _catById?: Map<string, FinCategoria>,
 ): FinLancamento[] {
+  void _catById;
   return lista.filter((l) => {
-    const cat = l.expand?.categoria || (l.categoria ? catById?.get(l.categoria) : undefined);
-    if (!isCategoriaSalarioProlabore(cat)) return true;
-    return l.membro === userId;
+    if (l.membro && l.membro !== userId) return false;
+    return true;
   });
 }
 

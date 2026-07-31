@@ -1,8 +1,9 @@
 /**
- * Garante campo fin_lancamentos.membro → usuarios no PB (prod/local).
- * Idempotente. Credenciais: .env PB_ADMIN_* / VITE_PB_URL
+ * Garante campo fin_lancamentos.membro → usuarios e rules de privacidade Membro.
+ * Idempotente. Body mínimo (só fields/indexes/rules tocados).
  *
  *   node e2e/setup_fin_membro.mjs
+ *   node e2e/setup_fin_membro.mjs --prod   # alias (mesmo default se VITE_PB_URL for prod)
  */
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -27,6 +28,12 @@ if (!SENHA) {
   process.exit(1);
 }
 
+/** Membro não lista/vê lançamentos de salário de outros (membro preenchido ≠ self). */
+const LEITURA_PRIV =
+  '@request.auth.id != "" && @request.auth.role != "Cliente" && (@request.auth.role != "Membro" || membro = "" || membro = @request.auth.id)';
+const ESCRITA =
+  '@request.auth.id != "" && (@request.auth.role = "Owner" || @request.auth.role = "Admin" || @request.auth.role = "Gestor")';
+
 async function main() {
   const auth = await fetch(`${BASE}/api/collections/_superusers/auth-with-password`, {
     method: 'POST',
@@ -35,7 +42,7 @@ async function main() {
   }).then((r) => r.json());
   if (!auth.token) throw new Error('auth fail ' + JSON.stringify(auth).slice(0, 200));
   const tok = auth.token;
-  console.log('[auth] ok');
+  console.log('[auth] ok', BASE);
 
   const lancs = await fetch(`${BASE}/api/collections/fin_lancamentos`, {
     headers: { Authorization: tok },
@@ -45,36 +52,59 @@ async function main() {
   }).then((r) => r.json());
   if (!lancs?.id || !users?.id) throw new Error('collections missing');
 
-  const fields = lancs.fields || [];
-  if (fields.some((f) => f.name === 'membro')) {
+  const fields = [...(lancs.fields || [])];
+  let touched = false;
+  if (!fields.some((f) => f.name === 'membro')) {
+    fields.push({
+      name: 'membro',
+      type: 'relation',
+      required: false,
+      maxSelect: 1,
+      collectionId: users.id,
+      cascadeDelete: false,
+      presentable: false,
+      system: false,
+      hidden: false,
+    });
+    touched = true;
+    console.log('[+] campo membro');
+  } else {
     console.log('[skip] campo membro já existe');
-    return;
   }
-
-  fields.push({
-    name: 'membro',
-    type: 'relation',
-    required: false,
-    maxSelect: 1,
-    collectionId: users.id,
-    cascadeDelete: false,
-    presentable: false,
-    system: false,
-    hidden: false,
-  });
 
   const indexes = Array.isArray(lancs.indexes) ? [...lancs.indexes] : [];
   const idx = 'CREATE INDEX IF NOT EXISTS idx_finlanc_membro ON fin_lancamentos (membro)';
-  if (!indexes.some((i) => String(i).includes('idx_finlanc_membro'))) indexes.push(idx);
+  if (!indexes.some((i) => String(i).includes('idx_finlanc_membro'))) {
+    indexes.push(idx);
+    touched = true;
+  }
 
-  const body = { ...lancs, fields, indexes };
-  const r = await fetch(`${BASE}/api/collections/${lancs.id}`, {
-    method: 'PATCH',
-    headers: { Authorization: tok, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`PATCH fin_lancamentos ${r.status} ${await r.text()}`);
-  console.log('[ok] campo membro adicionado em fin_lancamentos');
+  const patch = {
+    fields,
+    indexes,
+    listRule: LEITURA_PRIV,
+    viewRule: LEITURA_PRIV,
+    // create/update/delete inalterados se já corretos — reforça escrita
+    createRule: lancs.createRule || ESCRITA,
+    updateRule: lancs.updateRule || ESCRITA,
+    deleteRule: lancs.deleteRule || ESCRITA,
+  };
+
+  if (
+    lancs.listRule !== LEITURA_PRIV ||
+    lancs.viewRule !== LEITURA_PRIV ||
+    touched
+  ) {
+    const r = await fetch(`${BASE}/api/collections/${lancs.id}`, {
+      method: 'PATCH',
+      headers: { Authorization: tok, 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (!r.ok) throw new Error(`PATCH fin_lancamentos ${r.status} ${await r.text()}`);
+    console.log('[ok] fin_lancamentos atualizado (membro + list/view rule privacidade)');
+  } else {
+    console.log('[ok] já atualizado');
+  }
 }
 
 main().catch((e) => {

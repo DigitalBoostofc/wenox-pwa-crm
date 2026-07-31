@@ -270,8 +270,13 @@ export function resumirLancamentos(lista: FinLancamento[]) {
 
 /**
  * Primeiro dia do mês (yyyy-mm-dd).
- * Aceita Date, ou (ano, mês 1–12). Default: mês atual.
+ * - sem args: mês atual
+ * - Date: mês da data
+ * - (ano, mês 1–12): mês explícito
  */
+export function primeiroDiaMes(): string;
+export function primeiroDiaMes(d: Date): string;
+export function primeiroDiaMes(ano: number, mes1a12: number): string;
 export function primeiroDiaMes(anoOrDate?: number | Date, mes1a12?: number): string {
   const { y, m0 } = resolveAnoMes(anoOrDate, mes1a12);
   return `${y}-${String(m0 + 1).padStart(2, '0')}-01`;
@@ -279,8 +284,13 @@ export function primeiroDiaMes(anoOrDate?: number | Date, mes1a12?: number): str
 
 /**
  * Último dia do mês (yyyy-mm-dd).
- * Aceita Date, ou (ano, mês 1–12). Default: mês atual.
+ * - sem args: mês atual
+ * - Date: mês da data
+ * - (ano, mês 1–12): mês explícito
  */
+export function ultimoDiaMes(): string;
+export function ultimoDiaMes(d: Date): string;
+export function ultimoDiaMes(ano: number, mes1a12: number): string;
 export function ultimoDiaMes(anoOrDate?: number | Date, mes1a12?: number): string {
   const { y, m0 } = resolveAnoMes(anoOrDate, mes1a12);
   const last = new Date(y, m0 + 1, 0);

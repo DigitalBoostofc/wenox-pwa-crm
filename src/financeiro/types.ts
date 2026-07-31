@@ -186,10 +186,10 @@ export function mergeClientesFiltro(
   fromList: ClienteFiltro[],
   fromLancs: ClienteFiltro[],
 ): ClienteFiltro[] {
-  if (!fromList.length) return fromLancs;
+  if (!fromList.length) return [...fromLancs];
   const ids = new Set(fromList.map((c) => c.id));
   const extras = fromLancs.filter((c) => !ids.has(c.id));
-  if (!extras.length) return fromList;
+  if (!extras.length) return [...fromList];
   return [...fromList, ...extras].sort((a, b) =>
     nomeCliente(a).localeCompare(nomeCliente(b), 'pt-BR', { sensitivity: 'base' }),
   );

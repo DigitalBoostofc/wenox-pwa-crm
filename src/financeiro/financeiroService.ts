@@ -268,11 +268,35 @@ export function resumirLancamentos(lista: FinLancamento[]) {
   };
 }
 
-export function primeiroDiaMes(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+/**
+ * Primeiro dia do mês (yyyy-mm-dd).
+ * Aceita Date, ou (ano, mês 1–12). Default: mês atual.
+ */
+export function primeiroDiaMes(anoOrDate?: number | Date, mes1a12?: number): string {
+  const { y, m0 } = resolveAnoMes(anoOrDate, mes1a12);
+  return `${y}-${String(m0 + 1).padStart(2, '0')}-01`;
 }
 
-export function ultimoDiaMes(d = new Date()): string {
-  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+/**
+ * Último dia do mês (yyyy-mm-dd).
+ * Aceita Date, ou (ano, mês 1–12). Default: mês atual.
+ */
+export function ultimoDiaMes(anoOrDate?: number | Date, mes1a12?: number): string {
+  const { y, m0 } = resolveAnoMes(anoOrDate, mes1a12);
+  const last = new Date(y, m0 + 1, 0);
   return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+}
+
+function resolveAnoMes(
+  anoOrDate?: number | Date,
+  mes1a12?: number,
+): { y: number; m0: number } {
+  if (anoOrDate instanceof Date) {
+    return { y: anoOrDate.getFullYear(), m0: anoOrDate.getMonth() };
+  }
+  if (typeof anoOrDate === 'number' && typeof mes1a12 === 'number') {
+    return { y: anoOrDate, m0: mes1a12 - 1 };
+  }
+  const d = new Date();
+  return { y: d.getFullYear(), m0: d.getMonth() };
 }

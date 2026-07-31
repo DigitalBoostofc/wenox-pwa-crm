@@ -155,6 +155,46 @@ export function nomeCliente(c?: { nome?: string; nome_fantasia?: string } | null
   return (c.nome_fantasia || c.nome || '').trim();
 }
 
+/** Cliente mínimo para filtro (lista ou expand de lançamento). */
+export type ClienteFiltro = { id: string; nome?: string; nome_fantasia?: string };
+
+/**
+ * Clientes únicos a partir de expand.cliente (ou id em `cliente`) nos lançamentos.
+ * Usado no filtro quando listClientes vem vazio/curto (ex.: Membro RBAC).
+ */
+export function clientesFromLancamentos(lista: FinLancamento[]): ClienteFiltro[] {
+  const map = new Map<string, ClienteFiltro>();
+  for (const l of lista) {
+    const exp = l.expand?.cliente;
+    const id = (exp?.id || l.cliente || '').trim();
+    if (!id || map.has(id)) continue;
+    map.set(id, {
+      id,
+      nome: exp?.nome,
+      nome_fantasia: exp?.nome_fantasia,
+    });
+  }
+  return [...map.values()].sort((a, b) =>
+    nomeCliente(a).localeCompare(nomeCliente(b), 'pt-BR', { sensitivity: 'base' }),
+  );
+}
+
+/**
+ * Prefer listClientes (Admin); completa com expand quando a lista está vazia/curta (Membro).
+ */
+export function mergeClientesFiltro(
+  fromList: ClienteFiltro[],
+  fromLancs: ClienteFiltro[],
+): ClienteFiltro[] {
+  if (!fromList.length) return fromLancs;
+  const ids = new Set(fromList.map((c) => c.id));
+  const extras = fromLancs.filter((c) => !ids.has(c.id));
+  if (!extras.length) return fromList;
+  return [...fromList, ...extras].sort((a, b) =>
+    nomeCliente(a).localeCompare(nomeCliente(b), 'pt-BR', { sensitivity: 'base' }),
+  );
+}
+
 /** Filtra lançamentos por cliente ('' = todos) e texto na descrição. */
 export function filtrarLancamentos(
   lista: FinLancamento[],

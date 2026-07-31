@@ -34,7 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Projetos',            path: '/projetos',   icon: FolderKanban,    enabled: true,  modulo: 'projetos'    },
   { label: 'Tarefas',             path: '/tarefas',    icon: ListChecks,      enabled: true,  modulo: 'tarefas'     },
   { label: 'Quadros',             path: '/quadros',    icon: Columns3,        enabled: true,  modulo: 'quadros'     },
-  { label: 'Financeiro',          path: '/financeiro', icon: Wallet,          enabled: false, modulo: 'financeiro'  },
+  { label: 'Financeiro',          path: '/financeiro', icon: Wallet,          enabled: true,  modulo: 'financeiro'  },
   { label: 'Contratos & Propostas', path: '/contratos', icon: FileSignature,  enabled: false, modulo: 'contratos'   },
   { label: 'Agenda',              path: '/agenda',     icon: CalendarDays,    enabled: false, modulo: 'agenda'      },
   { label: 'IA Wenox',            path: '/ia',         icon: Sparkles,        enabled: false, modulo: 'ia'          },

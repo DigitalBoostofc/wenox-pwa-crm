@@ -4,8 +4,11 @@ import {
   addPeriodoISO,
   brl,
   clientesFromLancamentos,
+  ehGanhoDoMembro,
   efeitoNoSaldo,
   filtrarLancamentos,
+  filtrarPrivacidadeMembro,
+  isCategoriaSalarioProlabore,
   mergeClientesFiltro,
   topCategoriasPagas,
 } from '@/financeiro/types';
@@ -190,5 +193,38 @@ describe('financeiro domain', () => {
     expect(ultimoDiaMes(2026, 2)).toBe('2026-02-28');
     expect(primeiroDiaMes(new Date(2026, 6, 15))).toBe('2026-07-01'); // mês 0-based no Date
     expect(ultimoDiaMes(new Date(2026, 6, 1))).toBe('2026-07-31');
+  });
+
+  it('isCategoriaSalarioProlabore reconhece seed e variantes', () => {
+    expect(isCategoriaSalarioProlabore({ nome: 'Salários e pró-labore' })).toBe(true);
+    expect(isCategoriaSalarioProlabore('Salarios e Prolabore')).toBe(true);
+    expect(isCategoriaSalarioProlabore({ nome: 'Mensalidade / retainer' })).toBe(false);
+    expect(isCategoriaSalarioProlabore(null)).toBe(false);
+  });
+
+  it('filtrarPrivacidadeMembro esconde salário de outros', () => {
+    const lista = [
+      {
+        id: '1',
+        membro: 'u1',
+        tipo: 'despesa',
+        expand: { categoria: { nome: 'Salários e pró-labore' } },
+      },
+      {
+        id: '2',
+        membro: 'u2',
+        tipo: 'despesa',
+        expand: { categoria: { nome: 'Salários e pró-labore' } },
+      },
+      {
+        id: '3',
+        tipo: 'receita',
+        expand: { categoria: { nome: 'Mensalidade / retainer' } },
+      },
+    ] as FinLancamento[];
+    const v = filtrarPrivacidadeMembro(lista, 'u1');
+    expect(v.map((x) => x.id)).toEqual(['1', '3']);
+    expect(ehGanhoDoMembro(lista[0], 'u1')).toBe(true);
+    expect(ehGanhoDoMembro(lista[0], 'u2')).toBe(false);
   });
 });

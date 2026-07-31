@@ -17,13 +17,20 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { listClientes } from '@/clientes/clientesService';
 import type { Cliente } from '@/clientes/types';
+import { listUsuarios } from '@/usuarios/usuariosService';
+import type { Usuario } from '@/usuarios/types';
+import { useAuth } from '@/auth/useAuth';
 import { usePodeEscreverFin } from './usePodeEscreverFin';
 import {
   brl,
   clientesFromLancamentos,
+  ehGanhoDoMembro,
   filtrarLancamentos,
+  filtrarPrivacidadeMembro,
+  isCategoriaSalarioProlabore,
   mergeClientesFiltro,
   nomeCliente,
+  nomeMembro,
   STATUS_LABEL,
   topCategoriasPagas,
   TIPO_CONTA_LABEL,
@@ -91,6 +98,8 @@ const ABAS: { id: Aba; label: string; icon: typeof Wallet }[] = [
 
 export function FinanceiroPage() {
   const podeEscrever = usePodeEscreverFin();
+  const { user } = useAuth();
+  const isMembroRole = user?.role === 'Membro';
   const [aba, setAba] = useState<Aba>('visao');
   const now = useMemo(() => new Date(), []);
   const [ano, setAno] = useState(() => now.getFullYear());
@@ -101,6 +110,7 @@ export function FinanceiroPage() {
   const [abertos, setAbertos] = useState<FinLancamento[]>([]);
   /** Clientes vindos do PB (Admin); Membro costuma vir vazio. */
   const [clientesPb, setClientesPb] = useState<ClienteFiltro[]>([]);
+  const [membros, setMembros] = useState<Usuario[]>([]);
   const [clienteId, setClienteId] = useState('');
   const [busca, setBusca] = useState('');
   const [erro, setErro] = useState('');
@@ -108,20 +118,24 @@ export function FinanceiroPage() {
   const [carregando, setCarregando] = useState(true);
   const [carregandoMes, setCarregandoMes] = useState(false);
 
-  /** Base: não depende do mês (contas, categorias, abertos, lista clientes PB). */
+  /** Base: não depende do mês (contas, categorias, abertos, lista clientes PB, membros). */
   const loadBase = useCallback(async () => {
     setErro('');
     try {
-      const [c, k, a, cli] = await Promise.all([
+      const [c, k, a, cli, us] = await Promise.all([
         listContas(),
         listCategorias({ incluirArquivadas: false }),
         listLancamentos({ abertos: true }),
         listClientes('').catch(() => [] as Cliente[]),
+        listUsuarios().catch(() => [] as Usuario[]),
       ]);
       setContas(c);
       setCats(k);
       setAbertos(a);
       setClientesPb(cli);
+      setMembros(
+        us.filter((u) => u.role !== 'Cliente' && (u.status === 'Ativo' || !u.status)),
+      );
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar financeiro');
     }
@@ -199,9 +213,33 @@ export function FinanceiroPage() {
   }
 
   const filtro = useMemo(() => ({ clienteId, q: busca }), [clienteId, busca]);
-  const lancsFiltrados = useMemo(() => filtrarLancamentos(lancs, filtro), [lancs, filtro]);
-  const abertosFiltrados = useMemo(() => filtrarLancamentos(abertos, filtro), [abertos, filtro]);
-  const resumo = useMemo(() => resumirLancamentos(lancsFiltrados), [lancsFiltrados]);
+  // Membro: esconde salário de outros antes dos filtros de UI
+  const lancsVisiveis = useMemo(() => {
+    if (!isMembroRole || !user?.id) return lancs;
+    return filtrarPrivacidadeMembro(lancs, user.id);
+  }, [isMembroRole, user?.id, lancs]);
+  const abertosVisiveis = useMemo(() => {
+    if (!isMembroRole || !user?.id) return abertos;
+    return filtrarPrivacidadeMembro(abertos, user.id);
+  }, [isMembroRole, user?.id, abertos]);
+  const lancsFiltrados = useMemo(
+    () => filtrarLancamentos(lancsVisiveis, filtro),
+    [lancsVisiveis, filtro],
+  );
+  const abertosFiltrados = useMemo(
+    () => filtrarLancamentos(abertosVisiveis, filtro),
+    [abertosVisiveis, filtro],
+  );
+  /** Para Membro, salário próprio entra no resumo como receita (ganho). */
+  const lancsParaResumo = useMemo(() => {
+    if (!isMembroRole || !user?.id) return lancsFiltrados;
+    return lancsFiltrados.map((l) =>
+      ehGanhoDoMembro(l, user.id)
+        ? { ...l, tipo: 'receita' as const }
+        : l,
+    );
+  }, [isMembroRole, user?.id, lancsFiltrados]);
+  const resumo = useMemo(() => resumirLancamentos(lancsParaResumo), [lancsParaResumo]);
   const saldoTotal = useMemo(
     () => contas.filter((c) => c.ativo !== false).reduce((s, c) => s + (Number(c.saldo_atual) || 0), 0),
     [contas],
@@ -350,7 +388,7 @@ export function FinanceiroPage() {
               resumo={resumo}
               contas={contas}
               abertos={abertosFiltrados}
-              lancsMes={lancsFiltrados}
+              lancsMes={lancsParaResumo}
               filtroAtivo={!!(clienteId || busca)}
               onIr={(a) => setAba(a)}
             />
@@ -360,6 +398,8 @@ export function FinanceiroPage() {
               contas={contas}
               cats={cats}
               clientes={clientes}
+              membros={membros}
+              viewerUserId={user?.id}
               lancs={lancsFiltrados}
               podeEscrever={podeEscrever}
               onChange={async () => {
@@ -373,7 +413,10 @@ export function FinanceiroPage() {
             <AbaAPagarReceber
               lista={abertosFiltrados}
               podeEscrever={podeEscrever}
-              onChange={reload}
+              viewerUserId={user?.id}
+              onChange={async () => {
+                await reload();
+              }}
               flash={flash}
               setErro={setErro}
             />
@@ -594,6 +637,8 @@ function AbaLancamentos({
   contas,
   cats,
   clientes,
+  membros,
+  viewerUserId,
   lancs,
   podeEscrever,
   onChange,
@@ -603,6 +648,8 @@ function AbaLancamentos({
   contas: FinConta[];
   cats: FinCategoria[];
   clientes: ClienteFiltro[];
+  membros: Usuario[];
+  viewerUserId?: string;
   lancs: FinLancamento[];
   podeEscrever: boolean;
   onChange: () => Promise<void>;
@@ -634,6 +681,7 @@ function AbaLancamentos({
       <TabelaLancamentos
         lista={lancs}
         podeEscrever={podeEscrever}
+        viewerUserId={viewerUserId}
         onEdit={(l) => {
           setEdit(l);
           setAberto(true);
@@ -672,6 +720,7 @@ function AbaLancamentos({
           contas={contas}
           cats={cats}
           clientes={clientes}
+          membros={membros}
           inicial={edit}
           onClose={() => setAberto(false)}
           onSave={async (input) => {
@@ -694,12 +743,14 @@ function AbaLancamentos({
 function AbaAPagarReceber({
   lista,
   podeEscrever,
+  viewerUserId,
   onChange,
   flash,
   setErro,
 }: {
   lista: FinLancamento[];
   podeEscrever: boolean;
+  viewerUserId?: string;
   onChange: () => Promise<void>;
   flash: (m: string) => void;
   setErro: (m: string) => void;
@@ -712,6 +763,7 @@ function AbaAPagarReceber({
       <TabelaLancamentos
         lista={lista}
         podeEscrever={podeEscrever}
+        viewerUserId={viewerUserId}
         onPagar={async (l) => {
           try {
             await marcarPago(l.id);
@@ -738,6 +790,7 @@ function AbaAPagarReceber({
 function TabelaLancamentos({
   lista,
   podeEscrever,
+  viewerUserId,
   onEdit,
   onDelete,
   onPagar,
@@ -745,6 +798,7 @@ function TabelaLancamentos({
 }: {
   lista: FinLancamento[];
   podeEscrever: boolean;
+  viewerUserId?: string;
   onEdit?: (l: FinLancamento) => void;
   onDelete?: (l: FinLancamento) => void;
   onPagar?: (l: FinLancamento) => void;
@@ -770,7 +824,10 @@ function TabelaLancamentos({
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {lista.map((l) => (
+          {lista.map((l) => {
+            const ganho = ehGanhoDoMembro(l, viewerUserId);
+            const positivo = ganho || l.tipo === 'receita';
+            return (
             <tr key={l.id} className="hover:bg-secondary/20">
               <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
                 {l.data?.slice(0, 10)}
@@ -778,10 +835,16 @@ function TabelaLancamentos({
               <td className="px-3 py-2">
                 <div className="font-medium">{l.descricao}</div>
                 <div className="text-xs text-muted-foreground">
+                  {ganho ? 'Ganho · ' : ''}
                   {l.expand?.categoria?.nome || '—'} · {l.expand?.conta?.nome || '—'}
                   {l.expand?.cliente
                     ? ` · ${nomeCliente(l.expand.cliente)}`
                     : ''}
+                  {l.expand?.membro
+                    ? ` · ${nomeMembro(l.expand.membro)}`
+                    : l.membro
+                      ? ` · membro`
+                      : ''}
                   {l.recorrencia !== 'unica' ? ` · ${l.recorrencia}` : ''}
                 </div>
               </td>
@@ -801,10 +864,10 @@ function TabelaLancamentos({
               <td
                 className={cn(
                   'px-3 py-2 text-right font-semibold tabular-nums',
-                  l.tipo === 'receita' ? 'text-emerald-400' : 'text-red-400',
+                  positivo ? 'text-emerald-400' : 'text-red-400',
                 )}
               >
-                {l.tipo === 'receita' ? '+' : '−'}
+                {positivo ? '+' : '−'}
                 {brl(Number(l.valor) || 0)}
               </td>
               <td className="px-3 py-2">
@@ -834,7 +897,8 @@ function TabelaLancamentos({
                 )}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -861,6 +925,7 @@ function LancamentoModal({
   contas,
   cats,
   clientes,
+  membros,
   inicial,
   onClose,
   onSave,
@@ -868,6 +933,7 @@ function LancamentoModal({
   contas: FinConta[];
   cats: FinCategoria[];
   clientes: ClienteFiltro[];
+  membros: Usuario[];
   inicial: FinLancamento | null;
   onClose: () => void;
   onSave: (input: Parameters<typeof createLancamento>[0]) => Promise<void>;
@@ -882,6 +948,7 @@ function LancamentoModal({
     inicial?.categoria || preferCategoria(cats, inicial?.tipo || 'receita'),
   );
   const [cliente, setCliente] = useState(inicial?.cliente || '');
+  const [membro, setMembro] = useState(inicial?.membro || '');
   const [data, setData] = useState(inicial?.data?.slice(0, 10) || hojeISO());
   const [vencimento, setVencimento] = useState(inicial?.vencimento?.slice(0, 10) || '');
   const [status, setStatus] = useState<StatusLancamento>(inicial?.status || 'pago');
@@ -897,10 +964,23 @@ function LancamentoModal({
     [cats, tipo],
   );
 
+  const catAtual = useMemo(
+    () => cats.find((c) => c.id === categoria) || null,
+    [cats, categoria],
+  );
+  const isSalario = isCategoriaSalarioProlabore(catAtual);
+
   // Ao trocar receita/despesa, escolhe categoria válida (não "Ajuste" se houver melhor).
   useEffect(() => {
     setCategoria((prev) => preferCategoria(cats, tipo, prev));
   }, [tipo, cats]);
+
+  // Categoria salário → força despesa e limpa cliente
+  useEffect(() => {
+    if (!isSalario) return;
+    if (tipo !== 'despesa') setTipo('despesa');
+    setCliente('');
+  }, [isSalario, tipo]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -912,6 +992,7 @@ function LancamentoModal({
     const contaF = String(fd.get('conta') || '');
     const catF = String(fd.get('categoria') || '');
     const clienteF = String(fd.get('cliente') || '');
+    const membroF = String(fd.get('membro') || '');
     const dataF = String(fd.get('data') || hojeISO());
     const vencF = String(fd.get('vencimento') || '');
     const statusF = String(fd.get('status') || 'pago') as StatusLancamento;
@@ -920,14 +1001,14 @@ function LancamentoModal({
     const obsF = String(fd.get('observacao') || '');
     if (!descF || !contaF || !catF || !(valorF > 0)) return;
     // Garante que a categoria pertence ao tipo escolhido.
-    const catOk = cats.some((c) => c.id === catF && c.tipo === tipoF);
-    if (!catOk) {
-      return;
-    }
+    const catObj = cats.find((c) => c.id === catF);
+    if (!catObj || catObj.tipo !== tipoF) return;
+    const salario = isCategoriaSalarioProlabore(catObj);
+    if (salario && !membroF) return;
     setSalvando(true);
     try {
       await onSave({
-        tipo: tipoF,
+        tipo: salario ? 'despesa' : tipoF,
         descricao: descF,
         valor: valorF,
         conta: contaF,
@@ -939,7 +1020,8 @@ function LancamentoModal({
         frequencia: recF === 'unica' ? '' : freqF,
         origem: inicial?.origem || 'manual',
         observacao: obsF,
-        cliente: clienteF,
+        cliente: salario ? '' : clienteF,
+        membro: salario ? membroF : '',
         projeto: inicial?.projeto || '',
       });
     } finally {
@@ -963,10 +1045,14 @@ function LancamentoModal({
               <button
                 key={t}
                 type="button"
-                onClick={() => setTipo(t)}
+                onClick={() => {
+                  if (isSalario && t === 'receita') return;
+                  setTipo(t);
+                }}
                 className={cn(
                   'flex-1 rounded-md border px-3 py-2 text-sm capitalize',
                   tipo === t ? 'border-primary bg-primary/15 text-primary' : 'border-border',
+                  isSalario && t === 'receita' && 'opacity-40 cursor-not-allowed',
                 )}
               >
                 {t}
@@ -1019,17 +1105,39 @@ function LancamentoModal({
               />
             </Campo>
           </div>
-          <Campo label="Cliente (opcional)">
-            <Select
-              name="cliente"
-              value={cliente}
-              onChange={setCliente}
-              options={[
-                { v: '', l: '— Sem cliente —' },
-                ...clientes.map((c) => ({ v: c.id, l: nomeCliente(c) || c.id })),
-              ]}
-            />
-          </Campo>
+          {isSalario ? (
+            <Campo label="Membro">
+              <Select
+                name="membro"
+                value={membro}
+                onChange={setMembro}
+                options={[
+                  { v: '', l: '— Selecione o membro —' },
+                  ...membros.map((m) => ({
+                    v: m.id,
+                    l: nomeMembro(m) || m.email || m.id,
+                  })),
+                ]}
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Sai como despesa no caixa da agência. O membro vê como ganho.
+              </p>
+              <input type="hidden" name="cliente" value="" />
+            </Campo>
+          ) : (
+            <Campo label="Cliente (opcional)">
+              <Select
+                name="cliente"
+                value={cliente}
+                onChange={setCliente}
+                options={[
+                  { v: '', l: '— Sem cliente —' },
+                  ...clientes.map((c) => ({ v: c.id, l: nomeCliente(c) || c.id })),
+                ]}
+              />
+              <input type="hidden" name="membro" value="" />
+            </Campo>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Campo label="Status">
               <Select
@@ -1088,10 +1196,7 @@ function LancamentoModal({
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              disabled={salvando || !descricao.trim() || !conta || !categoria || !(Number(valor) > 0)}
-            >
+            <Button type="submit" disabled={salvando || (isSalario && !membro)}>
               {salvando ? 'Salvando…' : 'Salvar'}
             </Button>
           </div>

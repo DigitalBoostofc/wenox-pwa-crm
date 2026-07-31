@@ -80,6 +80,7 @@ export async function removeCategoria(id: string): Promise<void> {
 export interface ListLancamentosFiltro {
   contaId?: string;
   clienteId?: string;
+  membroId?: string;
   projetoId?: string;
   tipo?: 'receita' | 'despesa';
   status?: string;
@@ -96,6 +97,7 @@ function buildFilter(f: ListLancamentosFiltro = {}): string {
   const parts: string[] = [];
   if (f.contaId) parts.push(`conta = "${f.contaId}"`);
   if (f.clienteId) parts.push(`cliente = "${f.clienteId}"`);
+  if (f.membroId) parts.push(`membro = "${f.membroId}"`);
   if (f.projetoId) parts.push(`projeto = "${f.projetoId}"`);
   if (f.tipo) parts.push(`tipo = "${f.tipo}"`);
   if (f.status) parts.push(`status = "${f.status}"`);
@@ -116,7 +118,7 @@ export async function listLancamentos(
   const res = await lancs().getFullList({
     filter,
     sort: '-data,-created',
-    expand: 'categoria,conta,cliente,projeto',
+    expand: 'categoria,conta,cliente,projeto,membro',
   });
   return res as unknown as FinLancamento[];
 }
@@ -185,6 +187,7 @@ export async function gerarProximasRecorrencias(
       serie_id: serie,
       origem: base.origem || 'manual',
       cliente: base.cliente || '',
+      membro: base.membro || '',
       projeto: base.projeto || '',
       forma_pagamento: base.forma_pagamento || '',
       observacao: base.observacao || '',

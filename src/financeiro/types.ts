@@ -62,6 +62,8 @@ export interface FinLancamento {
   serie_id?: string;
   origem: OrigemLancamento;
   cliente?: string;
+  /** Usuário interno (salário / pró-labore). */
+  membro?: string;
   projeto?: string;
   forma_pagamento?: string;
   observacao?: string;
@@ -73,6 +75,7 @@ export interface FinLancamento {
     categoria?: FinCategoria;
     conta?: FinConta;
     cliente?: { id: string; nome?: string; nome_fantasia?: string };
+    membro?: { id: string; nome?: string; nome_completo?: string; email?: string; role?: string };
     projeto?: { id: string; nome?: string };
   };
 }
@@ -193,6 +196,70 @@ export function mergeClientesFiltro(
   return [...fromList, ...extras].sort((a, b) =>
     nomeCliente(a).localeCompare(nomeCliente(b), 'pt-BR', { sensitivity: 'base' }),
   );
+}
+
+/** Remove acentos e lowercase para match de categoria. */
+export function normalizaTxt(s: string): string {
+  return (s || '')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Categoria de despesa de equipe: "Salários e pró-labore" (e variantes).
+ * Quando true → UI pede Membro (não Cliente); no caixa da agência continua despesa.
+ */
+export function isCategoriaSalarioProlabore(
+  cat?: { nome?: string } | string | null,
+): boolean {
+  const nome = typeof cat === 'string' ? cat : cat?.nome || '';
+  const n = normalizaTxt(nome);
+  if (!n) return false;
+  if (n.includes('salario') && (n.includes('prolabore') || n.includes('pro-labore') || n.includes('pro labore'))) {
+    return true;
+  }
+  // nome canônico seed
+  if (n === 'salarios e pro-labore' || n === 'salarios e prolabore') return true;
+  if (n.includes('salario') && n.includes('pro')) return true;
+  return false;
+}
+
+export function nomeMembro(m?: { nome?: string; nome_completo?: string; email?: string } | null): string {
+  if (!m) return '';
+  return (m.nome_completo || m.nome || m.email || '').trim();
+}
+
+/**
+ * Para o Membro logado: lançamento de salário/pró-labore dele aparece como ganho.
+ * Admin/caixa da agência sempre trata como despesa.
+ */
+export function ehGanhoDoMembro(
+  l: Pick<FinLancamento, 'membro' | 'tipo' | 'expand'> & { categoria?: string },
+  userId: string | undefined | null,
+  /** mapa id→categoria se expand ausente */
+  catById?: Map<string, FinCategoria>,
+): boolean {
+  if (!userId || !l.membro || l.membro !== userId) return false;
+  const cat = l.expand?.categoria || (l.categoria ? catById?.get(l.categoria) : undefined);
+  return isCategoriaSalarioProlabore(cat);
+}
+
+/**
+ * Privacidade: Membro não vê salário de outros.
+ * Mantém demais lançamentos; esconde despesa salário onde membro ≠ self (ou sem membro).
+ */
+export function filtrarPrivacidadeMembro(
+  lista: FinLancamento[],
+  userId: string,
+  catById?: Map<string, FinCategoria>,
+): FinLancamento[] {
+  return lista.filter((l) => {
+    const cat = l.expand?.categoria || (l.categoria ? catById?.get(l.categoria) : undefined);
+    if (!isCategoriaSalarioProlabore(cat)) return true;
+    return l.membro === userId;
+  });
 }
 
 /** Filtra lançamentos por cliente ('' = todos) e texto na descrição. */

@@ -10,6 +10,8 @@ export const canGerirEquipe = inSet(['Owner', 'Admin', 'Gestor']);
 export const canGerirUsuarios = inSet(['Owner', 'Admin']);
 /** Quem pode gerar o login de acesso de um cliente. */
 export const canCriarAcessoCliente = inSet(['Owner', 'Admin', 'Gestor']);
+/** Cria/edita lançamentos, contas e categorias do financeiro. Membro só lê. */
+export const canEscreverFinanceiro = inSet(['Owner', 'Admin', 'Gestor']);
 
 /** true para contas do tipo Cliente (cliente externo logado na plataforma). */
 export const ehCliente = (r?: string): boolean => r === 'Cliente';

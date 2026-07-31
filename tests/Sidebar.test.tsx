@@ -35,7 +35,7 @@ describe('SidebarNav', () => {
     }
   });
 
-  it('Clientes é um link navegável; módulos futuros não', () => {
+  it('Clientes e Financeiro são links; módulos futuros não', () => {
     render(
       <MemoryRouter initialEntries={['/clientes']}>
         <SidebarNav />
@@ -43,7 +43,9 @@ describe('SidebarNav', () => {
     );
     const clientes = screen.getByText('Clientes').closest('a');
     expect(clientes).toHaveAttribute('href', '/clientes');
-    // Financeiro é módulo futuro: não deve ser <a>
-    expect(screen.getByText('Financeiro').closest('a')).toBeNull();
+    const fin = screen.getByText('Financeiro').closest('a');
+    expect(fin).toHaveAttribute('href', '/financeiro');
+    // Contratos ainda é módulo futuro: não deve ser <a>
+    expect(screen.getByText('Contratos & Propostas').closest('a')).toBeNull();
   });
 });

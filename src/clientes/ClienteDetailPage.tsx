@@ -21,6 +21,7 @@ import type { Projeto } from '@/projetos/types';
 import type { Tarefa } from '@/tarefas/types';
 import { tarefaConcluida, prazoVencido, prazoBR } from '@/tarefas/format';
 import { CriarAcessoCliente } from '@/clientes/CriarAcessoCliente';
+import { ClienteFinanceiroTab } from '@/financeiro/ClienteFinanceiroTab';
 import { useAuth } from '@/auth/useAuth';
 import { ehCliente, canCriarAcessoCliente } from '@/auth/perms';
 import { AtividadeFeed } from '@/atividade/AtividadeFeed';
@@ -52,7 +53,7 @@ const ABAS: { id: Aba; label: string; icon: typeof Users; emBreve?: boolean }[] 
   { id: 'acessos', label: 'Acessos', icon: KeyRound },
   { id: 'projetos', label: 'Projetos', icon: FolderKanban },
   { id: 'tarefas', label: 'Tarefas', icon: CheckSquare },
-  { id: 'financeiro', label: 'Financeiro', icon: Wallet, emBreve: true },
+  { id: 'financeiro', label: 'Financeiro', icon: Wallet },
   { id: 'documentos', label: 'Documentos', icon: FileText },
   { id: 'equipe', label: 'Equipe', icon: Users },
 ];
@@ -674,7 +675,7 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
       {aba === 'equipe' && <ContatosTab clienteId={c.id} />}
       {aba === 'projetos' && <ProjetosTabCliente clienteId={c.id} />}
       {aba === 'tarefas' && <TarefasTabCliente clienteId={c.id} />}
-      {aba === 'financeiro' && <EmBreveAba aba={aba} />}
+      {aba === 'financeiro' && <ClienteFinanceiroTab clienteId={c.id} />}
 
       <Dialog
         open={dialogAberto}
@@ -784,23 +785,5 @@ export function ClienteDetailPage({ id: idProp }: { id?: string } = {}) {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function EmBreveAba({ aba }: { aba: 'financeiro' }) {
-  const textos = {
-    financeiro: {
-      titulo: 'Financeiro deste cliente',
-      desc: 'Contratos, faturas e histórico de pagamentos. Disponível quando o módulo Financeiro for entregue.',
-    },
-  } as const;
-  const t = textos[aba];
-  return (
-    <Card>
-      <CardHeader><CardTitle>{t.titulo}</CardTitle></CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{t.desc}</p>
-      </CardContent>
-    </Card>
   );
 }

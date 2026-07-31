@@ -10,7 +10,7 @@ export const MODULOS_INFO: { id: Modulo; label: string; disponivel: boolean }[] 
   { id: 'projetos',    label: 'Projetos',               disponivel: true  },
   { id: 'tarefas',     label: 'Tarefas',                disponivel: false },
   { id: 'quadros',     label: 'Quadros (Kanban)',       disponivel: true  },
-  { id: 'financeiro',  label: 'Financeiro',             disponivel: false },
+  { id: 'financeiro',  label: 'Financeiro',             disponivel: true  },
   { id: 'contratos',   label: 'Contratos & Propostas',  disponivel: false },
   { id: 'agenda',      label: 'Agenda',                 disponivel: false },
   { id: 'ia',          label: 'IA Wenox',               disponivel: false },
@@ -24,9 +24,9 @@ export type MatrizPermissoes = Record<string, Partial<Record<Modulo, boolean>>>;
 
 export const PERMISSOES_PADRAO: MatrizPermissoes = {
   Admin:       { dashboard: true, 'minha-area': true, equipe: true, clientes: true, projetos: true, tarefas: true, quadros: true, financeiro: true, contratos: true, agenda: true, ia: true, config: true },
-  Gestor:      { dashboard: true, 'minha-area': true, equipe: true, clientes: true, projetos: true, tarefas: true, quadros: true, agenda: true },
-  Membro:      { dashboard: true, 'minha-area': true, clientes: true, projetos: true, tarefas: true, quadros: true },
-  Visualizador:{ dashboard: true, 'minha-area': true, clientes: true, projetos: true, quadros: true },
+  Gestor:      { dashboard: true, 'minha-area': true, equipe: true, clientes: true, projetos: true, tarefas: true, quadros: true, financeiro: true, agenda: true },
+  Membro:      { dashboard: true, 'minha-area': true, clientes: true, projetos: true, tarefas: true, quadros: true, financeiro: true },
+  Visualizador:{ dashboard: true, 'minha-area': true, clientes: true, projetos: true, quadros: true, financeiro: true },
 };
 
 const KEY = 'wenox-permissoes-v1';

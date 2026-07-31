@@ -68,6 +68,8 @@ const VinculosQuadrosPage = lazy(() =>
   import('@/quadros/VinculosQuadrosPage').then((m) => ({ default: m.VinculosQuadrosPage })));
 const RevisaoPostsPage = lazy(() =>
   import('@/quadros/RevisaoPostsPage').then((m) => ({ default: m.RevisaoPostsPage })));
+const FinanceiroPage = lazy(() =>
+  import('@/financeiro/FinanceiroPage').then((m) => ({ default: m.FinanceiroPage })));
 
 function CarregandoTela() {
   return (
@@ -106,8 +108,8 @@ function SemAcesso() {
  */
 function Protegido({ modulo, children }: { modulo: Modulo; children: ReactNode }) {
   const { user } = useAuth();
-  const { pode, carregando } = usePermissoes();
-  if (carregando) return <CarregandoTela />;
+  // Matriz já vem do cache local no mount — não esperamos o servidor pra liberar.
+  const { pode } = usePermissoes();
   if (pode(user?.role, modulo)) return <>{children}</>;
   const alvo = NAV_ITEMS.find((i) => i.enabled && pode(user?.role, i.modulo));
   return alvo ? <Redirect to={alvo.path} /> : <SemAcesso />;
@@ -237,6 +239,9 @@ function AuthedApp() {
               </Protegido>
             )}
           />
+          <Route exact path="/financeiro">
+            <Protegido modulo="financeiro"><FinanceiroPage /></Protegido>
+          </Route>
           <Route exact path="/equipe">
             <Protegido modulo="equipe"><EquipePage /></Protegido>
           </Route>

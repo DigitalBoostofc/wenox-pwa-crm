@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
+  ArrowDownCircle,
   ArrowLeftRight,
-  ChevronLeft,
-  ChevronRight,
+  ArrowUpCircle,
   Plus,
   RefreshCw,
+  Scale,
   Trash2,
   Wallet,
   Tag,
@@ -65,6 +66,16 @@ import {
   updateConta,
   updateLancamento,
 } from './financeiroService';
+import {
+  DonutChart,
+  FinCard,
+  IconBubble,
+  KpiStripItem,
+  MonthPill,
+  PillTabs,
+  TipoFilterPills,
+} from './finUi';
+import { balanceBar, corCategoria } from './finUi.helpers';
 
 const MESES_CURTOS = [
   'jan',
@@ -124,7 +135,7 @@ export function FinanceiroPage() {
     try {
       const [c, k, a, cli, us] = await Promise.all([
         listContas(),
-        listCategorias({ incluirArquivadas: false }),
+        listCategorias({ incluirArquivadas: true }),
         listLancamentos({ abertos: true }),
         listClientes('').catch(() => [] as Cliente[]),
         listUsuarios().catch(() => [] as Usuario[]),
@@ -268,84 +279,53 @@ export function FinanceiroPage() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 md:p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Financeiro</h1>
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Financeiro
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {aba === 'visao' ? 'Dashboard' : ABAS.find((a) => a.id === aba)?.label}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Caixa da agência · {podeEscrever ? 'você pode editar' : 'somente leitura'}
+            {podeEscrever ? 'Caixa da agência · edição liberada' : 'Somente leitura'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {(aba === 'visao' || aba === 'lancamentos') && (
-            <div
-              className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card/60 p-0.5"
-              role="group"
-              aria-label="Navegação de mês"
-            >
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => mudarMes(-1)}
-                aria-label="Mês anterior"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <span className="min-w-[4.25rem] text-center text-sm font-medium tabular-nums capitalize">
-                {mesLabel}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => mudarMes(1)}
-                aria-label="Próximo mês"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
+            <MonthPill label={mesLabel} onPrev={() => mudarMes(-1)} onNext={() => mudarMes(1)} />
           )}
-          <Button variant="outline" size="sm" onClick={() => void reload()}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full border-border"
+            onClick={() => void reload()}
+          >
             <RefreshCw className="size-4" /> Atualizar
           </Button>
         </div>
       </header>
 
       {erro && (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="rounded-2xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {erro}
         </p>
       )}
       {ok && (
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
+        <p className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
           {ok}
         </p>
       )}
 
-      <nav className="flex flex-wrap gap-1 border-b border-border pb-2">
-        {ABAS.map((a) => {
+      <PillTabs
+        value={aba}
+        onChange={setAba}
+        items={ABAS.map((a) => {
           const Icon = a.icon;
-          return (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => setAba(a.id)}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
-                aba === a.id
-                  ? 'bg-primary/15 text-primary font-medium'
-                  : 'text-muted-foreground hover:bg-secondary',
-              )}
-            >
-              <Icon className="size-3.5" />
-              {a.label}
-            </button>
-          );
+          return { id: a.id, label: a.label, icon: <Icon className="size-3.5" /> };
         })}
-      </nav>
+      />
 
       {(aba === 'visao' || aba === 'lancamentos' || aba === 'apagar') && (
-        <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-card/40 p-3">
+        <FinCard className="flex flex-wrap items-end gap-3 !p-3">
           <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs text-muted-foreground">
             Cliente
             <Select
@@ -380,7 +360,7 @@ export function FinanceiroPage() {
               Limpar filtros
             </Button>
           )}
-        </div>
+        </FinCard>
       )}
 
       {carregando && !lancs.length ? (
@@ -454,23 +434,6 @@ export function FinanceiroPage() {
   );
 }
 
-function CardStat({
-  label,
-  valor,
-  tom,
-}: {
-  label: string;
-  valor: string;
-  tom?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card/60 px-4 py-3">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={cn('mt-1 text-lg font-bold tabular-nums', tom)}>{valor}</p>
-    </div>
-  );
-}
-
 function VisaoGeral({
   saldoTotal,
   saldoLabel,
@@ -494,9 +457,24 @@ function VisaoGeral({
   const abertosResumo = useMemo(() => resumirLancamentos(abertos), [abertos]);
   const qtdReceber = abertos.filter((l) => l.tipo === 'receita').length;
   const qtdPagar = abertos.filter((l) => l.tipo === 'despesa').length;
-  const topCats = useMemo(() => topCategoriasPagas(lancsMes, 6), [lancsMes]);
-  const maxCat = Math.max(1, ...topCats.map((c) => c.valor));
-  const maxBar = Math.max(resumo.receitasPagas, resumo.despesasPagas, 1);
+  const topReceitas = useMemo(
+    () => topCategoriasPagas(lancsMes.filter((l) => l.tipo === 'receita'), 6),
+    [lancsMes],
+  );
+  const topDespesas = useMemo(
+    () => topCategoriasPagas(lancsMes.filter((l) => l.tipo === 'despesa'), 6),
+    [lancsMes],
+  );
+  const receitasCat = useMemo(
+    () => topReceitas.map((c, i) => ({ nome: c.nome, valor: c.valor, color: corCategoria(c.nome, i) })),
+    [topReceitas],
+  );
+  const despesasCat = useMemo(
+    () =>
+      topDespesas.map((c, i) => ({ nome: c.nome, valor: c.valor, color: corCategoria(c.nome, i + 3) })),
+    [topDespesas],
+  );
+  const bal = balanceBar(resumo.receitasPagas, resumo.despesasPagas);
 
   return (
     <div className="flex flex-col gap-4">
@@ -505,138 +483,162 @@ function VisaoGeral({
           Números abaixo respeitam o filtro de cliente/busca (saldo das contas continua global).
         </p>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <CardStat label={saldoLabel} valor={brl(saldoTotal)} tom="text-foreground" />
-        <CardStat
-          label="Receitas do mês (pagas)"
-          valor={brl(resumo.receitasPagas)}
-          tom="text-emerald-400"
-        />
-        <CardStat
-          label="Despesas do mês (pagas)"
-          valor={brl(resumo.despesasPagas)}
-          tom="text-red-400"
-        />
-        <CardStat
-          label="Resultado do mês"
-          valor={brl(resumo.saldoPeriodo)}
-          tom={resumo.saldoPeriodo >= 0 ? 'text-emerald-400' : 'text-red-400'}
-        />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => onIr('apagar')}
-          className="rounded-xl border border-border bg-card/40 p-4 text-left hover:bg-secondary/40"
-        >
-          <p className="text-sm font-medium">A receber</p>
-          <p className="text-2xl font-bold tabular-nums text-emerald-400">
-            {brl(abertosResumo.aReceber)}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {qtdReceber} lançamento(s) aberto(s)
-          </p>
-        </button>
-        <button
-          type="button"
-          onClick={() => onIr('apagar')}
-          className="rounded-xl border border-border bg-card/40 p-4 text-left hover:bg-secondary/40"
-        >
-          <p className="text-sm font-medium">A pagar</p>
-          <p className="text-2xl font-bold tabular-nums text-red-400">
-            {brl(abertosResumo.aPagar)}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {qtdPagar} lançamento(s) aberto(s)
-          </p>
-        </button>
+
+      {/* KPI strip estilo Cleanox */}
+      <FinCard className="!p-0 overflow-hidden">
+        <div className="flex flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">
+          <KpiStripItem
+            icon={<Wallet className="size-4" />}
+            label={saldoLabel}
+            valor={brl(saldoTotal)}
+            tone="info"
+          />
+          <KpiStripItem
+            icon={<ArrowUpCircle className="size-4" />}
+            label="Receitas do mês"
+            valor={brl(resumo.receitasPagas)}
+            tom="text-emerald-400"
+            tone="ok"
+          />
+          <KpiStripItem
+            icon={<ArrowDownCircle className="size-4" />}
+            label="Despesas do mês"
+            valor={brl(resumo.despesasPagas)}
+            tom="text-red-400"
+            tone="danger"
+          />
+          <KpiStripItem
+            icon={<Scale className="size-4" />}
+            label="Balanço do mês"
+            valor={brl(resumo.saldoPeriodo)}
+            tom={resumo.saldoPeriodo >= 0 ? 'text-emerald-400' : 'text-red-400'}
+            tone="primary"
+          />
+        </div>
+      </FinCard>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <FinCard>
+          <p className="mb-3 text-sm font-medium">Receitas por categoria</p>
+          <DonutChart
+            segments={receitasCat}
+            centerLabel="Receitas"
+            centerValue={brl(resumo.receitasPagas)}
+            total={resumo.receitasPagas}
+          />
+        </FinCard>
+        <FinCard>
+          <p className="mb-3 text-sm font-medium">Despesas por categoria</p>
+          <DonutChart
+            segments={despesasCat}
+            centerLabel="Despesas"
+            centerValue={brl(resumo.despesasPagas)}
+            total={resumo.despesasPagas}
+          />
+        </FinCard>
       </div>
 
-      {/* Gráfico simples: barras CSS, sem lib */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="rounded-xl border border-border p-4">
-          <p className="mb-3 text-sm font-medium">Receitas × despesas (mês)</p>
-          <div className="flex h-36 items-end gap-6 px-2">
-            <div className="flex flex-1 flex-col items-center gap-2">
-              <span className="text-xs tabular-nums text-emerald-400">
-                {brl(resumo.receitasPagas)}
-              </span>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <FinCard>
+          <p className="mb-3 text-sm font-medium">Balanço mensal</p>
+          <div className="mb-2 flex h-28 items-end gap-3">
+            <div className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+              <span className="text-[10px] tabular-nums text-emerald-400">{bal.labelR}</span>
               <div
-                className="w-full max-w-[72px] rounded-t-md bg-emerald-500/80 transition-all"
-                style={{ height: `${Math.max(8, (resumo.receitasPagas / maxBar) * 100)}%` }}
-                title="Receitas pagas"
+                className="w-full max-w-[48px] rounded-t-md bg-emerald-500/85"
+                style={{ height: `${Math.max(8, bal.rPct)}%` }}
               />
-              <span className="text-[11px] text-muted-foreground">Receitas</span>
+              <span className="text-[10px] text-muted-foreground">Receitas</span>
             </div>
-            <div className="flex flex-1 flex-col items-center gap-2">
-              <span className="text-xs tabular-nums text-red-400">{brl(resumo.despesasPagas)}</span>
+            <div className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+              <span className="text-[10px] tabular-nums text-red-400">{bal.labelD}</span>
               <div
-                className="w-full max-w-[72px] rounded-t-md bg-red-500/80 transition-all"
-                style={{ height: `${Math.max(8, (resumo.despesasPagas / maxBar) * 100)}%` }}
-                title="Despesas pagas"
+                className="w-full max-w-[48px] rounded-t-md bg-red-500/85"
+                style={{ height: `${Math.max(8, bal.dPct)}%` }}
               />
-              <span className="text-[11px] text-muted-foreground">Despesas</span>
+              <span className="text-[10px] text-muted-foreground">Despesas</span>
             </div>
           </div>
-        </div>
-        <div className="rounded-xl border border-border p-4">
-          <p className="mb-3 text-sm font-medium">Top categorias (pagas no mês)</p>
-          {topCats.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Sem pagamentos no período.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {topCats.map((c) => (
-                <li key={`${c.tipo}-${c.nome}`} className="text-xs">
-                  <div className="mb-0.5 flex justify-between gap-2">
-                    <span className="truncate text-muted-foreground">
-                      {c.tipo === 'receita' ? '↑' : '↓'} {c.nome}
-                    </span>
-                    <span
-                      className={cn(
-                        'tabular-nums font-medium',
-                        c.tipo === 'receita' ? 'text-emerald-400' : 'text-red-400',
-                      )}
-                    >
-                      {brl(c.valor)}
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className={cn(
-                        'h-full rounded-full',
-                        c.tipo === 'receita' ? 'bg-emerald-500/70' : 'bg-red-500/70',
-                      )}
-                      style={{ width: `${(c.valor / maxCat) * 100}%` }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Resultado</span>
+            <span
+              className={cn(
+                'font-semibold tabular-nums',
+                resumo.saldoPeriodo >= 0 ? 'text-emerald-400' : 'text-red-400',
+              )}
+            >
+              {brl(resumo.saldoPeriodo)}
+            </span>
+          </div>
+        </FinCard>
 
-      <div className="rounded-xl border border-border">
-        <div className="border-b border-border px-4 py-2 text-sm font-medium">Contas</div>
-        <ul className="divide-y divide-border">
-          {contas.length === 0 && (
-            <li className="px-4 py-6 text-sm text-muted-foreground">
-              Nenhuma conta. Abra a aba Contas para criar o caixa.
-            </li>
-          )}
-          {contas.map((c) => (
-            <li key={c.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-              <span>
-                {c.nome}{' '}
-                <span className="text-muted-foreground">
-                  · {TIPO_CONTA_LABEL[c.tipo] || c.tipo}
-                  {c.ativo === false ? ' · inativa' : ''}
-                </span>
+        <button
+          type="button"
+          onClick={() => onIr('apagar')}
+          className="rounded-2xl border border-border bg-card/80 p-4 text-left shadow-sm dark:shadow-[0_8px_32px_-12px_rgba(0,0,0,0.55)] transition hover:bg-secondary/40"
+        >
+          <p className="text-sm font-medium">Pendências e alertas</p>
+          <div className="mt-3 space-y-2 text-sm">
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">A receber</span>
+              <span className="font-semibold tabular-nums text-emerald-400">
+                {brl(abertosResumo.aReceber)}
               </span>
-              <span className="font-semibold tabular-nums">{brl(Number(c.saldo_atual) || 0)}</span>
-            </li>
-          ))}
-        </ul>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">A pagar</span>
+              <span className="font-semibold tabular-nums text-red-400">
+                {brl(abertosResumo.aPagar)}
+              </span>
+            </div>
+            <p className="pt-1 text-[11px] text-muted-foreground">
+              {qtdReceber} a receber · {qtdPagar} a pagar · toque para ver
+            </p>
+          </div>
+        </button>
+
+        <FinCard>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-medium">Minhas contas</p>
+            <button
+              type="button"
+              className="text-[11px] font-medium text-info hover:underline"
+              onClick={() => onIr('contas')}
+            >
+              Ver mais
+            </button>
+          </div>
+          <ul className="divide-y divide-border">
+            {contas.filter((c) => c.ativo !== false).slice(0, 4).map((c) => (
+              <li key={c.id} className="flex items-center justify-between py-2.5 text-sm">
+                <span className="flex items-center gap-2 min-w-0">
+                  <IconBubble tone="info" className="size-8">
+                    <Wallet className="size-3.5" />
+                  </IconBubble>
+                  <span className="truncate">
+                    {c.nome}
+                    <span className="block text-[10px] text-muted-foreground">
+                      {TIPO_CONTA_LABEL[c.tipo] || c.tipo}
+                    </span>
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    'font-semibold tabular-nums',
+                    (Number(c.saldo_atual) || 0) >= 0 ? 'text-emerald-400' : 'text-red-400',
+                  )}
+                >
+                  {brl(Number(c.saldo_atual) || 0)}
+                </span>
+              </li>
+            ))}
+            {contas.filter((c) => c.ativo !== false).length === 0 && (
+              <li className="py-4 text-sm text-muted-foreground">
+                {contas.length === 0 ? 'Nenhuma conta ainda.' : 'Nenhuma conta ativa.'}
+              </li>
+            )}
+          </ul>
+        </FinCard>
       </div>
     </div>
   );
@@ -667,28 +669,40 @@ function AbaLancamentos({
 }) {
   const [aberto, setAberto] = useState(false);
   const [edit, setEdit] = useState<FinLancamento | null>(null);
+  const [tipoFiltro, setTipoFiltro] = useState<'' | TipoLancamento>('');
+
+  const lista = useMemo(() => {
+    if (!tipoFiltro) return lancs;
+    return lancs.filter((l) => l.tipo === tipoFiltro);
+  }, [lancs, tipoFiltro]);
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Lançamentos do mês selecionado
-          {lancs.length ? ` · ${lancs.length} item(ns)` : ''}
+      <FinCard className="!p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TipoFilterPills value={tipoFiltro} onChange={setTipoFiltro} />
+          <div className="flex flex-wrap items-center gap-2">
+            {podeEscrever && (
+              <Button
+                size="sm"
+                className="rounded-full bg-info text-background hover:bg-info/90"
+                onClick={() => {
+                  setEdit(null);
+                  setAberto(true);
+                }}
+              >
+                <Plus className="size-4" /> Novo
+              </Button>
+            )}
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {lista.length} lançamento(s) no mês
+          {tipoFiltro ? ` · ${tipoFiltro}` : ''}
         </p>
-        {podeEscrever && (
-          <Button
-            size="sm"
-            onClick={() => {
-              setEdit(null);
-              setAberto(true);
-            }}
-          >
-            <Plus className="size-4" /> Novo lançamento
-          </Button>
-        )}
-      </div>
+      </FinCard>
       <TabelaLancamentos
-        lista={lancs}
+        lista={lista}
         podeEscrever={podeEscrever}
         viewerUserId={viewerUserId}
         onEdit={(l) => {
@@ -766,9 +780,12 @@ function AbaAPagarReceber({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted-foreground">
-        Pendentes, previstos e em atraso (todas as datas)
-      </p>
+      <FinCard className="!p-3">
+        <p className="text-sm font-medium">A pagar / receber</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Pendentes, previstos e em atraso (todas as datas) · {lista.length} aberto(s)
+        </p>
+      </FinCard>
       <TabelaLancamentos
         lista={lista}
         podeEscrever={podeEscrever}
@@ -815,102 +832,137 @@ function TabelaLancamentos({
 }) {
   if (!lista.length) {
     return (
-      <p className="rounded-xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
+      <FinCard className="border-dashed py-10 text-center text-sm text-muted-foreground">
         Nenhum lançamento.
-      </p>
+      </FinCard>
     );
   }
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
-      <table className="w-full min-w-[640px] text-left text-sm">
-        <thead className="border-b border-border bg-secondary/30 text-xs text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 font-medium">Data</th>
-            <th className="px-3 py-2 font-medium">Descrição</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-            <th className="px-3 py-2 font-medium text-right">Valor</th>
-            <th className="px-3 py-2 font-medium" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {lista.map((l) => {
-            const ganho = ehGanhoDoMembro(l, viewerUserId);
-            const positivo = ganho || l.tipo === 'receita';
-            return (
-            <tr key={l.id} className="hover:bg-secondary/20">
-              <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
-                {l.data?.slice(0, 10)}
-              </td>
-              <td className="px-3 py-2">
-                <div className="font-medium">{l.descricao}</div>
-                <div className="text-xs text-muted-foreground">
-                  {ganho ? 'Ganho · ' : ''}
-                  {l.expand?.categoria?.nome || '—'} · {l.expand?.conta?.nome || '—'}
-                  {l.expand?.cliente
-                    ? ` · ${nomeCliente(l.expand.cliente)}`
-                    : ''}
-                  {l.expand?.membro
-                    ? ` · ${nomeMembro(l.expand.membro)}`
-                    : l.membro
-                      ? ` · membro`
+    <FinCard className="!p-0 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2.5 font-medium">Data</th>
+              <th className="px-3 py-2.5 font-medium">Descrição</th>
+              <th className="px-3 py-2.5 font-medium">Status</th>
+              <th className="px-3 py-2.5 font-medium text-right">Valor</th>
+              <th className="px-3 py-2.5 font-medium" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {lista.map((l) => {
+              const ganho = ehGanhoDoMembro(l, viewerUserId);
+              const positivo = ganho || l.tipo === 'receita';
+              const catNome = l.expand?.categoria?.nome || '';
+              return (
+              <tr key={l.id} className="hover:bg-secondary/50">
+                <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-muted-foreground">
+                  <span className="inline-flex items-center gap-2">
+                    <IconBubble
+                      tone={positivo ? 'ok' : 'danger'}
+                      className="size-7"
+                    >
+                      {positivo ? (
+                        <ArrowUpCircle className="size-3.5" />
+                      ) : (
+                        <ArrowDownCircle className="size-3.5" />
+                      )}
+                    </IconBubble>
+                    {l.data?.slice(0, 10)}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5">
+                  <div className="font-medium">{l.descricao}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {ganho ? 'Ganho · ' : ''}
+                    {catNome || '—'} · {l.expand?.conta?.nome || '—'}
+                    {l.expand?.cliente
+                      ? ` · ${nomeCliente(l.expand.cliente)}`
                       : ''}
-                  {l.recorrencia !== 'unica' ? ` · ${l.recorrencia}` : ''}
-                </div>
-              </td>
-              <td className="px-3 py-2">
-                <span
+                    {l.expand?.membro
+                      ? ` · ${nomeMembro(l.expand.membro)}`
+                      : l.membro
+                        ? ` · membro`
+                        : ''}
+                    {l.recorrencia !== 'unica' ? ` · ${l.recorrencia}` : ''}
+                  </div>
+                </td>
+                <td className="px-3 py-2.5">
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-[11px] font-medium',
+                      l.status === 'pago' && 'bg-emerald-500/15 text-emerald-400',
+                      l.status === 'pendente' && 'bg-yellow-500/15 text-yellow-400',
+                      l.status === 'previsto' && 'bg-sky-500/15 text-sky-400',
+                      l.status === 'em_atraso' && 'bg-red-500/15 text-red-400',
+                    )}
+                  >
+                    {STATUS_LABEL[l.status] || l.status}
+                  </span>
+                </td>
+                <td
                   className={cn(
-                    'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                    l.status === 'pago' && 'bg-emerald-500/15 text-emerald-400',
-                    l.status === 'pendente' && 'bg-yellow-500/15 text-yellow-400',
-                    l.status === 'previsto' && 'bg-sky-500/15 text-sky-400',
-                    l.status === 'em_atraso' && 'bg-red-500/15 text-red-400',
+                    'px-3 py-2.5 text-right font-semibold tabular-nums',
+                    positivo ? 'text-emerald-400' : 'text-red-400',
                   )}
                 >
-                  {STATUS_LABEL[l.status] || l.status}
-                </span>
-              </td>
-              <td
-                className={cn(
-                  'px-3 py-2 text-right font-semibold tabular-nums',
-                  positivo ? 'text-emerald-400' : 'text-red-400',
-                )}
-              >
-                {positivo ? '+' : '−'}
-                {brl(Number(l.valor) || 0)}
-              </td>
-              <td className="px-3 py-2">
-                {podeEscrever && (
-                  <div className="flex justify-end gap-1">
-                    {l.status !== 'pago' && onPagar && (
-                      <Button size="sm" variant="outline" onClick={() => onPagar(l)}>
-                        Pagar
-                      </Button>
-                    )}
-                    {(l.recorrencia === 'fixa' || l.recorrencia === 'recorrente') && onGerarRec && (
-                      <Button size="sm" variant="ghost" title="Gerar 3 próximas" onClick={() => onGerarRec(l)}>
-                        +3
-                      </Button>
-                    )}
-                    {onEdit && (
-                      <Button size="sm" variant="ghost" onClick={() => onEdit(l)}>
-                        Editar
-                      </Button>
-                    )}
-                    {onDelete && (
-                      <Button size="sm" variant="ghost" onClick={() => onDelete(l)}>
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </td>
-            </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                  {positivo ? '+' : '−'}
+                  {brl(Number(l.valor) || 0)}
+                </td>
+                <td className="px-3 py-2.5">
+                  {podeEscrever && (
+                    <div className="flex justify-end gap-1">
+                      {l.status !== 'pago' && onPagar && (
+                        <Button
+                          size="sm"
+                          className="rounded-full bg-info text-background hover:bg-info/90"
+                          onClick={() => onPagar(l)}
+                        >
+                          Pagar
+                        </Button>
+                      )}
+                      {(l.recorrencia === 'fixa' || l.recorrencia === 'recorrente') && onGerarRec && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-full"
+                          title="Gerar 3 próximas"
+                          onClick={() => onGerarRec(l)}
+                        >
+                          +3
+                        </Button>
+                      )}
+                      {onEdit && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-full"
+                          onClick={() => onEdit(l)}
+                        >
+                          Editar
+                        </Button>
+                      )}
+                      {onDelete && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-full"
+                          onClick={() => onDelete(l)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </td>
+              </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </FinCard>
   );
 }
 
@@ -1057,7 +1109,7 @@ function LancamentoModal({
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-[0_16px_48px_-12px_rgba(0,0,0,0.65)]"
         onClick={(ev) => ev.stopPropagation()}
       >
         <h2 className="text-base font-semibold">
@@ -1065,7 +1117,11 @@ function LancamentoModal({
         </h2>
         <form className="mt-4 flex flex-col gap-3" onSubmit={(e) => void handleSubmit(e)}>
           <input type="hidden" name="tipo" value={tipo} />
-          <div className="flex gap-2" role="group" aria-label="Tipo do lançamento">
+          <div
+            className="inline-flex w-full rounded-full border border-border bg-secondary/50 p-0.5"
+            role="group"
+            aria-label="Tipo do lançamento"
+          >
             {(['receita', 'despesa'] as const).map((t) => (
               <button
                 key={t}
@@ -1075,8 +1131,12 @@ function LancamentoModal({
                   setTipo(t);
                 }}
                 className={cn(
-                  'flex-1 rounded-md border px-3 py-2 text-sm capitalize',
-                  tipo === t ? 'border-primary bg-primary/15 text-primary' : 'border-border',
+                  'flex-1 rounded-full px-3 py-2 text-sm capitalize transition-colors',
+                  tipo === t
+                    ? t === 'receita'
+                      ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
+                      : 'bg-red-500/20 text-red-400 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
                   isSalario && t === 'receita' && 'opacity-40 cursor-not-allowed',
                 )}
               >
@@ -1218,11 +1278,12 @@ function LancamentoModal({
             <Input name="observacao" value={obs} onChange={(e) => setObs(e.target.value)} />
           </Campo>
           <div className="mt-2 flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" className="rounded-full" onClick={onClose}>
               Cancelar
             </Button>
             <Button
               type="submit"
+              className="rounded-full bg-info text-background hover:bg-info/90"
               disabled={
                 salvando ||
                 !descricao.trim() ||
@@ -1273,19 +1334,23 @@ function AbaContas({
   return (
     <div className="flex flex-col gap-4">
       {podeEscrever && (
-        <div className="rounded-xl border border-border p-4">
+        <FinCard>
           <p className="mb-3 text-sm font-medium">Nova conta</p>
-          <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="Tipo da conta">
+          <div
+            className="mb-3 inline-flex flex-wrap gap-0.5 rounded-full border border-border bg-secondary/50 p-0.5"
+            role="group"
+            aria-label="Tipo da conta"
+          >
             {(Object.keys(TIPO_CONTA_LABEL) as ContaTipo[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTipo(t)}
                 className={cn(
-                  'rounded-md border px-2.5 py-1 text-xs font-medium',
+                  'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
                   tipo === t
-                    ? 'border-primary bg-primary/15 text-primary'
-                    : 'border-border text-muted-foreground hover:bg-secondary',
+                    ? 'bg-info/20 text-info shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {TIPO_CONTA_LABEL[t]}
@@ -1295,17 +1360,20 @@ function AbaContas({
           <div className="grid gap-2 sm:grid-cols-3">
             <Input
               name="nome_conta"
+              className="rounded-full border-border"
               placeholder="Nome"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
             />
             <Input
               name="saldo_inicial"
+              className="rounded-full border-border"
               placeholder="Saldo inicial"
               value={saldoIni}
               onChange={(e) => setSaldoIni(e.target.value.replace(',', '.'))}
             />
             <Button
+              className="rounded-full bg-info text-background hover:bg-info/90"
               onClick={async () => {
                 try {
                   await createConta({
@@ -1325,68 +1393,95 @@ function AbaContas({
               }}
               disabled={!nome.trim()}
             >
-              Criar
+              <Plus className="size-4" /> Criar
             </Button>
           </div>
-        </div>
+        </FinCard>
       )}
 
-      <ul className="divide-y divide-border rounded-xl border border-border">
-        {contas.map((c) => (
-          <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
-            <div>
-              <p className="font-medium">{c.nome}</p>
-              <p className="text-xs text-muted-foreground">
-                {TIPO_CONTA_LABEL[c.tipo] || c.tipo}
-                {c.ativo === false ? ' · inativa' : ''}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="font-bold tabular-nums">{brl(Number(c.saldo_atual) || 0)}</span>
-              {podeEscrever && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      const ativo = c.ativo === false;
-                      try {
-                        await updateConta(c.id, { ativo });
-                        await onChange();
-                      } catch (e) {
-                        setErro(e instanceof Error ? e.message : 'Erro');
-                      }
-                    }}
-                  >
-                    {c.ativo === false ? 'Ativar' : 'Desativar'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={async () => {
-                      if (!confirm(`Excluir conta “${c.nome}”?`)) return;
-                      try {
-                        await removeConta(c.id);
-                        flash('Conta excluída');
-                        await onChange();
-                      } catch (e) {
-                        setErro(e instanceof Error ? e.message : 'Erro (conta com lançamentos?)');
-                      }
-                    }}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+      <FinCard className="!p-0 overflow-hidden">
+        <ul className="divide-y divide-border">
+          {contas.map((c) => (
+            <li
+              key={c.id}
+              className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <IconBubble tone={c.ativo === false ? 'neutral' : 'info'} className="size-9">
+                  <Wallet className="size-3.5" />
+                </IconBubble>
+                <span className="min-w-0">
+                  <p className="truncate font-medium">{c.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {TIPO_CONTA_LABEL[c.tipo] || c.tipo}
+                    {c.ativo === false ? ' · inativa' : ''}
+                  </p>
+                </span>
+              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    'font-bold tabular-nums',
+                    (Number(c.saldo_atual) || 0) >= 0 ? 'text-emerald-400' : 'text-red-400',
+                  )}
+                >
+                  {brl(Number(c.saldo_atual) || 0)}
+                </span>
+                {podeEscrever && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full border-border"
+                      onClick={async () => {
+                        const ativo = c.ativo === false;
+                        try {
+                          await updateConta(c.id, { ativo });
+                          await onChange();
+                        } catch (e) {
+                          setErro(e instanceof Error ? e.message : 'Erro');
+                        }
+                      }}
+                    >
+                      {c.ativo === false ? 'Ativar' : 'Desativar'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full"
+                      onClick={async () => {
+                        if (!confirm(`Excluir conta “${c.nome}”?`)) return;
+                        try {
+                          await removeConta(c.id);
+                          flash('Conta excluída');
+                          await onChange();
+                        } catch (e) {
+                          setErro(e instanceof Error ? e.message : 'Erro (conta com lançamentos?)');
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </li>
+          ))}
+          {contas.length === 0 && (
+            <li className="px-4 py-8 text-center text-sm text-muted-foreground">
+              Nenhuma conta ainda.
+            </li>
+          )}
+        </ul>
+      </FinCard>
 
       {podeEscrever && contas.length >= 2 && (
-        <div className="rounded-xl border border-border p-4">
+        <FinCard>
           <p className="mb-3 flex items-center gap-2 text-sm font-medium">
-            <ArrowLeftRight className="size-4" /> Transferência
+            <IconBubble tone="primary" className="size-8">
+              <ArrowLeftRight className="size-3.5" />
+            </IconBubble>
+            Transferência
           </p>
           <form
             className="grid gap-2 sm:grid-cols-4"
@@ -1422,15 +1517,20 @@ function AbaContas({
             />
             <Input
               name="valor_tx"
+              className="rounded-full border-border"
               placeholder="Valor"
               value={valorTx}
               onChange={(e) => setValorTx(e.target.value.replace(',', '.'))}
             />
-            <Button type="submit" disabled={!(Number(valorTx) > 0) || from === to}>
+            <Button
+              type="submit"
+              className="rounded-full bg-info text-background hover:bg-info/90"
+              disabled={!(Number(valorTx) > 0) || from === to}
+            >
               Transferir
             </Button>
           </form>
-        </div>
+        </FinCard>
       )}
     </div>
   );
@@ -1450,30 +1550,32 @@ function AbaCategorias({
   setErro: (m: string) => void;
 }) {
   const [nome, setNome] = useState('');
-  const [tipo, setTipo] = useState<TipoLancamento>('despesa');
+  const [tipoNovo, setTipoNovo] = useState<TipoLancamento>('despesa');
+  const [tipoView, setTipoView] = useState<TipoLancamento>('despesa');
 
   return (
     <div className="flex flex-col gap-4">
       {podeEscrever && (
-        <div className="flex flex-wrap gap-2">
+        <FinCard className="flex flex-wrap items-end gap-2 !p-3">
           <Input
-            className="max-w-xs"
+            className="max-w-xs rounded-full border-border"
             placeholder="Nova categoria"
             value={nome}
             onChange={(e) => setNome(e.target.value)}
           />
           <Select
-            value={tipo}
-            onChange={(v) => setTipo(v as TipoLancamento)}
+            value={tipoNovo}
+            onChange={(v) => setTipoNovo(v as TipoLancamento)}
             options={[
               { v: 'receita', l: 'Receita' },
               { v: 'despesa', l: 'Despesa' },
             ]}
           />
           <Button
+            className="rounded-full bg-info text-background hover:bg-info/90"
             onClick={async () => {
               try {
-                await createCategoria({ nome: nome.trim(), tipo });
+                await createCategoria({ nome: nome.trim(), tipo: tipoNovo });
                 setNome('');
                 flash('Categoria criada');
                 await onChange();
@@ -1483,64 +1585,104 @@ function AbaCategorias({
             }}
             disabled={!nome.trim()}
           >
-            Adicionar
+            <Plus className="size-4" /> Nova categoria
           </Button>
-        </div>
+        </FinCard>
       )}
-      <div className="grid gap-4 md:grid-cols-2">
-        {(['receita', 'despesa'] as const).map((t) => (
-          <div key={t} className="rounded-xl border border-border">
-            <div className="border-b border-border px-3 py-2 text-sm font-medium capitalize">{t}s</div>
-            <ul className="divide-y divide-border">
-              {cats
-                .filter((c) => c.tipo === t)
-                .map((c) => (
-                  <li key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <span>
-                      {c.nome}
-                      {c.sistema ? (
-                        <span className="ml-1 text-[10px] text-muted-foreground">sistema</span>
-                      ) : null}
-                    </span>
-                    {podeEscrever && !c.sistema && (
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={async () => {
-                            try {
-                              await updateCategoria(c.id, { arquivada: !c.arquivada });
-                              await onChange();
-                            } catch (e) {
-                              setErro(e instanceof Error ? e.message : 'Erro');
-                            }
-                          }}
-                        >
-                          {c.arquivada ? 'Restaurar' : 'Arquivar'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={async () => {
-                            if (!confirm('Excluir categoria?')) return;
-                            try {
-                              await removeCategoria(c.id);
-                              await onChange();
-                            } catch (e) {
-                              setErro(e instanceof Error ? e.message : 'Erro');
-                            }
-                          }}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    )}
-                  </li>
-                ))}
-            </ul>
-          </div>
-        ))}
+      <div className="mb-1">
+        <PillTabs
+          value={tipoView}
+          onChange={setTipoView}
+          items={[
+            { id: 'despesa' as TipoLancamento, label: 'Despesas' },
+            { id: 'receita' as TipoLancamento, label: 'Receitas' },
+          ]}
+        />
       </div>
+      <ul className="flex flex-col gap-2">
+        {cats
+          .filter((c) => c.tipo === tipoView && !c.arquivada)
+          .map((c, i) => (
+            <li key={c.id}>
+              <FinCard className="flex items-center justify-between !py-3">
+                <span className="flex items-center gap-3 min-w-0">
+                  <span
+                    className="grid size-9 place-items-center rounded-full text-sm font-bold text-white"
+                    style={{ background: corCategoria(c.nome, i) }}
+                  >
+                    {c.nome.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="truncate">
+                    <span className="font-medium">{c.nome}</span>
+                    {c.sistema ? (
+                      <span className="ml-2 text-[10px] text-muted-foreground">sistema</span>
+                    ) : null}
+                  </span>
+                </span>
+                {podeEscrever && !c.sistema && (
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        try {
+                          await updateCategoria(c.id, { arquivada: true });
+                          await onChange();
+                        } catch (e) {
+                          setErro(e instanceof Error ? e.message : 'Erro');
+                        }
+                      }}
+                    >
+                      Arquivar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        if (!confirm('Excluir categoria?')) return;
+                        try {
+                          await removeCategoria(c.id);
+                          flash('Excluída');
+                          await onChange();
+                        } catch (e) {
+                          setErro(e instanceof Error ? e.message : 'Erro');
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </FinCard>
+            </li>
+          ))}
+      </ul>
+      {cats.some((c) => c.tipo === tipoView && c.arquivada) && (
+        <details className="text-sm text-muted-foreground">
+          <summary className="cursor-pointer">Arquivadas</summary>
+          <ul className="mt-2 space-y-1">
+            {cats
+              .filter((c) => c.tipo === tipoView && c.arquivada)
+              .map((c) => (
+                <li key={c.id} className="flex justify-between px-2">
+                  <span>{c.nome}</span>
+                  {podeEscrever && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        await updateCategoria(c.id, { arquivada: false });
+                        await onChange();
+                      }}
+                    >
+                      Restaurar
+                    </Button>
+                  )}
+                </li>
+              ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }
@@ -1569,7 +1711,7 @@ function Select({
     <select
       name={name}
       aria-label={name}
-      className="flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm text-foreground"
+      className="flex h-10 w-full rounded-full border border-border bg-background/40 px-3 text-sm text-foreground"
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >

@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { addMesesISO, addPeriodoISO, brl, efeitoNoSaldo, filtrarLancamentos, topCategoriasPagas } from '@/financeiro/types';
-import { resumirLancamentos } from '@/financeiro/financeiroService';
+import {
+  addMesesISO,
+  addPeriodoISO,
+  brl,
+  clientesFromLancamentos,
+  efeitoNoSaldo,
+  filtrarLancamentos,
+  mergeClientesFiltro,
+  topCategoriasPagas,
+} from '@/financeiro/types';
+import { primeiroDiaMes, resumirLancamentos, ultimoDiaMes } from '@/financeiro/financeiroService';
 import type { FinLancamento } from '@/financeiro/types';
 
 describe('financeiro domain', () => {
@@ -124,5 +133,57 @@ describe('financeiro domain', () => {
       { status: 'previsto', tipo: 'despesa', valor: 50, expand: { categoria: { nome: 'B' } } },
     ] as FinLancamento[];
     expect(topCategoriasPagas(soAbertos, 5)).toEqual([]);
+  });
+
+  it('clientesFromLancamentos: únicos do expand (e fallback id)', () => {
+    const lista = [
+      {
+        id: '1',
+        cliente: 'c1',
+        expand: { cliente: { id: 'c1', nome_fantasia: 'Goldtech' } },
+      },
+      {
+        id: '2',
+        cliente: 'c1',
+        expand: { cliente: { id: 'c1', nome_fantasia: 'Goldtech' } },
+      },
+      {
+        id: '3',
+        cliente: 'c2',
+        expand: { cliente: { id: 'c2', nome: 'Sotec Ltda' } },
+      },
+      { id: '4', cliente: 'c3' }, // sem expand — usa id
+      { id: '5' }, // sem cliente
+    ] as FinLancamento[];
+    const cli = clientesFromLancamentos(lista);
+    expect(cli.map((c) => c.id).sort()).toEqual(['c1', 'c2', 'c3']);
+    expect(cli.find((c) => c.id === 'c1')?.nome_fantasia).toBe('Goldtech');
+    expect(cli.find((c) => c.id === 'c2')?.nome).toBe('Sotec Ltda');
+  });
+
+  it('mergeClientesFiltro: Admin preferido; Membro preenche do expand', () => {
+    const admin = [
+      { id: 'a', nome_fantasia: 'A' },
+      { id: 'b', nome_fantasia: 'B' },
+    ];
+    const fromLancs = [
+      { id: 'b', nome_fantasia: 'B expand' },
+      { id: 'c', nome_fantasia: 'C' },
+    ];
+    // lista cheia: só acrescenta o que falta
+    const merged = mergeClientesFiltro(admin, fromLancs);
+    expect(merged.map((c) => c.id)).toEqual(['a', 'b', 'c']);
+    expect(merged.find((c) => c.id === 'b')?.nome_fantasia).toBe('B'); // prefer list
+    // lista vazia (Membro): usa expand
+    expect(mergeClientesFiltro([], fromLancs)).toEqual(fromLancs);
+  });
+
+  it('primeiroDiaMes / ultimoDiaMes: Date e y/m', () => {
+    expect(primeiroDiaMes(2026, 7)).toBe('2026-07-01');
+    expect(ultimoDiaMes(2026, 7)).toBe('2026-07-31');
+    expect(primeiroDiaMes(2026, 2)).toBe('2026-02-01');
+    expect(ultimoDiaMes(2026, 2)).toBe('2026-02-28');
+    expect(primeiroDiaMes(new Date(2026, 6, 15))).toBe('2026-07-01'); // mês 0-based no Date
+    expect(ultimoDiaMes(new Date(2026, 6, 1))).toBe('2026-07-31');
   });
 });

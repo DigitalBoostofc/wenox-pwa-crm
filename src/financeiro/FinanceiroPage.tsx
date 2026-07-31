@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ArrowLeftRight,
+  ChevronLeft,
+  ChevronRight,
   Plus,
   RefreshCw,
   Trash2,
@@ -18,12 +20,15 @@ import type { Cliente } from '@/clientes/types';
 import { usePodeEscreverFin } from './usePodeEscreverFin';
 import {
   brl,
+  clientesFromLancamentos,
   filtrarLancamentos,
+  mergeClientesFiltro,
   nomeCliente,
   STATUS_LABEL,
   topCategoriasPagas,
   TIPO_CONTA_LABEL,
   hojeISO,
+  type ClienteFiltro,
   type ContaTipo,
   type FinCategoria,
   type FinConta,
@@ -54,6 +59,26 @@ import {
   updateLancamento,
 } from './financeiroService';
 
+const MESES_CURTOS = [
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
+] as const;
+
+function labelMesAno(ano: number, mes1a12: number): string {
+  const idx = Math.min(11, Math.max(0, mes1a12 - 1));
+  return `${MESES_CURTOS[idx]}/${String(ano).slice(-2)}`;
+}
+
 type Aba = 'visao' | 'lancamentos' | 'apagar' | 'contas' | 'categorias';
 
 const ABAS: { id: Aba; label: string; icon: typeof Wallet }[] = [
@@ -67,11 +92,14 @@ const ABAS: { id: Aba; label: string; icon: typeof Wallet }[] = [
 export function FinanceiroPage() {
   const podeEscrever = usePodeEscreverFin();
   const [aba, setAba] = useState<Aba>('visao');
+  const now = useMemo(() => new Date(), []);
+  const [ano, setAno] = useState(() => now.getFullYear());
+  const [mes, setMes] = useState(() => now.getMonth() + 1); // 1–12
   const [contas, setContas] = useState<FinConta[]>([]);
   const [cats, setCats] = useState<FinCategoria[]>([]);
   const [lancs, setLancs] = useState<FinLancamento[]>([]);
   const [abertos, setAbertos] = useState<FinLancamento[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clientes, setClientes] = useState<ClienteFiltro[]>([]);
   const [clienteId, setClienteId] = useState('');
   const [busca, setBusca] = useState('');
   const [erro, setErro] = useState('');
@@ -82,12 +110,13 @@ export function FinanceiroPage() {
     setErro('');
     setCarregando(true);
     try {
-      const de = primeiroDiaMes();
-      const ate = ultimoDiaMes();
+      const de = primeiroDiaMes(ano, mes);
+      const ate = ultimoDiaMes(ano, mes);
       const [c, k, l, a, cli] = await Promise.all([
         listContas(),
         listCategorias({ incluirArquivadas: false }),
         listLancamentos({ de, ate }),
+        // Abertos: todas as datas (a pagar/receber não restrito ao mês)
         listLancamentos({ abertos: true }),
         listClientes('').catch(() => [] as Cliente[]),
       ]);
@@ -95,17 +124,34 @@ export function FinanceiroPage() {
       setCats(k);
       setLancs(l);
       setAbertos(a);
-      setClientes(cli);
+      // Admin: listClientes completo; Membro: lista vazia/curta → completa com expand
+      const fromExpand = clientesFromLancamentos([...l, ...a]);
+      setClientes(mergeClientesFiltro(cli, fromExpand));
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar financeiro');
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [ano, mes]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  function mudarMes(delta: number) {
+    let m = mes + delta;
+    let y = ano;
+    while (m < 1) {
+      m += 12;
+      y -= 1;
+    }
+    while (m > 12) {
+      m -= 12;
+      y += 1;
+    }
+    setMes(m);
+    setAno(y);
+  }
 
   const filtro = useMemo(() => ({ clienteId, q: busca }), [clienteId, busca]);
   const lancsFiltrados = useMemo(() => filtrarLancamentos(lancs, filtro), [lancs, filtro]);
@@ -115,6 +161,7 @@ export function FinanceiroPage() {
     () => contas.filter((c) => c.ativo !== false).reduce((s, c) => s + (Number(c.saldo_atual) || 0), 0),
     [contas],
   );
+  const mesLabel = labelMesAno(ano, mes);
 
   function flash(msg: string) {
     setOk(msg);
@@ -130,9 +177,42 @@ export function FinanceiroPage() {
             Caixa da agência · {podeEscrever ? 'você pode editar' : 'somente leitura'}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void reload()}>
-          <RefreshCw className="size-4" /> Atualizar
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {(aba === 'visao' || aba === 'lancamentos') && (
+            <div
+              className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card/60 p-0.5"
+              role="group"
+              aria-label="Navegação de mês"
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => mudarMes(-1)}
+                aria-label="Mês anterior"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="min-w-[4.25rem] text-center text-sm font-medium tabular-nums capitalize">
+                {mesLabel}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => mudarMes(1)}
+                aria-label="Próximo mês"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          )}
+          <Button variant="outline" size="sm" onClick={() => void reload()}>
+            <RefreshCw className="size-4" /> Atualizar
+          </Button>
+        </div>
       </header>
 
       {erro && (
@@ -467,7 +547,7 @@ function AbaLancamentos({
 }: {
   contas: FinConta[];
   cats: FinCategoria[];
-  clientes: Cliente[];
+  clientes: ClienteFiltro[];
   lancs: FinLancamento[];
   podeEscrever: boolean;
   onChange: () => Promise<void>;
@@ -481,7 +561,7 @@ function AbaLancamentos({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          Lançamentos do mês corrente
+          Lançamentos do mês selecionado
           {lancs.length ? ` · ${lancs.length} item(ns)` : ''}
         </p>
         {podeEscrever && (
@@ -732,7 +812,7 @@ function LancamentoModal({
 }: {
   contas: FinConta[];
   cats: FinCategoria[];
-  clientes: Cliente[];
+  clientes: ClienteFiltro[];
   inicial: FinLancamento | null;
   onClose: () => void;
   onSave: (input: Parameters<typeof createLancamento>[0]) => Promise<void>;
